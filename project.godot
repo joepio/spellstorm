@@ -1,0 +1,34 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Spellstorm"
+config/description="Couch co-op roguelite for wizards. Weave eight elements into hundreds of spells."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+boot_splash/bg_color=Color(0.06, 0.05, 0.1, 1)
+
+[autoload]
+
+GameNight="*res://addons/gamenight/gamenight.gd"
+GameNightScreen="*res://addons/gamenight/screen.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2

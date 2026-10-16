@@ -1,0 +1,30 @@
+{
+  "id": "spellstorm",
+  "title": "Spellstorm",
+  "tagline": "Couch co-op wizards in a grim dungeon. Weave eight elements into thousands of spells, then descend together.",
+  "developer": "Joep Meindertsma",
+  "players": {
+    "min": 1,
+    "max": 6,
+    "best": 3
+  },
+  "match_minutes": 30,
+  "price": "free",
+  "tags": [
+    "co-op",
+    "roguelite",
+    "action",
+    "magic",
+    "3d",
+    "godot"
+  ],
+  "emoji": "🧙",
+  "color": "#8a1a12",
+  "integration": {
+    "level": "integrated",
+    "protocol": 1
+  },
+  "links": {
+    "source": "https://github.com/joepio/spellstorm"
+  }
+}

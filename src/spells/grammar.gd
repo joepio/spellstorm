@@ -1,0 +1,221 @@
+class_name Grammar
+## Turns a queue of elements plus a cast form into one spell. This is the whole
+## spell system; the effects in src/fx only carry out what this returns.
+##
+## The rules, in the order the player learns them:
+##   * The form is the button: RT casts ahead, LT bursts around you,
+##     RB plants it on the ground, RS (click) wards yourself.
+##   * The heaviest element decides the shape of a cast or a plant:
+##       solid (Earth, Ice, Mud, Magma)  throw it      | build a wall
+##       energy (Lightning, Storm)       arc to targets | a totem that zaps
+##       spirit (Life, Void)             a beam         | a rune mine
+##       flow (Fire, Frost, Water,       a spray        | a field on the ground
+##             Steam, Air)
+##   * Within that class, the element you have most of leads.
+##   * Every other element rides along as payload and adds its effect.
+##   * More of an element makes it stronger, bigger or longer.
+##   * Five of one base element cast ahead is its overload, the big one.
+
+const CAST_NOUN := {
+	El.EARTH: "Boulder", El.ICE: "Ice Shards", El.MUD: "Mud Ball", El.MAGMA: "Lava Bomb",
+	El.LIGHTNING: "Chain Lightning", El.STORM: "Thunderclap",
+	El.LIFE: "Life Beam", El.VOID: "Void Ray",
+	El.FIRE: "Flamethrower", El.FROST: "Frost Breath", El.WATER: "Water Jet",
+	El.STEAM: "Steam Jet", El.AIR: "Gale",
+}
+const NOVA_NOUN := {
+	El.LIFE: "Bloom", El.VOID: "Void Burst", El.FIRE: "Fire Nova", El.FROST: "Frost Nova",
+	El.WATER: "Splash", El.LIGHTNING: "Thunder Ring", El.EARTH: "Shockwave", El.AIR: "Gust Ring",
+	El.STEAM: "Steam Burst", El.ICE: "Ice Ring", El.MUD: "Mudslide", El.MAGMA: "Eruption",
+	El.STORM: "Tempest",
+}
+const PLANT_NOUN := {
+	El.EARTH: "Stone Wall", El.ICE: "Ice Wall", El.MUD: "Mud Pit", El.MAGMA: "Lava Wall",
+	El.LIGHTNING: "Tesla Totem", El.STORM: "Storm Cloud",
+	El.LIFE: "Healing Rune", El.VOID: "Void Mine",
+	El.FIRE: "Fire Carpet", El.FROST: "Ice Slick", El.WATER: "Puddle", El.STEAM: "Fog Bank",
+	El.AIR: "Whirlwind",
+}
+const OVERLOAD_NOUN := {
+	El.FIRE: "Meteor", El.FROST: "Blizzard", El.WATER: "Tidal Wave",
+	El.LIGHTNING: "Thunderbolt", El.EARTH: "Earthquake", El.AIR: "Tornado",
+	El.LIFE: "Resurrection", El.VOID: "Black Hole",
+}
+const ADJ := {
+	El.LIFE: "Blessed", El.VOID: "Cursed", El.FIRE: "Burning", El.FROST: "Freezing",
+	El.WATER: "Soaking", El.LIGHTNING: "Shocking", El.EARTH: "Crushing", El.AIR: "Gusting",
+	El.STEAM: "Scalding", El.ICE: "Glacial", El.MUD: "Muddy", El.MAGMA: "Molten",
+	El.STORM: "Thundering",
+}
+const WARD_ADJ := {
+	El.LIFE: "Mending", El.VOID: "Void", El.FIRE: "Fire", El.FROST: "Frost",
+	El.WATER: "Water", El.LIGHTNING: "Lightning", El.EARTH: "Stone", El.AIR: "Wind",
+	El.STEAM: "Steam", El.ICE: "Ice", El.MUD: "Mud", El.MAGMA: "Magma", El.STORM: "Storm",
+}
+
+const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "arc", El.Kind.SPIRIT: "beam", El.Kind.FLOW: "spray"}
+const PLANT_SHAPE := {El.Kind.SOLID: "wall", El.Kind.ENERGY: "totem", El.Kind.SPIRIT: "rune", El.Kind.FLOW: "field"}
+
+const FORMS := ["cast", "nova", "plant", "ward"]
+## How many distinct spells these rules make; tests/spell_test.gd counts them
+## by trying every sequence of button presses and fails if this drifts.
+const TOTAL := 3588
+
+
+## [param slots] in queue order, [param form] one of FORMS. [param mods] are
+## the caster's relic modifiers (see Relics); they change numbers, never the
+## shape or the name, so a spell stays the spell you expect.
+static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictionary:
+	var counts := {}
+	for e in slots:
+		counts[e] = int(counts.get(e, 0)) + 1
+	var spell := {form = form, counts = counts, slots = slots.duplicate(), power = slots.size(),
+		primary = -1, shape = "fizzle", name = "", payload = [], key = ""}
+	if slots.is_empty():
+		match form:
+			"cast", "plant": spell.shape = "staff"; spell.name = "Staff Swing"
+			"nova": spell.shape = "stomp"; spell.name = "Stomp"
+			_: spell.shape = "fizzle"; spell.name = "Fizzle"
+		spell.key = "%s|%s" % [form, spell.shape]
+		_numbers(spell, mods)
+		return spell
+
+	var primary: int
+	if form == "nova" or form == "ward":
+		primary = _most(slots, counts, slots)
+	else:
+		var best_kind := 99
+		for e in slots:
+			best_kind = mini(best_kind, El.KIND[e])
+		var heavy: Array = slots.filter(func(e): return El.KIND[e] == best_kind)
+		primary = _most(slots, counts, heavy)
+		spell.shape = (CAST_SHAPE if form == "cast" else PLANT_SHAPE)[best_kind]
+		# Mud is a solid but it does not stack into a wall: it spreads.
+		if form == "plant" and primary == El.MUD:
+			spell.shape = "field"
+	spell.primary = primary
+
+	var payload: Array = []
+	for e in slots:
+		if e != primary and not e in payload:
+			payload.append(e)
+	payload.sort_custom(func(a, b):
+		if counts[a] != counts[b]:
+			return counts[a] > counts[b]
+		return slots.find(a) < slots.find(b))
+	spell.payload = payload
+
+	match form:
+		"cast":
+			if counts[primary] >= 5 and primary in El.BASE and payload.is_empty():
+				spell.shape = "overload"
+				spell.name = OVERLOAD_NOUN[primary]
+			else:
+				spell.name = _adjectives(payload) + CAST_NOUN[primary]
+		"nova":
+			spell.shape = "nova"
+			spell.name = _adjectives(payload) + NOVA_NOUN[primary]
+		"plant":
+			spell.name = _adjectives(payload) + PLANT_NOUN[primary]
+		"ward":
+			spell.shape = "ward"
+			var only_life := payload.is_empty() and primary == El.LIFE
+			if only_life:
+				spell.name = "Mend"
+			else:
+				var words: Array = []
+				for e in [primary] + payload:
+					if words.size() < 2:
+						words.append(WARD_ADJ[e])
+				spell.name = " ".join(words) + " Ward"
+	var sorted_payload := payload.duplicate()
+	sorted_payload.sort()
+	spell.key = "%s|%s|%d|%s" % [form, spell.shape, primary, ",".join(sorted_payload.map(func(e): return str(e)))]
+	_numbers(spell, mods)
+	return spell
+
+
+## The element with the highest count among [param pool]; ties go to the one
+## conjured first.
+static func _most(slots: Array, counts: Dictionary, pool: Array) -> int:
+	var best: int = pool[0]
+	for e in pool:
+		if counts[e] > counts[best] or (counts[e] == counts[best] and slots.find(e) < slots.find(best)):
+			best = e
+	return best
+
+
+static func _adjectives(payload: Array) -> String:
+	var out := ""
+	for i in mini(2, payload.size()):
+		out += ADJ[payload[i]] + " "
+	return out
+
+
+## The summed per-unit effect of every element in the spell, scaled by
+## the caster's relics. Fusions count once each, the same as a base element.
+static func effect(spell: Dictionary, mods: Dictionary = {}) -> Dictionary:
+	var out := {dmg = 0.0, heal = 0.0, push = 0.0, burn = 0.0, chill = 0.0, wet = 0.0, shock = 0.0, slow = 0.0, curse = 0.0}
+	for e in spell.counts:
+		var n: int = spell.counts[e]
+		var m := float(mods.get("el_%d" % e, 1.0))
+		for k in El.EFFECT[e]:
+			out[k] += El.EFFECT[e][k] * n * m
+		if e == El.VOID:
+			out.curse += n
+	out.dmg *= float(mods.get("dmg", 1.0))
+	out.heal *= float(mods.get("heal", 1.0))
+	return out
+
+
+## Size, range and timing of each shape. All the numbers live here so a
+## balance pass touches one function.
+static func _numbers(spell: Dictionary, mods: Dictionary) -> void:
+	var p: int = spell.power
+	var lead: int = spell.counts.get(spell.primary, 0)
+	var n := {}
+	match spell.shape:
+		"spray":
+			n = {range = (3.2 + 0.9 * lead) * float(mods.get("spray_range", 1.0)), angle = 26.0 + 4.0 * p,
+				duration = 2.5 + 0.5 * p, rate = 1.0}
+		"beam":
+			n = {range = 15.0, width = 0.25 + 0.08 * p, duration = 3.0 + 0.5 * p, rate = 1.3}
+		"arc":
+			n = {range = 7.5 + 0.5 * p, hops = 1 + lead + p / 2 + int(mods.get("hops", 0)),
+				hop_range = 4.5, interval = 0.4, duration = 2.0 + 0.4 * p, rate = 1.0}
+		"projectile":
+			var pieces := 1
+			if spell.primary == El.ICE:
+				pieces = 3 + 2 * lead
+			n = {pieces = pieces, spread = 8.0 + 3.0 * pieces, speed = 16.0, radius = 0.25 + 0.12 * lead,
+				charge_time = 1.0 * float(mods.get("charge", 1.0)), rate = 1.0 / pieces * (1.4 if pieces > 1 else 1.0),
+				splash = 2.2 + 0.4 * lead if spell.primary in [El.MAGMA, El.MUD] else 0.0,
+				pierce = spell.primary == El.ICE}
+		"nova":
+			n = {radius = 2.4 + 0.65 * p, rate = 1.25}
+		"wall":
+			n = {pieces = 1 + p, gap = 1.0, hp = 50.0 + 25.0 * lead, duration = 14.0, rate = 0.5}
+		"field":
+			n = {radius = 1.4 + 0.45 * p, duration = 9.0 + p, rate = 0.55}
+		"totem":
+			n = {range = 6.0 + 0.5 * p, interval = 0.7, duration = 10.0 + p, hops = lead, hop_range = 4.0, rate = 0.8}
+		"rune":
+			n = {radius = 2.2 + 0.4 * p, duration = 25.0, rate = 1.6}
+		"ward":
+			n = {duration = 14.0 * float(mods.get("ward_time", 1.0)), resist = 0.5}
+		"overload":
+			n = {radius = 5.0, rate = 4.0}
+		"staff":
+			n = {range = 1.8, rate = 1.0}
+		"stomp":
+			n = {radius = 2.5, rate = 1.0}
+	spell.n = n
+
+
+## Resistance a ward gives against one base element: half per matching slot.
+static func ward_resist(spell: Dictionary, base: int) -> float:
+	var r := 0.0
+	for e in spell.counts:
+		if El.contains(e, base):
+			r += 0.5 * spell.counts[e]
+	return minf(r, 1.0)
