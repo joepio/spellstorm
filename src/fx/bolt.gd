@@ -137,10 +137,8 @@ func _ready() -> void:
 	_body = MeshInstance3D.new()
 	_body.mesh = _mesh_for(el)
 	_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	if _look.get("rock", false):
-		_body.material_override = Fx.solid(_look.core, 0.9)
-	else:
-		_body.material_override = _material(el)
+	# Element bolts wear the same element material as the orbs and the HUD.
+	_body.material_override = _material(el) if el < 0 else Fx.element(el, 1.4)
 	if _look.get("shard", false):
 		_body.rotation_degrees.x = -90.0
 		_body.scale = Vector3.ONE * _size
@@ -150,7 +148,7 @@ func _ready() -> void:
 	# The bloom round it: faint on a plain spark, a real glow on a full one.
 	var glow_c: Color = _look.edge
 	add_child(Fx.halo(Color(glow_c.r, glow_c.g, glow_c.b), 1.1 * _size * _look.size + 0.3, 0.35 + 0.25 * _size, 1.0 if _look.flicker > 0.5 else 0.0))
-	if not _look.get("rock", false) and not _look.get("shard", false):
+	if el < 0:
 		# A smaller white-hot heart inside the glow.
 		var heart := MeshInstance3D.new()
 		heart.mesh = Art.sphere(0.08 * _size, 6)

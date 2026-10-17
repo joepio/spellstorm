@@ -86,12 +86,14 @@ static func wizard(robe: Color) -> Dictionary:
 	meshes.append(part(hat, cyl(0.36, 0.36, 0.04, 14), robe_m, Vector3(0, 0.0, 0)))
 	meshes.append(part(hat, cyl(0.0, 0.2, 0.62, 10), robe_m, Vector3(0, 0.31, -0.04), Vector3(-12, 0, 0)))
 	meshes.append(part(hat, cyl(0.205, 0.21, 0.06, 10), trim_m, Vector3(0, 0.05, 0)))
+	# The staff turns about the hand at the end of the right sleeve, so
+	# pointing it tips the gem forward instead of swinging it from the feet.
 	var staff := Node3D.new()
-	staff.position = Vector3(0.42, 0.0, 0.18)
+	staff.position = Vector3(0.42, 0.75, 0.18)
 	body.add_child(staff)
-	meshes.append(part(staff, cyl(0.03, 0.04, 1.7, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.85, 0)))
-	meshes.append(part(staff, cyl(0.09, 0.03, 0.18, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 1.72, 0)))
-	var gem := part(staff, sphere(0.09, 8), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.86, 0))
+	meshes.append(part(staff, cyl(0.03, 0.04, 1.7, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.1, 0)))
+	meshes.append(part(staff, cyl(0.09, 0.03, 0.18, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.97, 0)))
+	var gem := part(staff, sphere(0.11, 12), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.12, 0))
 	return {root = root, body = body, staff = staff, gem = gem, hat = hat, meshes = meshes}
 
 

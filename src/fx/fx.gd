@@ -35,6 +35,23 @@ static func additive(c: Color, energy := 1.0) -> StandardMaterial3D:
 	return m
 
 
+static var _el_mats := {}
+
+
+## Element [param e]'s own material (src/fx/element.gdshader): the same look
+## as its ball in the HUD. Shared, so do not change its parameters.
+static func element(e: int, energy := 1.0) -> ShaderMaterial:
+	var key := "%d:%.2f" % [e, energy]
+	if not _el_mats.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://src/fx/element.gdshader")
+		m.set_shader_parameter("element", e)
+		m.set_shader_parameter("base", El.COLOR[e])
+		m.set_shader_parameter("energy", energy)
+		_el_mats[key] = m
+	return _el_mats[key]
+
+
 static func solid(c: Color, rough := 0.85) -> StandardMaterial3D:
 	var key := "s%s%.2f" % [c.to_html(), rough]
 	if _mats.has(key):

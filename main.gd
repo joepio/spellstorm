@@ -454,7 +454,7 @@ func snap_camera() -> void:
 		c += w.global_position
 	if not wizards.is_empty():
 		_cam_center = c / wizards.size()
-	_cam_height = 16.0
+	_cam_height = 18.5
 
 
 func _update_camera(dt: float) -> void:
@@ -480,7 +480,7 @@ func _update_camera(dt: float) -> void:
 	if not pts.is_empty():
 		center /= pts.size()
 	var spread := maxf((hi.x - lo.x) * 0.56, hi.y - lo.y) if not pts.is_empty() else 0.0
-	var want_h := clampf(11.0 + spread * 0.85, 14.0, 28.0)
+	var want_h := clampf(13.5 + spread * 0.85, 16.5, 30.0)
 	var k := 1.0 - exp(-3.0 * dt)
 	_cam_center = _cam_center.lerp(center, k)
 	_cam_height = lerpf(_cam_height, want_h, k)

@@ -295,6 +295,133 @@ func _build(m: String) -> void:
 			_add(Art.sphere(0.4), Color.MAGENTA, Vector3(0, 0.8, 0))
 
 
+## Each kind dies its own way (Joep: no red bloom for everyone). Skeletons
+## fall apart into bones, ice shatters, the fragile ones (imps, watchers)
+## and demons blow up and hurt whoever stands close, friend or foe, so
+## killing them next to someone is a risk.
+func _death() -> void:
+	var at := global_position
+	var big: float = cfg.size if cfg.has("model") else 1.0
+	var boss: bool = cfg.get("boss", false)
+	match cfg.get("model", kind):
+		"skeleton":
+			# The bones lose what held them together and clatter down.
+			var d := Debris.scatter(_model, at, 1.8 * big, 3.0, 5.0)
+			d.bits(at + Vector3.UP * 0.4, Color(0.8, 0.76, 0.66), 6, 0.06 * big, 2.0, 2.0)
+			_gone(6.0)
+		"ghoul":
+			var d2 := Debris.scatter(_model, at, 2.6, 4.0, 3.0)
+			d2.bits(at + Vector3.UP * 0.6, Color(0.25, 0.3, 0.18), 8, 0.1, 3.0, 3.0)
+			_gone(4.0)
+		"frost_brute":
+			# A frozen giant shatters into shards of ice.
+			Debris.scatter(_model, at, 3.5 * big, 5.0, 3.0, Fx.element(El.ICE, 1.0))
+			Fx.burst(at + Vector3.UP, El.COLOR[El.ICE], 20, 6.0, 0.25)
+			Fx.ring(at, El.COLOR[El.FROST], 3.0 * big, 0.4)
+			if Game.I:
+				Game.I.shake(0.5)
+			_gone(4.0)
+		"imp":
+			_blow_up(El.FIRE, 0.35, 2.4, 12.0, 1.0)
+		"watcher":
+			_blow_up(El.VOID, 0.5, 2.6, 12.0, 0.0)
+		"demon":
+			# Its skin cracks into magma, it swells, and it goes off.
+			for m in meshes:
+				m.material_override = Fx.element(El.MAGMA, 1.2)
+			_blow_up(El.FIRE, 1.4 if boss else 0.8, 5.0 if boss else 3.2, 30.0 if boss else 20.0, 3.0 if boss else 2.0)
+		"cultist":
+			# Burns up: the robe chars black and slumps into ash, embers rise.
+			for m in meshes:
+				m.material_override = Fx.solid(Color(0.07, 0.05, 0.05), 1.0)
+			var embers := Fx.particles(El.COLOR[El.FIRE], 30, 1.2, 0.18)
+			embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+			embers.emission_sphere_radius = 0.4
+			embers.position = Vector3.UP * 0.9
+			embers.direction = Vector3.UP
+			embers.gravity = Vector3.UP * 1.5
+			embers.initial_velocity_max = 1.2
+			embers.one_shot = true
+			embers.explosiveness = 0.3
+			add_child(embers)
+			embers.emitting = true
+			var tw := create_tween()
+			tw.tween_property(_model, "scale", Vector3(1.25, 0.08, 1.25) * big, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_interval(1.5)
+			tw.tween_property(_model, "position:y", -0.4, 1.0)
+			_gone(3.6)
+		"wraith":
+			# Nothing to fall: it unravels into cold mist and is gone.
+			Fx.puff(at + Vector3.UP, Color(0.55, 0.75, 0.9, 0.6), 1.4 * big)
+			var tw2 := create_tween()
+			tw2.tween_property(_model, "scale", Vector3(0.1, 2.2, 0.1) * big, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw2.parallel().tween_property(_model, "position:y", 1.5, 0.6)
+			tw2.tween_callback(_model.hide)
+			_gone(3.0)
+		"drowned":
+			# Falls apart into water: a splash and a puddle where it stood.
+			Debris.scatter(_model, at, 1.5 * big, 2.0, 0.6)
+			Fx.burst(at + Vector3.UP * 0.5, El.COLOR[El.WATER], 18, 4.0, 0.25)
+			if Game.I:
+				Game.I.arena.add_field(at, El.WATER, 1.6 * big, 6.0, null)
+			_gone(3.5)
+		"bile":
+			# It pops (the burst is in die), the skin flies everywhere.
+			var d3 := Debris.scatter(_model, at, 5.0 * big, 5.0, 2.0)
+			d3.bits(at + Vector3.UP * 0.8, Color(0.4, 0.42, 0.15), 12, 0.12 * big, 5.0, 4.0)
+			_gone(4.0)
+		_:
+			# Brutes topple like felled trees and shake the floor.
+			var tw3 := create_tween()
+			tw3.tween_property(_model, "rotation:x", -PI / 2.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw3.parallel().tween_property(_model, "position:y", 0.15, 0.5)
+			tw3.tween_callback(func():
+				if Game.I:
+					Game.I.shake(0.7)
+				var d4 := Debris.new()
+				Fx.root.add_child(d4)
+				d4.bits(global_position, Color(0.4, 0.33, 0.25), 10, 0.14, 3.0, 2.5))
+			tw3.tween_interval(1.5)
+			tw3.tween_property(_model, "position:y", -1.8, 1.4)
+			_gone(4.0)
+	if boss and Game.I:
+		Game.I.shake(1.2)
+
+
+## Swell and flash for [param fuse] seconds, then burst in [param el]:
+## [param dmg] to everyone within [param r], monsters too, and a field of
+## [param field] radius left behind.
+func _blow_up(el: int, fuse: float, r: float, dmg: float, field: float) -> void:
+	var c: Color = El.COLOR[el]
+	var tw := create_tween()
+	tw.tween_property(_model, "scale", _model.scale * 1.45, fuse).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var glow := Fx.halo(c, 1.6 * r * 0.5, 0.6, 1.0)
+	glow.position = Vector3.UP * 0.9
+	add_child(glow)
+	tw.parallel().tween_property(glow, "scale", Vector3.ONE * 1.8, fuse)
+	tw.tween_callback(func():
+		var at := global_position
+		var s := _attack_spell(el, dmg * (Game.I.monster_damage if Game.I else 1.0))
+		var nova := NovaFx.new()
+		nova.setup(self, {counts = {el: 1}, payload = [], primary = el, n = {radius = r, rate = s.scale}})
+		if Game.I:
+			Game.I.spawn(nova, at)
+			Game.I.shake(0.4 + r * 0.1)
+			if field > 0.0:
+				Game.I.arena.add_field(at, el, field, 5.0, null)
+		var d := Debris.scatter(_model, at, 6.0, 6.0, 1.5)
+		d.bits(at + Vector3.UP * 0.8, c.darkened(0.5), 6, 0.08, 6.0, 5.0)
+		glow.queue_free())
+	_gone(fuse + 4.0)
+
+
+## Free the dead monster after [param t] seconds, once its death has played.
+func _gone(t: float) -> void:
+	var tw := create_tween()
+	tw.tween_interval(t)
+	tw.tween_callback(queue_free)
+
+
 func _physics_process(dt: float) -> void:
 	tick_status(dt)
 	if not alive:
@@ -561,7 +688,6 @@ func die(src: Actor) -> void:
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0
-	Fx.burst(global_position + Vector3.UP * 0.8, Color(0.55, 0.03, 0.03), 26 + int(cfg.size * 10), 5.0, 0.3)
 	if Game.I:
 		Game.I.on_enemy_died(self, src)
 		Soul.drop(self)
@@ -578,13 +704,7 @@ func die(src: Actor) -> void:
 		nova2.setup(self, {counts = s2.counts, payload = [], primary = elite.el, n = {radius = 2.8, rate = s2.scale}})
 		nova2.only_team = 0
 		Game.I.spawn(nova2, global_position)
-	# Collapse into a heap.
-	var tw := create_tween()
-	tw.tween_property(_model, "rotation:x", -PI / 2.0, 0.35).set_trans(Tween.TRANS_QUAD)
-	tw.parallel().tween_property(_model, "position:y", 0.1, 0.35)
-	tw.tween_interval(1.5)
-	tw.tween_property(_model, "position:y", -1.5, 1.2)
-	tw.tween_callback(queue_free)
+	_death()
 	if _label:
 		_label.queue_free()
 	_hp_bar.visible = false

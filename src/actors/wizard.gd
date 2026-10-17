@@ -128,7 +128,7 @@ func _ready() -> void:
 	tor.rings = 28
 	tor.ring_segments = 4
 	for i in 6:
-		var o := Art.part(self, Art.sphere(0.12, 8), Fx.glow(Color.WHITE, 3.0))
+		var o := Art.part(self, Art.sphere(0.13, 12), Fx.element(El.FIRE, 1.3))
 		o.visible = false
 		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_orbs.append(o)
@@ -421,7 +421,7 @@ func bolt_spell() -> Dictionary:
 func shoot() -> void:
 	var dir := aim_dir.rotated(Vector3.UP, randf_range(-0.03, 0.03))
 	var b := BoltFx.new().setup(self, bolt_spell(), dir)
-	Game.I.spawn(b, staff_tip() + dir * 0.3)
+	Game.I.spawn(b, staff_tip() + dir * 0.1)
 	if not queue.is_empty():
 		ammo -= 1
 		if ammo <= 0:
@@ -678,7 +678,7 @@ func _throw() -> void:
 		var dir := aim_dir.rotated(Vector3.UP, spread)
 		var p := ProjectileFx.new().setup(self, s) as ProjectileFx
 		p.launch(dir, charge)
-		Game.I.spawn(p, staff_tip() + dir * 0.3)
+		Game.I.spawn(p, staff_tip() + dir * 0.1)
 	_cast_anim = 0.3
 
 
@@ -830,19 +830,18 @@ func _visuals(dt: float) -> void:
 		var o := _orbs[i]
 		if i < slots.size():
 			o.visible = true
-			var c: Color = El.COLOR[slots[i]]
-			o.material_override = Fx.glow(c, 3.0)
+			o.material_override = Fx.element(slots[i], 1.3)
 			var ang := Time.get_ticks_msec() / 1000.0 * 2.2 + i * TAU / maxf(slots.size(), 1)
 			o.position = Vector3(cos(ang) * 0.62, 2.1 + sin(ang * 2.0) * 0.05, sin(ang) * 0.62)
 			var big := 1.25 if El.is_fused(slots[i]) else 1.0
 			o.scale = Vector3.ONE * big
 		else:
 			o.visible = false
-	gem_color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
-	if _swing_cd > 0.0:
-		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5)
+	# The gem wears the element its bolts will be, dark while the swing recovers.
+	if bolt_el >= 0:
+		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else 1.3)
 	else:
-		model.gem.material_override = Fx.glow(gem_color, 3.0)
+		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
 	_ward_shell.visible = ward_time > 0.0
 	_shield_flash = maxf(0.0, _shield_flash - dt * 4.0)
 	if ward_time > 0.0:

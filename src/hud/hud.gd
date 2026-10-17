@@ -110,7 +110,7 @@ func _label(font: Font, size: int, c: Color) -> Label:
 ## Each wizard's panel sits in a corner of its own: first bottom left, then
 ## bottom right, top left, top right. Panels on the right are mirrored so
 ## the health orb is always on the outside.
-const PANEL := Vector2(330, 112)
+const PANEL := Vector2(312, 108)
 const MARGIN := 18.0
 
 
@@ -198,13 +198,27 @@ func _process(dt: float) -> void:
 		p.queue_redraw()
 
 
-## One wizard's panel: health orb, name, the queue, mana, and the face
-## buttons with the elements they load. No spell names (Joep): what a queue
-## casts you learn by casting it.
+## One wizard's panel: health orb, name, the queue, mana, the face buttons
+## with the elements they load, and under them what the queue casts on each
+## button, so players learn the spells. Names show only here, never over the
+## battle when a spell goes off (Joep).
 class WizardPanel:
 	extends Control
 	var wizard: Wizard
 	var mirrored := false
+	## The queue's sockets and the four face buttons, as element balls.
+	var _socket_balls: Array[ElementBall] = []
+	var _button_balls: Array[ElementBall] = []
+	## What each cast button would make of the queue, kept until it changes.
+	var _names: Array = []
+	var _names_for := "-"
+	const FORMS := [["RT", "cast"], ["RB", "nova"], ["LS", "plant"], ["RS", "ward"]]
+
+	func _ball(list: Array[ElementBall]) -> ElementBall:
+		var b := ElementBall.new()
+		add_child(b)
+		list.append(b)
+		return b
 
 	## x measured from the panel's outer edge.
 	func _x(x: float) -> float:
@@ -217,86 +231,117 @@ class WizardPanel:
 		var tf := Art.title_font()
 		var w := size.x
 		var h := size.y
-		draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.02, 0.02, 0.62))
-		draw_rect(Rect2(0, 0, w, h), Color(0.45, 0.35, 0.22, 0.7), false, 1.5)
-		draw_rect(Rect2(_x(0) - (4 if mirrored else 0), 0, 4, h), wizard.robe)
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color(0.03, 0.02, 0.02, 0.5)
+		bg.set_corner_radius_all(12)
+		draw_style_box(bg, Rect2(0, 0, w, h))
+		var align := HORIZONTAL_ALIGNMENT_RIGHT if mirrored else HORIZONTAL_ALIGNMENT_LEFT
 		# Health orb, Diablo style: a glass globe that drains.
 		var frac := clampf(wizard.hp / wizard.max_hp, 0.0, 1.0) if wizard.alive else 0.0
-		var hc := Vector2(_x(52), h * 0.5)
-		_orb(hc, 38.0, frac, Color(0.62, 0.04, 0.04), Color(0.3, 0.24, 0.16), Color(0.08, 0.02, 0.02))
+		var hc := Vector2(_x(32), 36)
+		_orb(hc, 22.0, frac, Color(0.62, 0.04, 0.04), Color(0.3, 0.24, 0.16), Color(0.08, 0.02, 0.02))
 		# A ward's shield: a bright band round the orb that wears down.
 		if wizard.shield > 0.0:
 			var sk := wizard.shield / maxf(wizard.shield_max, 1.0)
 			var wc: Color = El.COLOR[wizard.ward.primary] if wizard.ward.has("primary") else Color.WHITE
-			draw_arc(hc, 44.0, -PI * 0.5, -PI * 0.5 + TAU * sk, 40, wc.lightened(0.4), 4.0, true)
+			draw_arc(hc, 27.0, -PI * 0.5, -PI * 0.5 + TAU * sk, 40, wc.lightened(0.4), 3.0, true)
 		var hp_txt := "%d" % ceili(wizard.hp) if wizard.alive else "✝"
-		draw_string(tf, Vector2(hc.x - 40, hc.y + 8), hp_txt, HORIZONTAL_ALIGNMENT_CENTER, 80, 22, Color(1, 0.92, 0.85))
+		draw_string(tf, Vector2(hc.x - 30, hc.y + 6), hp_txt, HORIZONTAL_ALIGNMENT_CENTER, 60, 15, Color(1, 0.92, 0.85))
 		# Name, then the queue: five sockets, filled in order.
-		var sx0 := _x(116)
-		var nx := sx0 + 12.0 - 150.0 if mirrored else sx0 - 12.0
-		draw_string(tf, Vector2(nx, 28), wizard.player_name, HORIZONTAL_ALIGNMENT_RIGHT if mirrored else HORIZONTAL_ALIGNMENT_LEFT, 150, 20, wizard.robe.lightened(0.45))
+		var sx0 := _x(74)
+		var nx := sx0 + 9.0 - 150.0 if mirrored else sx0 - 9.0
+		draw_string(tf, Vector2(nx, 18), wizard.player_name, align, 150, 15, wizard.robe.lightened(0.45))
 		var slots := wizard.queue.slots
-		var step := -28.0 if mirrored else 28.0
-		for i in wizard.queue.size:
-			var oc := Vector2(sx0 + i * step, 52)
-			draw_circle(oc, 12, Color(0.2, 0.16, 0.12))
+		var step := -22.0 if mirrored else 22.0
+		while _socket_balls.size() < 6:
+			_ball(_socket_balls)
+		for i in _socket_balls.size():
+			var oc := Vector2(sx0 + i * step, 36)
+			if i < wizard.queue.size:
+				draw_circle(oc, 9.5, Color(0.2, 0.16, 0.12, 0.8))
 			if i < slots.size():
 				var e: int = slots[i]
-				draw_circle(oc, 10.5, El.COLOR[e])
-				draw_circle(oc + Vector2(-3, -3.5), 3.5, Color(1, 1, 1, 0.25))
-				Icons.draw(self, e, oc, 6.5, Color(0.06, 0.04, 0.04, 0.92))
+				_socket_balls[i].show_at(e, oc, 8.5)
 				if El.is_fused(e):
-					draw_arc(oc, 13.5, 0, TAU, 20, Color(1, 0.9, 0.6), 1.5)
+					draw_arc(oc, 10.5, 0, TAU, 20, Color(1, 0.9, 0.6), 1.2)
+			else:
+				_socket_balls[i].visible = false
 		# The front element burns first: a ring round it shows the bolts it has left.
 		if not slots.is_empty():
 			var k := clampf(float(wizard.ammo) / Wizard.BOLTS_PER_ELEMENT, 0.0, 1.0)
-			draw_arc(Vector2(sx0, 52), 14.5, -PI * 0.5, -PI * 0.5 + TAU * k, 28, Color(1.0, 0.88, 0.5), 2.0, true)
+			draw_arc(Vector2(sx0, 36), 11.5, -PI * 0.5, -PI * 0.5 + TAU * k, 28, Color(1.0, 0.88, 0.5), 1.6, true)
 		# A running stream (flamethrower, beam, chain lightning) drains a bar
 		# over the sockets until it ends.
-		var bx := minf(sx0 - 14, sx0 + 4 * step - 14) if mirrored else sx0 - 14
+		var bw := 4 * 22.0 + 20.0
+		var bx := sx0 - bw + 10.0 if mirrored else sx0 - 10.0
 		var left := wizard.channel_left()
 		if left >= 0.0 and wizard.channel:
-			var bar := Rect2(bx, 44, 4 * 28 + 28, 16)
+			var bar := Rect2(bx, 30, bw, 12)
 			var col: Color = wizard.channel.color()
 			draw_rect(bar, Color(0.12, 0.09, 0.07))
 			var fill_w := bar.size.x * left
 			var fx := bar.end.x - fill_w if mirrored else bar.position.x
 			draw_rect(Rect2(fx, bar.position.y, fill_w, bar.size.y), col)
-			draw_rect(Rect2(fx, bar.position.y, fill_w, 5), col.lightened(0.45))
-			draw_rect(bar, Color(0.45, 0.35, 0.22), false, 1.5)
-		# Mana: a bar under the queue, blue like the souls that fill it.
-		var mbar := Rect2(bx, 76, 4 * 28 + 28, 12)
+			draw_rect(Rect2(fx, bar.position.y, fill_w, 4), col.lightened(0.45))
+		# Mana: a thin bar under the queue, blue like the souls that fill it.
+		var mbar := Rect2(bx, 52, bw, 5)
 		var mk := clampf(wizard.mana / Wizard.MANA_MAX, 0.0, 1.0)
-		draw_rect(mbar, Color(0.02, 0.02, 0.08))
+		draw_rect(mbar, Color(0.5, 0.65, 1.0, 0.5) if wizard.no_mana > 0.0 else Color(0.02, 0.02, 0.08, 0.9))
 		var mw := mbar.size.x * mk
 		var mx := mbar.end.x - mw if mirrored else mbar.position.x
-		draw_rect(Rect2(mx, mbar.position.y, mw, mbar.size.y), Color(0.12, 0.25, 0.85))
-		draw_rect(Rect2(mx, mbar.position.y, mw, 4), Color(0.35, 0.5, 1.0))
-		draw_rect(mbar, Color(0.5, 0.65, 1.0) if wizard.no_mana > 0.0 else Color(0.3, 0.24, 0.16), false, 1.5)
-		draw_string(f, Vector2(mbar.position.x, mbar.end.y + 16), "%d" % int(wizard.mana), HORIZONTAL_ALIGNMENT_RIGHT if mirrored else HORIZONTAL_ALIGNMENT_LEFT, mbar.size.x, 15, Color(0.7, 0.8, 1.0))
+		draw_rect(Rect2(mx, mbar.position.y, mw, mbar.size.y), Color(0.2, 0.38, 1.0))
 		if not wizard.alive:
-			draw_string(f, Vector2(_x(282) - 45, h * 0.5 + 6), "Heal the grave", HORIZONTAL_ALIGNMENT_CENTER, 90, 14, Color(0.85, 0.3, 0.25))
+			for b in _button_balls:
+				b.visible = false
+			draw_string(f, Vector2(_x(16) - (150 if mirrored else 0), 84), "Heal the grave", align, 150, 13, Color(0.85, 0.3, 0.25))
 			return
-		_buttons(Vector2(_x(282), h * 0.5))
+		_buttons(Vector2(_x(222), 36))
+		_spells(f)
+
+	## Under the panel's top row: each cast button and what the queue makes
+	## on it, small, two by two. Nothing while the queue is empty.
+	func _spells(f: Font) -> void:
+		var key := ",".join(wizard.queue.slots.map(func(e): return str(e)))
+		if key != _names_for:
+			_names_for = key
+			_names.clear()
+			if not wizard.queue.slots.is_empty():
+				for fm in FORMS:
+					_names.append([fm[0], wizard.preview(fm[1]).name])
+		for i in _names.size():
+			var col := i % 2
+			var row := i / 2
+			var x := 14.0 + col * 146.0
+			var y := 70.0 + row * 19.0
+			var chip := Rect2(_x(x) - (22.0 if mirrored else 0.0), y, 22, 14)
+			var cb := StyleBoxFlat.new()
+			cb.bg_color = Color(0.85, 0.75, 0.55, 0.85)
+			cb.set_corner_radius_all(4)
+			draw_style_box(cb, chip)
+			draw_string(f, Vector2(chip.position.x, y + 11), _names[i][0], HORIZONTAL_ALIGNMENT_CENTER, 22, 10, Color(0.08, 0.05, 0.03))
+			var tx := chip.position.x - 4.0 - 120.0 if mirrored else chip.end.x + 5.0
+			draw_string(f, Vector2(tx, y + 11), _names[i][1], HORIZONTAL_ALIGNMENT_RIGHT if mirrored else HORIZONTAL_ALIGNMENT_LEFT, 120, 11, Color(0.92, 0.86, 0.74, 0.9))
 
 	## The four face buttons where they sit on the controller (Y top, X left,
 	## B right, A bottom), each showing the element it conjures as an icon.
 	## Holding LB flips every button to its opposite.
 	func _buttons(c: Vector2) -> void:
 		var flip := wizard.pad != null and wizard.pad.down(Pad.LB)
-		var places := {"Y": Vector2(0, -20), "X": Vector2(-20, 0), "B": Vector2(20, 0), "A": Vector2(0, 20)}
+		var places := {"Y": Vector2(0, -15), "X": Vector2(-15, 0), "B": Vector2(15, 0), "A": Vector2(0, 15)}
 		var bits := {"A": Pad.A, "B": Pad.B, "X": Pad.X, "Y": Pad.Y}
+		while _button_balls.size() < 4:
+			_ball(_button_balls)
+		var k := 0
 		for key in places:
 			var e: int = El.PAIRS[key][1 if flip else 0]
 			var p: Vector2 = c + places[key]
 			var held: bool = wizard.pad != null and wizard.pad.down(bits[key])
-			var r := 12.0 if held else 10.5
-			var col: Color = El.COLOR[e]
-			draw_circle(p, r + 2.0, Color(0.04, 0.03, 0.03))
-			draw_circle(p, r, col.darkened(0.15) if not held else col.lightened(0.2))
-			Icons.draw(self, e, p, r * 0.62, Color(0.06, 0.04, 0.04, 0.92))
+			var r := 9.0 if held else 7.5
+			draw_circle(p, r + 1.5, Color(0.04, 0.03, 0.03))
+			_button_balls[k].show_at(e, p, r, 1.15 if held else 0.85)
+			k += 1
 			if e == wizard.bolt_el:
-				draw_arc(p, r + 3.5, 0, TAU, 24, Color(1.0, 0.85, 0.4), 1.5, true)
+				draw_arc(p, r + 2.5, 0, TAU, 24, Color(1.0, 0.85, 0.4), 1.3, true)
 
 	func _orb(c: Vector2, r: float, frac: float, fill: Color, rim: Color, bg: Color) -> void:
 		draw_circle(c, r + 3, rim)
