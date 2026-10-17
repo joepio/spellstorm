@@ -136,8 +136,23 @@ void fragment() {
 	vec2 p = wpos.xz;
 	float n = fbm(p * 0.35);
 	float fine = fbm(p * 2.5);
-	vec3 col = mix(base_a, base_b, smoothstep(0.3, 0.7, n));
-	col *= 0.85 + 0.3 * fine;
+	vec3 col;
+	if (tiles > 0.5) {
+		col = mix(base_a, base_b, smoothstep(0.3, 0.7, n));
+		col *= 0.85 + 0.3 * fine;
+	} else {
+		// Open ground: wide soft patches of moss over soil that fade into
+		// each other, fine grain, a scatter of small stones.
+		float patch = fbm(p * 0.13 + 4.0) * 0.75 + fbm(p * 0.5) * 0.25;
+		col = mix(base_b, base_a, smoothstep(0.32, 0.68, patch));
+		col *= 0.9 + 0.2 * fine;
+		col *= 0.93 + 0.14 * noise(p * 13.0);
+		float tuft = smoothstep(0.62, 0.8, fbm(p * 3.1 + 9.0)) * smoothstep(0.45, 0.65, patch);
+		col = mix(col, base_a * 1.35, tuft * 0.5);
+		vec2 st = cells(p * 3.2);
+		float stone = step(0.93, st.y) * smoothstep(0.1, 0.3, st.x);
+		col = mix(col, mix(base_b, vec3(0.2, 0.2, 0.19), 0.5) * (0.85 + 0.3 * fine), stone * 0.45);
+	}
 	float rough = mix(0.95, 0.25, wet * smoothstep(0.4, 0.6, fbm(p * 0.6 + 3.0)));
 	vec3 glow = vec3(0.0);
 	if (tiles > 0.5) {
@@ -151,8 +166,9 @@ void fragment() {
 		col *= mix(0.35, 1.0, grout);
 		col *= 0.8 + 0.4 * hash(id);
 	}
+	// Hairline cracks, only in laid stone.
 	float crack = smoothstep(0.48, 0.5, fbm(p * 1.1 + 7.0)) * smoothstep(0.52, 0.5, fbm(p * 1.1 + 7.0));
-	col *= 1.0 - crack * 0.6;
+	col *= 1.0 - crack * 0.35 * tiles;
 
 	// Land and water.
 	float shore = isle_n > 0 ? isle_sdf(p) : -1e5;

@@ -138,6 +138,33 @@ func _confirm(row: String) -> void:
 			get_tree().quit()
 
 
+## The tomes each wizard has taken this run, under the menu.
+func _tomes(r: Rect2) -> void:
+	var tf := Art.title_font()
+	var f := Art.body_font()
+	var lines: Array = []
+	for w in Game.I.wizards:
+		lines.append([w.player_name, w.robe.lightened(0.3), true])
+		if w.relics.is_empty():
+			lines.append(["No tomes yet", Color(0.5, 0.46, 0.4), false])
+		for t in w.relics:
+			lines.append(["%s  ·  %s" % [t.get("name", ""), t.get("text", "")], Color(0.78, 0.72, 0.6), false])
+	var lh := 30.0
+	var hh := minf(r.size.y, lines.size() * lh + 40.0)
+	if hh < 80.0:
+		return
+	_frame(Rect2(r.position, Vector2(r.size.x, hh)))
+	var yy := r.position.y + 38.0
+	for l in lines:
+		if yy > r.position.y + hh - 8.0:
+			break
+		if l[2]:
+			draw_string(tf, Vector2(r.position.x + 30, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 60, 26, l[1])
+		else:
+			draw_string(f, Vector2(r.position.x + 52, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 80, 22, l[1])
+		yy += lh
+
+
 func _label(row: String) -> Array:
 	match row:
 		"start": return ["Start", ""]
@@ -198,6 +225,8 @@ func _draw() -> void:
 			draw_string(tf, Vector2(cx - pw * 0.5 + 36, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.42, 32, col)
 			var v: String = ("‹  %s  ›" % l[1]) if on else l[1]
 			draw_string(f, Vector2(cx - 50, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.55, 30, col)
+	if not title_mode:
+		_tomes(Rect2(cx - pw * 0.5, y - 50 + rows.size() * 64 + 60, pw, h - (y + rows.size() * 64 + 40)))
 	# The controls, each next to a drawing of its part of the controller.
 	var kx := w * 0.5 + 40.0
 	var kw := 680.0

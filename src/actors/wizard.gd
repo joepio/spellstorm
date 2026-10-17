@@ -38,7 +38,7 @@ const SWING_COOLDOWN := 0.34
 ## After a swing the staff needs this long before it can swing again, so
 ## knocking bullets back is a timed choice, not a shield. The gem goes dark
 ## while it recovers and flashes when it is ready.
-const SWING_RECOVER := 1.4
+const SWING_RECOVER := 0.7
 const SWING_REACH := 2.3
 ## Half the angle of the swing, each side of where you aim: what it hits and
 ## the bullets it knocks back.
@@ -236,6 +236,8 @@ func _physics_process(dt: float) -> void:
 		if pad.source == Pad.Source.KEYBOARD and Game.I and Game.I.camera:
 			pad.mouse_origin = Game.I.camera.unproject_position(global_position + Vector3.UP)
 		pad.poll()
+	if _swing_t > 0.0:
+		_deflect_sweep()
 	_swing_t = maxf(0.0, _swing_t - dt)
 	if _swing_cd > 0.0:
 		_swing_cd -= dt
@@ -267,6 +269,37 @@ func _physics_process(dt: float) -> void:
 		spd *= 0.6
 	drive(_leash(mv) * spd, dt)
 	_visuals(dt)
+
+
+func on_shield_hit(amount: float) -> void:
+	_shield_flash = 1.0
+	if amount > 1.0 and ward.has("primary"):
+		Fx.burst(global_position + Vector3.UP, El.COLOR[ward.primary], 6, 2.5, 0.2)
+
+
+## The shield breaks with a burst of its elements round you.
+func shield_broke() -> void:
+	var s := ward
+	super.shield_broke()
+	if s.is_empty() or not Game.I:
+		return
+	var nova := NovaFx.new()
+	nova.setup(self, {counts = s.counts, payload = s.get("payload", []), primary = s.primary, key = "", name = "", n = {radius = 3.2, rate = 0.5 * s.slots.size()}})
+	Game.I.spawn(nova, global_position)
+	Game.I.shake(0.2)
+
+
+var _shield_flash := 0.0
+
+
+## A frozen wizard can do nothing, so it never lasts long and never chains:
+## a short freeze, then a few seconds where frost only slows.
+func freeze_time() -> float:
+	return 0.9
+
+
+func freeze_immunity() -> float:
+	return 4.0
 
 
 ## Couch co-op shares one screen: nobody walks further than LEASH from
@@ -421,19 +454,32 @@ func melee() -> void:
 		a.hit_spell(bonk, 0.4, self, to.normalized())
 		BoltFx.strike(a, touch, 2.5, self, to.normalized())
 		add_mana(MANA_PER_SWING)
+	_swing_dir = aim_dir
+	_deflect_sweep()
+	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
+	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
+	_zone_mat.set_shader_parameter("color", sc.lerp(Color(1.0, 0.9, 0.6), 0.5))
+
+
+## Knock back every enemy bullet inside the arc drawn on the ground. Runs
+## on every tick of the swing, not just the first, so a bullet that flies
+## into the arc while the staff is still sweeping goes back too.
+func _deflect_sweep() -> void:
 	for b in Bullet.all.duplicate():
 		if not is_instance_valid(b) or b.team == team:
 			continue
 		var to2: Vector3 = b.global_position - global_position
 		to2.y = 0
-		if to2.length() < SWING_REACH + 0.3 and absf(aim_dir.signed_angle_to(to2, Vector3.UP)) < SWING_ARC:
-			b.deflect(self, aim_dir)
-			add_mana(MANA_PER_DEFLECT)
-			Game.I.count("deflects")
-	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
-	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
-	_swing_dir = aim_dir
-	_zone_mat.set_shader_parameter("color", sc.lerp(Color(1.0, 0.9, 0.6), 0.5))
+		var d := to2.length()
+		# The drawn arc reaches SWING_REACH + 0.3; the bullet counts once its
+		# edge is in, and anything right on top of the wizard counts too.
+		if d > SWING_REACH + 0.3 + b.radius:
+			continue
+		if d > 0.6 and absf(_swing_dir.signed_angle_to(to2, Vector3.UP)) > SWING_ARC + atan2(b.radius, d):
+			continue
+		b.deflect(self, aim_dir)
+		add_mana(MANA_PER_DEFLECT)
+		Game.I.count("deflects")
 
 
 func _place_zone(dir: Vector3) -> void:
@@ -636,9 +682,18 @@ func _throw() -> void:
 	_cast_anim = 0.3
 
 
+## A ward is a shield round you: it soaks SHIELD_PER_ELEMENT damage of any
+## kind for each element in it, and when it breaks it bursts outward with
+## its elements. Earth also hardens you, Air speeds you up, Life heals, and
+## matching elements are resisted on top.
+const SHIELD_PER_ELEMENT := 18.0
+
+
 func _ward(s: Dictionary) -> void:
 	ward = s
 	ward_time = s.n.duration
+	shield_max = SHIELD_PER_ELEMENT * s.slots.size()
+	shield = shield_max
 	armor = 1.0
 	haste = 1.0
 	for e in s.counts:
@@ -653,6 +708,7 @@ func _ward(s: Dictionary) -> void:
 	if s.counts.size() == 1 and s.counts.has(El.LIFE):
 		ward = {}
 		ward_time = 0.0
+		shield = 0.0
 		return
 	var m := StandardMaterial3D.new()
 	var mixed: Color = El.COLOR[s.primary]
@@ -788,9 +844,16 @@ func _visuals(dt: float) -> void:
 	else:
 		model.gem.material_override = Fx.glow(gem_color, 3.0)
 	_ward_shell.visible = ward_time > 0.0
+	_shield_flash = maxf(0.0, _shield_flash - dt * 4.0)
 	if ward_time > 0.0:
 		var pulse := 0.95 + 0.05 * sin(Time.get_ticks_msec() / 150.0)
-		_ward_shell.scale = Vector3(0.95, 1.05, 0.95) * pulse
+		_ward_shell.scale = Vector3(0.95, 1.05, 0.95) * pulse * (1.0 + 0.08 * _shield_flash)
+		# Bright when full, thin as it wears down, a flash on every hit.
+		var m := _ward_shell.material_override as StandardMaterial3D
+		if m:
+			var k := shield / maxf(shield_max, 1.0)
+			m.emission_energy_multiplier = 0.25 + 0.6 * k + 1.5 * _shield_flash
+			m.albedo_color.a = 0.06 + 0.16 * k + 0.2 * _shield_flash
 	# The roll: squashed low, spinning on the spot.
 	if _roll_t > 0.0:
 		var k := 1.0 - _roll_t / ROLL_TIME

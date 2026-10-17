@@ -137,5 +137,5 @@ spells in the next.
 RB swings the staff in an arc of ±75° and 2.6 m (`SWING_ARC`,
 `SWING_REACH`). It knocks enemy bullets back at twice their power. You
 cannot shoot or cast during the swing (0.34 s). After it, the staff needs
-1.4 s to recover (`SWING_RECOVER`): the gem goes dark and flashes when it is
+0.7 s to recover (`SWING_RECOVER`): the gem goes dark and flashes when it is
 ready again.

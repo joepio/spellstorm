@@ -279,6 +279,12 @@ func _cleared(dt: float) -> void:
 
 
 func _next() -> void:
+	# Every level starts fresh: full health and mana, the fallen back up.
+	for w in Game.I.wizards:
+		if not w.alive:
+			w.revive(1.0)
+		w.hp = w.max_hp
+		w.mana = Wizard.MANA_MAX
 	room += 1
 	if room >= ROOMS:
 		room = 0

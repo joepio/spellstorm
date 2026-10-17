@@ -15,13 +15,13 @@ const GLYPH := ["+", "◆", "F", "❄", "W", "⚡", "E", "≈", "S", "I", "M", "
 
 const COLOR := [
 	Color(0.35, 0.95, 0.45),  # life
-	Color(0.62, 0.25, 0.95),  # void
+	Color(0.7, 0.2, 0.95),    # void
 	Color(1.0, 0.45, 0.1),    # fire
-	Color(0.7, 0.92, 1.0),    # frost
+	Color(0.4, 0.88, 1.0),    # frost
 	Color(0.2, 0.5, 1.0),     # water
-	Color(0.85, 0.75, 1.0),   # lightning
+	Color(1.0, 0.88, 0.25),   # lightning
 	Color(0.62, 0.45, 0.28),  # earth
-	Color(0.92, 0.95, 0.92),  # air
+	Color(0.62, 1.0, 0.8),    # air
 	Color(0.85, 0.85, 0.9),   # steam
 	Color(0.55, 0.85, 1.0),   # ice
 	Color(0.42, 0.32, 0.2),   # mud
