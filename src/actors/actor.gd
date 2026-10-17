@@ -36,6 +36,15 @@ var frozen := 0.0
 ## After a freeze, frost cannot freeze this actor again until this runs out.
 var freeze_guard := 0.0
 var stun := 0.0
+## What hit last, so a death can fit it: the element that did the most
+## damage, where it came from, and whether it was a monster's melee blow
+## (Enemy sets melee_hit around its strike).
+var last_el := -1
+var last_dir := Vector3.ZERO
+var last_melee := false
+var melee_hit := false
+## How far past zero the killing blow went.
+var overkill := 0.0
 var slow := 0.0
 var slick := 0.0
 var push := Vector3.ZERO
@@ -101,6 +110,8 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 	var shove := 0.0
 	var shock_hit := false
 	var mods: Dictionary = src.mods() if src else {}
+	var top_el := -1
+	var top_d := 0.0
 	for e in spell.counts:
 		var n: float = spell.counts[e] * scale * float(mods.get("el_%d" % e, 1.0))
 		var eff: Dictionary = El.EFFECT[e]
@@ -123,6 +134,9 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 			heal += eff.dmg * n * 0.5
 			continue
 		var d: float = float(eff.get("dmg", 0.0)) * n * mult
+		if d > top_d:
+			top_d = d
+			top_el = e
 		if eff.has("shock"):
 			if wet > 0.0:
 				d *= 2.0 * float(mods.get("wet_shock", 1.0))
@@ -144,6 +158,9 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 	if shove > 0.0 and dir.length() > 0.01:
 		push += dir.normalized() * shove * 2.2 / mass
 	if dmg > 0.0:
+		last_el = top_el
+		last_dir = dir
+		last_melee = melee_hit
 		take(dmg, src)
 		if shock_hit:
 			flash = 0.12
@@ -213,6 +230,7 @@ func take(dmg: float, src: Actor = null) -> void:
 	if dmg > 2.5:
 		flash = maxf(flash, 0.08)
 	if hp <= 0.0:
+		overkill = -hp
 		hp = 0.0
 		die(src)
 
@@ -314,6 +332,8 @@ func tick_status(delta: float) -> void:
 			Fx.ring(global_position + Vector3.UP * 0.03, Color(0.035, 0.07, 0.075), radius + 0.3, 0.7)
 	if burn > 0.0:
 		burn -= delta
+		last_el = El.FIRE
+		last_melee = false
 		take(BURN_DPS * delta * (1.0 - resistance(El.FIRE)) * armor)
 	wet = maxf(0.0, wet - delta)
 	chill = maxf(0.0, chill - 0.6 * delta)

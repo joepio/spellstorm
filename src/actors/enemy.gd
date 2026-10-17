@@ -505,7 +505,9 @@ func _strike() -> void:
 			var to := target.global_position - global_position
 			to.y = 0
 			if to.length() <= cfg.reach + target.radius + 0.6:
+				target.melee_hit = true
 				var dealt := target.hit_spell(s, s.scale, self, to.normalized(), 1.0)
+				target.melee_hit = false
 				if elite.has("leech"):
 					healed(dealt * elite.leech)
 				_model.position = to.normalized() * 0.3
@@ -522,7 +524,9 @@ func _strike() -> void:
 				var to: Vector3 = w.global_position - global_position
 				to.y = 0
 				if w.alive and to.length() < r + w.radius:
+					w.melee_hit = true
 					w.hit_spell(s, s.scale, self, to.normalized(), 1.0)
+					w.melee_hit = false
 		"ranged":
 			var shots: Array = cfg.get("shots", ["fan3"])
 			_volley(shots[_shot_i % shots.size()], el, dmg)

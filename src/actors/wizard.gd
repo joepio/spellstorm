@@ -91,6 +91,7 @@ var _name_label: Label3D
 var _light: OmniLight3D
 var _ward_shell: MeshInstance3D
 var _tomb: Node3D
+var _remains: Remains
 var _charge_ring: MeshInstance3D
 ## The swing's arc on the ground: sweeps open on a swing, and shows faintly
 ## while a bullet is close so you can see what you would knock back.
@@ -113,6 +114,8 @@ func _ready() -> void:
 	add_child(shape)
 	model = Art.wizard(robe)
 	add_child(model.root)
+	_remains = Remains.new().setup(self, model)
+	add_child(_remains)
 	meshes = model.meshes
 	setup_status_fx()
 	_light = OmniLight3D.new()
@@ -762,18 +765,22 @@ func on_dealt(dmg: float, spell: Dictionary) -> void:
 
 
 func die(src: Actor) -> void:
+	var how := Remains.style_for(self, overkill)
 	super.die(src)
 	_charging = {}
 	channel = null
 	queue.clear()
 	burn = 0.0
-	model.root.visible = false
 	_light.light_energy = 0.4
+	_remains.die(how, last_dir)
+	_revive = 0.0
+	# The grave rises beside the body once it has come down.
 	_tomb = Art.tombstone()
 	add_child(_tomb)
-	_revive = 0.0
-	Fx.burst(global_position + Vector3.UP, Color(0.7, 0.05, 0.05), 30, 4.0)
-	Fx.text(global_position + Vector3.UP * 2.5, player_name + " has fallen", Color(0.85, 0.1, 0.1), 52, 2.5)
+	_tomb.position = _remains.tomb_at + Vector3.DOWN * 1.2
+	var tw := _tomb.create_tween()
+	tw.tween_interval(1.2)
+	tw.tween_property(_tomb, "position:y", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func revive_progress(amount: float) -> void:
@@ -787,17 +794,19 @@ func revive(frac: float) -> void:
 		return
 	alive = true
 	hp = max_hp * frac
-	model.root.visible = true
 	_light.light_energy = 1.3
 	if _tomb:
-		_tomb.queue_free()
+		var tomb := _tomb
 		_tomb = null
+		var tw := tomb.create_tween()
+		tw.tween_property(tomb, "position:y", -1.3, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_callback(tomb.queue_free)
 	frozen = 0.0
 	chill = 0.0
 	stun = 0.0
-	Fx.burst(global_position + Vector3.UP, El.COLOR[El.LIFE], 40, 4.0)
-	Fx.light_pop(global_position, El.COLOR[El.LIFE], 3.0, 6.0, 0.8)
-	Fx.text(global_position + Vector3.UP * 2.5, "Revived", El.COLOR[El.LIFE], 52)
+	# A moment to stand up while the pieces fly back together.
+	invuln = maxf(invuln, 1.2)
+	_remains.revive()
 
 
 func _visuals(dt: float) -> void:

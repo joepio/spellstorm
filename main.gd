@@ -5,6 +5,7 @@ extends Node3D
 ##
 ## Command line (after `--`):
 ##   --shot out.png   render one frame after --frames N and quit
+##   --die STYLE [--revive]  kill every wizard that way just before the shot
 ##   --demo           bots play every seat (default for --shot)
 ##   --players N      how many wizards in standalone or demo (default 3)
 ##   --biome N --room N --seed N --recipe N (bots always cast recipe N)
@@ -573,8 +574,23 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _take_shot() -> void:
-	for _f in shot_frames:
+	# --die STYLE kills every wizard that way a second before the shot, and
+	# --revive brings them back a moment before it: for checking the deaths.
+	var args := OS.get_cmdline_user_args()
+	var die_i := args.find("--die")
+	var how: String = args[die_i + 1] if die_i >= 0 and die_i + 1 < args.size() else ""
+	for f in shot_frames:
 		await get_tree().physics_frame
+		if how != "" and f == shot_frames - 70:
+			for w in wizards:
+				w.last_el = {"burn": El.FIRE, "freeze": El.FROST, "shock": El.LIGHTNING, "void": El.VOID, "blown": El.AIR}.get(how, -1)
+				w.last_dir = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+				w.invuln = 0.0
+				w.shield = 0.0
+				w.take(w.hp + (40.0 if how == "gore" else 1.0))
+		if how != "" and "--revive" in args and f == shot_frames - 25:
+			for w in wizards:
+				w.revive(1.0)
 	if "--menu" in OS.get_cmdline_user_args():
 		menu.open(false)
 		await get_tree().process_frame
