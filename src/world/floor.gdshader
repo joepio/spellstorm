@@ -18,6 +18,9 @@ uniform vec2 path_pts[48];
 uniform int path_n = 0;
 uniform float path_w = 2.4;
 uniform int path_style = 0;
+// A second straight way crossing the first (a transept), from xy to zw.
+uniform vec4 cross_seg = vec4(0.0);
+uniform bool has_cross = false;
 uniform vec3 path_a : source_color = vec3(0.3, 0.24, 0.17);
 uniform vec3 path_b : source_color = vec3(0.18, 0.14, 0.1);
 
@@ -73,6 +76,18 @@ vec4 path_info(vec2 p) {
 			dir = ab / len;
 		}
 		run += len;
+	}
+	if (has_cross) {
+		vec2 a = cross_seg.xy;
+		vec2 ab = cross_seg.zw - a;
+		float len = length(ab);
+		float t = clamp(dot(p - a, ab) / (len * len), 0.0, 1.0);
+		float d = length(p - (a + ab * t));
+		if (d < best) {
+			best = d;
+			along = t * len;
+			dir = ab / len;
+		}
 	}
 	return vec4(best, along, dir);
 }

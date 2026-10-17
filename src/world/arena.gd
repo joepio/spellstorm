@@ -8,11 +8,11 @@ const BIOMES := [
 	{id = "chapel", name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, archer = 2}, boss = "gravekeeper", fields = [],
-		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08)},
+		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave"},
 	{id = "catacombs", name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, archer = 1}, boss = "abbot", fields = [],
-		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02)},
+		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave"},
 	{id = "isles", name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
 		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4,
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, archer = 2, bile = 1, wraith = 1}, boss = "drowned_king", fields = [],
@@ -24,7 +24,7 @@ const BIOMES := [
 	{id = "keep", name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
 		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3,
 		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
-		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23)},
+		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave"},
 	{id = "pit", name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
 		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2,
 		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
@@ -35,7 +35,11 @@ var biome: Dictionary
 ## The way through the room, from the entrance (front) to the portal and
 ## the gate behind it, as points in xz. Props keep off it.
 var path := PackedVector2Array()
+## In a built room (chapel, crypt, keep) the aisle is crossed by a second
+## straight way at the altars, like the transept of a church: two points.
+var cross_path := PackedVector2Array()
 const PATH_W := 2.4
+const ALTAR_Z := -2.0
 ## Islands in a water biome, as (x, z, rx, rz) ellipses; empty elsewhere.
 var isles: Array[Vector4] = []
 var fields: Array = []
@@ -57,9 +61,12 @@ func build(biome_index: int, room: int, seed_value: int) -> void:
 	_walls()
 	_path_dressing()
 	var boss_room: bool = room == 2
-	var count := 9 if boss_room else 14
-	for i in count:
-		_prop(biome.props[_rng.randi() % biome.props.size()])
+	if biome.get("layout", "") == "nave":
+		_nave_props()
+	else:
+		var count := 9 if boss_room else 14
+		for i in count:
+			_prop(biome.props[_rng.randi() % biome.props.size()])
 	for k in biome.fields:
 		var p := _free_spot(3.0)
 		if p == Vector3.INF:
@@ -74,7 +81,15 @@ func build(biome_index: int, room: int, seed_value: int) -> void:
 ## portal at z -7.5, so all of those are on the path or on dry land.
 func _plan() -> void:
 	path = PackedVector2Array()
+	cross_path = PackedVector2Array()
 	isles.clear()
+	if biome.get("layout", "") == "nave":
+		# Built by people: a straight aisle from the door to the gate, and a
+		# crossing where the altars stand.
+		for i in 9:
+			path.append(Vector2(0, lerpf(HALF.y + 1.5, -HALF.y - 1.0, i / 8.0)))
+		cross_path = PackedVector2Array([Vector2(-8.5, ALTAR_Z), Vector2(8.5, ALTAR_Z)])
+		return
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
 	var mid_a := Vector2(side * _rng.randf_range(3.5, 7.0), 3.0)
 	var mid_b := Vector2(-side * _rng.randf_range(2.0, 4.5), -2.0)
@@ -117,16 +132,67 @@ static func _smooth(keys: PackedVector2Array, steps: int) -> PackedVector2Array:
 	return out
 
 
-## How far [param p] (xz) is from the path.
+## How far [param p] (xz) is from the path (or the crossing).
 func path_dist(p: Vector2) -> float:
+	return minf(_line_dist(path, p), _line_dist(cross_path, p))
+
+
+static func _line_dist(line: PackedVector2Array, p: Vector2) -> float:
 	var best := INF
-	for i in path.size() - 1:
-		var a := path[i]
-		var b := path[i + 1]
+	for i in line.size() - 1:
+		var a := line[i]
+		var b := line[i + 1]
 		var ab := b - a
 		var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
 		best = minf(best, p.distance_to(a + ab * t))
 	return best
+
+
+## Props in a built room stand in order: graves in rows facing the aisle,
+## pillars lining it, coffins side by side. Nothing stands where the wizards
+## come in or on the crossing.
+func _nave_props() -> void:
+	match biome.id:
+		"chapel":
+			for x: float in [4.2, 6.6, 9.0, 11.4, 13.8]:
+				for sgn: float in [-1.0, 1.0]:
+					var z := -8.6
+					while z < 8.8:
+						var free: bool = absf(z - ALTAR_Z) > 2.2 and not (z > 4.0 and x < 7.0)
+						if free and _rng.randf() < 0.62:
+							_prop("grave", Vector3(sgn * x + _rng.randf_range(-0.15, 0.15), 0, z), _rng.randf_range(-0.12, 0.12))
+						z += 2.5
+			for c: Vector2 in [Vector2(-2.1, ALTAR_Z + 1.9), Vector2(2.1, ALTAR_Z + 1.9), Vector2(-2.1, ALTAR_Z - 1.9), Vector2(2.1, ALTAR_Z - 1.9)]:
+				_prop("candles", Vector3(c.x, 0, c.y), 0.0)
+			for _i in 3:
+				_prop("dead_tree")
+		"catacombs":
+			var z2 := -8.4
+			while z2 < 5.0:
+				if absf(z2 - ALTAR_Z) > 2.0:
+					for sgn: float in [-1.0, 1.0]:
+						_prop("pillar", Vector3(sgn * 2.9, 0, z2), 0.0)
+				z2 += 3.4
+			for x: float in [7.0, 10.0, 13.0]:
+				for sgn: float in [-1.0, 1.0]:
+					for z: float in [-8.0, -4.9, 1.2, 4.4]:
+						if _rng.randf() < 0.7 and not (z > 4.0 and x < 8.0):
+							_prop("sarcophagus", Vector3(sgn * x, 0, z), 0.0)
+			for _i in 4:
+				_prop("bones")
+			for _i in 3:
+				_prop("candles")
+		_:
+			var z3 := -8.4
+			while z3 < 5.0:
+				if absf(z3 - ALTAR_Z) > 2.0:
+					for sgn: float in [-1.0, 1.0]:
+						_prop("pillar", Vector3(sgn * 3.1, 0, z3), 0.0)
+				z3 += 4.0
+			for _i in 5:
+				_prop("ice")
+			for _i in 2:
+				_prop("rock")
 
 
 ## Signed distance to the nearest island shore, negative on land (without
@@ -153,46 +219,67 @@ func in_water(at: Vector3) -> bool:
 ## Posts along the bridges, low stones and lanterns along the path, and an
 ## open gate in the back wall where the path leaves the room.
 func _path_dressing() -> void:
-	var wood := Fx.solid(Color(0.2, 0.14, 0.09))
-	var stone := Fx.solid(biome.wall.darkened(0.1), 0.95)
+	_next_post = 0.0
+	_next_lamp = 3.0
 	var run := 0.0
-	var next_post := 0.0
-	var next_lamp := 3.0
-	for i in path.size() - 1:
-		var a := path[i]
-		var b := path[i + 1]
-		var len := a.distance_to(b)
-		var dir := (b - a) / len
-		var nrm := Vector2(-dir.y, dir.x)
-		var t := 0.0
-		while t < len:
-			var c := a + dir * t
-			var inside := absf(c.x) < HALF.x - 0.5 and absf(c.y) < HALF.y - 0.5
-			if inside and not isles.is_empty() and shore(c) > 0.1 and run + t >= next_post:
-				next_post = run + t + 1.6
-				for sgn in [-1.0, 1.0]:
-					var q: Vector2 = c + nrm * sgn * (PATH_W * 0.5 - 0.1)
-					Art.part(self, Art.cyl(0.07, 0.09, 0.9, 6), wood, Vector3(q.x, 0.2, q.y))
-			elif inside and isles.is_empty() and run + t >= next_post:
-				# Kerb stones along the edge, some missing.
-				next_post = run + t + 1.1
-				for sgn in [-1.0, 1.0]:
-					if _rng.randf() < 0.55:
-						var q2: Vector2 = c + nrm * sgn * (PATH_W * 0.5 + 0.15)
-						Art.part(self, Art.box(0.32, 0.12, 0.24), stone, Vector3(q2.x, 0.06, q2.y), Vector3(0, _rng.randf() * 60.0, 0))
-			if inside and run + t >= next_lamp and (isles.is_empty() or shore(c) < -0.5) and absf(c.y) > 1.0:
-				next_lamp = run + t + 9.0
-				var sgn2 := 1.0 if _rng.randf() < 0.5 else -1.0
-				_lamp(c + nrm * sgn2 * (PATH_W * 0.5 + 0.6))
-			t += 0.25
-		run += len
+	for line in [path, cross_path]:
+		for i in line.size() - 1:
+			_dress_span(line[i], line[i + 1], run)
+			run += line[i].distance_to(line[i + 1])
 	_gate()
 
 
+var _next_post := 0.0
+var _next_lamp := 3.0
+
+
+## Dress one straight span of the path, [param run] metres along it.
+func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
+	var wood := Fx.solid(Color(0.2, 0.14, 0.09))
+	var stone := Fx.solid(biome.wall.darkened(0.1), 0.95)
+	var built: bool = biome.get("layout", "") == "nave"
+	var len := a.distance_to(b)
+	var dir := (b - a) / len
+	var nrm := Vector2(-dir.y, dir.x)
+	var t := 0.0
+	while t < len:
+		var c := a + dir * t
+		var at := run + t
+		var inside := absf(c.x) < HALF.x - 0.5 and absf(c.y) < HALF.y - 0.5
+		if inside and at >= _next_post:
+			if not isles.is_empty() and shore(c) > 0.1:
+				# Posts along a bridge.
+				_next_post = at + 1.6
+				for sgn: float in [-1.0, 1.0]:
+					var q: Vector2 = c + nrm * sgn * (PATH_W * 0.5 - 0.1)
+					Art.part(self, Art.cyl(0.07, 0.09, 0.9, 6), wood, Vector3(q.x, 0.2, q.y))
+			elif isles.is_empty() and not built:
+				# Kerb stones along a trodden way, some missing.
+				_next_post = at + 1.1
+				for sgn: float in [-1.0, 1.0]:
+					var q2: Vector2 = c + nrm * sgn * (PATH_W * 0.5 + 0.15)
+					if _rng.randf() < 0.55 and path_dist(q2) > PATH_W * 0.5:
+						Art.part(self, Art.box(0.32, 0.12, 0.24), stone, Vector3(q2.x, 0.06, q2.y), Vector3(0, _rng.randf() * 60.0, 0))
+		if inside and at >= _next_lamp and (isles.is_empty() or shore(c) < -0.5) and absf(c.y - ALTAR_Z) > 1.5:
+			if built:
+				# Lanterns in pairs, both sides of the aisle.
+				_next_lamp = at + 6.0
+				for sgn: float in [-1.0, 1.0]:
+					_lamp(c + nrm * sgn * (PATH_W * 0.5 + 0.5), -nrm * sgn)
+			else:
+				_next_lamp = at + 9.0
+				var sgn2 := 1.0 if _rng.randf() < 0.5 else -1.0
+				_lamp(c + nrm * sgn2 * (PATH_W * 0.5 + 0.6), -nrm * sgn2)
+		t += 0.25
+
+
 ## A post with a hanging lantern beside the path.
-func _lamp(at: Vector2) -> void:
+func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 	var n := Node3D.new()
 	n.position = Vector3(at.x, 0, at.y)
+	# The arm reaches out over the path.
+	if toward != Vector2.ZERO:
+		n.rotation.y = atan2(-toward.y, toward.x)
 	add_child(n)
 	var iron := Fx.solid(Color(0.12, 0.11, 0.1), 0.6)
 	Art.part(n, Art.cyl(0.05, 0.07, 1.8, 6), iron, Vector3(0, 0.9, 0))
@@ -212,7 +299,7 @@ func _lamp(at: Vector2) -> void:
 func _gate() -> void:
 	var stone := Fx.solid(biome.wall.lightened(0.05), 0.95)
 	var z := -HALF.y - 0.6
-	for sgn in [-1.0, 1.0]:
+	for sgn: float in [-1.0, 1.0]:
 		Art.part(self, Art.box(0.9, 4.2, 1.5), stone, Vector3(sgn * 1.7, 2.1, z))
 	Art.part(self, Art.box(4.3, 0.7, 1.5), stone, Vector3(0, 4.3, z))
 	var block := StaticBody3D.new()
@@ -239,6 +326,9 @@ func _floor() -> void:
 	mat.set_shader_parameter("path_pts", path)
 	mat.set_shader_parameter("path_n", path.size())
 	mat.set_shader_parameter("path_w", PATH_W)
+	mat.set_shader_parameter("has_cross", cross_path.size() == 2)
+	if cross_path.size() == 2:
+		mat.set_shader_parameter("cross_seg", Vector4(cross_path[0].x, cross_path[0].y, cross_path[1].x, cross_path[1].y))
 	mat.set_shader_parameter("path_style", biome.get("path_style", 0))
 	mat.set_shader_parameter("path_a", biome.get("path_a", Color(0.3, 0.25, 0.18)))
 	mat.set_shader_parameter("path_b", biome.get("path_b", Color(0.17, 0.14, 0.1)))
@@ -362,14 +452,18 @@ func _free_spot(clear: float) -> Vector3:
 	return Vector3.INF
 
 
-func _prop(kind: String) -> void:
-	var p := _free_spot(2.6)
+## A prop of [param kind] at a free spot, or at [param at] facing
+## [param yaw] when a layout places it.
+func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
+	var p := at if at != Vector3.INF else _free_spot(2.6)
 	if p == Vector3.INF:
 		return
+	if at != Vector3.INF:
+		_props_at.append(at)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.position = p
-	body.rotation.y = _rng.randf() * TAU
+	body.rotation.y = yaw if yaw != INF else _rng.randf() * TAU
 	add_child(body)
 	var r := 0.4
 	var stone := Fx.solid(biome.wall.lightened(0.1), 0.95)
