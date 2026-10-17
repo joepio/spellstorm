@@ -226,6 +226,16 @@ class WizardPanel:
 		if not slots.is_empty():
 			var k := clampf(float(wizard.ammo) / Wizard.BOLTS_PER_ELEMENT, 0.0, 1.0)
 			draw_arc(Vector2(126, 66), 20, -PI * 0.5, -PI * 0.5 + TAU * k, 32, Color(1.0, 0.88, 0.5), 3.0, true)
+		# A running stream (flamethrower, beam, chain lightning) drains a bar
+		# over the sockets until it ends.
+		var left := wizard.channel_left()
+		if left >= 0.0 and wizard.channel:
+			var bar := Rect2(108, 56, 5 * 42 - 6, 20)
+			var col: Color = wizard.channel.color()
+			draw_rect(bar, Color(0.12, 0.09, 0.07))
+			draw_rect(Rect2(bar.position, Vector2(bar.size.x * left, bar.size.y)), col)
+			draw_rect(Rect2(bar.position, Vector2(bar.size.x * left, 6)), col.lightened(0.45))
+			draw_rect(bar, Color(0.45, 0.35, 0.22), false, 2.0)
 		var y := 112.0
 		if not wizard.alive:
 			draw_string(f, Vector2(110, y + 10), "Fallen. Heal the grave with Life", HORIZONTAL_ALIGNMENT_LEFT, w - 120, 22, Color(0.85, 0.3, 0.25))
@@ -238,7 +248,7 @@ class WizardPanel:
 			draw_string(f, Vector2(x0, 164), "RT casts what is left for mana", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
 			draw_string(f, Vector2(x0, 190), "Hold LB for the opposites", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.5, 0.46, 0.4))
 			return
-		var rows := [["RT", "cast"], ["RB", "nova"], ["▼", "plant"], ["RS", "ward"]]
+		var rows := [["RT", "cast"], ["RB", "nova"], ["LS", "plant"], ["RS", "ward"]]
 		for i in rows.size():
 			var s := wizard.preview(rows[i][1])
 			var price := wizard.cost(s)

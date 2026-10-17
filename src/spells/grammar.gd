@@ -169,8 +169,28 @@ static func effect(spell: Dictionary, mods: Dictionary = {}) -> Dictionary:
 
 
 ## Size, range and timing of each shape. All the numbers live here so a
-## balance pass touches one function.
+## balance pass touches one function. The rates are starting points:
+## Balance.fit scales each one onto the damage budget.
 static func _numbers(spell: Dictionary, mods: Dictionary) -> void:
+	_raw_numbers(spell, mods)
+	if not spell.n.has("rate") or not Balance.measured(spell):
+		return
+	# The factor comes from the spell without relics, so a relic still makes
+	# you stronger. It depends only on the shape and the element counts.
+	var counts: Array = spell.counts.keys()
+	counts.sort()
+	var key := "%s|%s|%s" % [spell.shape, spell.primary, ",".join(counts.map(func(e): return "%d:%d" % [e, spell.counts[e]]))]
+	if not _fit.has(key):
+		var base := spell.duplicate()
+		_raw_numbers(base, {})
+		_fit[key] = Balance.fit(base)
+	spell.n.rate *= _fit[key]
+
+
+static var _fit := {}
+
+
+static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 	var p: int = spell.power
 	var lead: int = spell.counts.get(spell.primary, 0)
 	var n := {}

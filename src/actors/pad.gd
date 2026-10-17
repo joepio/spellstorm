@@ -119,7 +119,7 @@ func _read_keyboard() -> void:
 	var keys := {
 		A: [KEY_1, KEY_J, KEY_ENTER], B: [KEY_2, KEY_K, KEY_BACKSPACE], X: [KEY_3, KEY_L], Y: [KEY_4, KEY_I],
 		LB: [KEY_SHIFT], RB: [KEY_SPACE], RS: [KEY_F], LT: [KEY_Q], UP: [KEY_R, KEY_UP],
-		LEFT: [KEY_Z, KEY_LEFT], RIGHT: [KEY_C, KEY_RIGHT], DOWN: [KEY_V, KEY_DOWN], START: [KEY_ESCAPE],
+		LEFT: [KEY_Z, KEY_LEFT], RIGHT: [KEY_C, KEY_RIGHT], LS: [KEY_V], DOWN: [KEY_DOWN], START: [KEY_ESCAPE],
 	}
 	var bits := 0
 	for b in keys:

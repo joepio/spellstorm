@@ -13,40 +13,41 @@ extends Actor
 ##   RB  staff swing, knocks bullets back (free); hold and let go: burst
 ##   LT  dodge roll, monsters cannot touch you while you roll (free)
 ##   RT  cast the queue ahead (hold for sprays, beams and arcs, release to throw)
-##   D-pad down  plant the queue on the ground ahead     RS click  ward yourself
+##   LS click  plant the queue on the ground ahead     RS click  ward yourself
 ##   D-pad up  conjure your last spell again
 ##   D-pad left / right  tap to conjure a saved spell, hold to save the queue
 
 const REVIVE_NEED := 40.0
 const SAVE_HOLD := 0.6
 
-const MANA_MAX := 100.0
-const MANA_REGEN := 3.0
-const MANA_PER_LOAD := 3.0
-const MANA_PER_ELEMENT := 8.0
-const OVERLOAD_COST := 40.0
+## The mana economy lives in Balance, next to the damage budget it pays for.
+const MANA_MAX := Balance.MANA_MAX
+const MANA_REGEN := Balance.MANA_REGEN
+const MANA_PER_LOAD := Balance.MANA_PER_LOAD
+const MANA_PER_ELEMENT := Balance.MANA_PER_ELEMENT
+const OVERLOAD_COST := Balance.OVERLOAD_COST
 ## Bolts each loaded element is good for. The oldest one burns first and
 ## drops out of the queue when it is spent.
 const BOLTS_PER_ELEMENT := 8
 ## Plain bolts when the queue is empty: weak, so loading is worth it.
-const PLAIN_BOLT := 0.2
-const MANA_PER_BOLT := 1.2
-const MANA_PER_SWING := 7.0
-const MANA_PER_DEFLECT := 4.0
-const BOLT_RATE := 6.0
+const PLAIN_BOLT := Balance.PLAIN_BOLT
+const MANA_PER_SWING := Balance.MANA_PER_SWING
+const MANA_PER_DEFLECT := Balance.MANA_PER_DEFLECT
+const BOLT_RATE := Balance.BOLT_RATE
 const SWING_COOLDOWN := 0.34
+## After a swing the staff needs this long before it can swing again, so
+## knocking bullets back is a timed choice, not a shield. The gem goes dark
+## while it recovers and flashes when it is ready.
+const SWING_RECOVER := 1.4
 const SWING_REACH := 2.3
+## Half the angle of the swing, each side of where you aim: what it hits and
+## the bullets it knocks back.
+const SWING_ARC := 1.3
 const NOVA_HOLD := 0.45
 const ROLL_TIME := 0.32
 const ROLL_SPEED := 14.0
 const ROLL_COOLDOWN := 0.75
-## How hard one staff bolt hits, as a share of a whole element (El.EFFECT),
-## so every element does about the same damage a second and brings its own
-## status: fire burns, frost freezes after a few hits, water soaks and
-## shoves, lightning shocks (double on wet), air pushes, life heals friends.
-const BOLT := {El.LIFE: 0.3, El.VOID: 0.25, El.FIRE: 0.45, El.FROST: 0.6, El.WATER: 0.9,
-	El.LIGHTNING: 0.3, El.EARTH: 0.28, El.AIR: 0.6,
-	El.STEAM: 0.35, El.ICE: 0.33, El.MUD: 0.6, El.MAGMA: 0.3, El.STORM: 0.4}
+const BOLT := Balance.BOLT
 
 var player_name := "Wizard"
 var robe := Color(0.6, 0.15, 0.15)
@@ -78,6 +79,8 @@ var _traced := {}
 var _save_t := {}
 var _revive := 0.0
 var _swing_t := 0.0
+var _swing_cd := 0.0
+var _swing_dir := Vector3.FORWARD
 var _cast_anim := 0.0
 var _walk := 0.0
 
@@ -88,6 +91,10 @@ var _light: OmniLight3D
 var _ward_shell: MeshInstance3D
 var _tomb: Node3D
 var _charge_ring: MeshInstance3D
+## The swing's arc on the ground: sweeps open on a swing, and shows faintly
+## while a bullet is close so you can see what you would knock back.
+var _zone: MeshInstance3D
+var _zone_mat: ShaderMaterial
 var _ring: MeshInstance3D
 
 
@@ -151,6 +158,16 @@ func _ready() -> void:
 	_ward_shell.visible = false
 	_ward_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_ward_shell)
+	_zone = MeshInstance3D.new()
+	_zone.mesh = _arc_mesh(0.55, SWING_REACH + 0.3, SWING_ARC)
+	_zone_mat = ShaderMaterial.new()
+	_zone_mat.shader = preload("res://src/fx/slash.gdshader")
+	_zone.material_override = _zone_mat
+	_zone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_zone.position.y = 0.06
+	_zone.top_level = true
+	_zone.visible = false
+	add_child(_zone)
 	_charge_ring = MeshInstance3D.new()
 	_charge_ring.mesh = tor
 	_charge_ring.position.y = 0.06
@@ -206,8 +223,17 @@ func staff_tip() -> Vector3:
 	return model.gem.global_position if model else global_position + Vector3.UP * 1.6
 
 
+## A stream runs its whole time once started (one tap of RT); tapping RT
+## again or rolling stops it early.
 func holding(fx: SpellFx) -> bool:
-	return channel == fx and _channel_button != -1 and pad.down(_channel_button) and alive
+	return channel == fx and alive
+
+
+## How much of the running stream is left, 1 to 0, or -1 when none runs.
+func channel_left() -> float:
+	if channel == null or not is_instance_valid(channel) or not channel.is_physics_processing():
+		return -1.0
+	return clampf(1.0 - channel.t / maxf(float(channel.n.get("duration", 1.0)), 0.01), 0.0, 1.0)
 
 
 func _physics_process(dt: float) -> void:
@@ -219,6 +245,10 @@ func _physics_process(dt: float) -> void:
 			pad.mouse_origin = Game.I.camera.unproject_position(global_position + Vector3.UP)
 		pad.poll()
 	_swing_t = maxf(0.0, _swing_t - dt)
+	if _swing_cd > 0.0:
+		_swing_cd -= dt
+		if _swing_cd <= 0.0 and model:
+			Fx.burst(staff_tip(), Color(1.0, 0.9, 0.6), 8, 1.5, 0.12)
 	_cast_anim = maxf(0.0, _cast_anim - dt)
 	_roll_cd = maxf(0.0, _roll_cd - dt)
 	no_mana = maxf(0.0, no_mana - dt)
@@ -280,12 +310,13 @@ func _read_input(dt: float) -> void:
 		if _rb_t >= NOVA_HOLD:
 			cast("nova", -1)
 		_rb_t = -1.0
-	if pad.pressed(Pad.DOWN):
+	if pad.pressed(Pad.LS):
 		cast("plant", -1)
 	if pad.pressed(Pad.RS):
 		cast("ward", -1)
 	_bolt_t -= dt
-	if pad.fire and _bolt_t <= 0.0 and not busy():
+	# Swinging the staff stops the bolts for a moment: your hands are busy.
+	if pad.fire and _bolt_t <= 0.0 and not busy() and _swing_t <= 0.0:
 		_bolt_t = 1.0 / BOLT_RATE
 		shoot()
 	if pad.pressed(Pad.UP) and not last_cast.is_empty():
@@ -361,9 +392,10 @@ func shoot() -> void:
 ## The staff swing: hits monsters in front with your element and knocks
 ## their bullets back the way you aim.
 func melee() -> void:
-	if _swing_t > 0.0 or busy():
+	if _swing_t > 0.0 or _swing_cd > 0.0 or busy():
 		return
 	_swing_t = SWING_COOLDOWN
+	_swing_cd = SWING_COOLDOWN + SWING_RECOVER
 	_trace_once("melee")
 	Game.I.count("swings")
 	var bonk := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
@@ -373,7 +405,7 @@ func melee() -> void:
 			continue
 		var to: Vector3 = a.global_position - global_position
 		to.y = 0
-		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > 1.2:
+		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > SWING_ARC + atan2(a.radius, maxf(to.length(), 0.1)):
 			continue
 		a.hit_spell(bonk, 0.4, self, to.normalized())
 		BoltFx.strike(a, touch, 2.5, self, to.normalized())
@@ -383,12 +415,50 @@ func melee() -> void:
 			continue
 		var to2: Vector3 = b.global_position - global_position
 		to2.y = 0
-		if to2.length() < SWING_REACH + 0.3 and absf(aim_dir.signed_angle_to(to2, Vector3.UP)) < 1.4:
+		if to2.length() < SWING_REACH + 0.3 and absf(aim_dir.signed_angle_to(to2, Vector3.UP)) < SWING_ARC:
 			b.deflect(self, aim_dir)
 			add_mana(MANA_PER_DEFLECT)
 			Game.I.count("deflects")
 	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
 	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
+	_swing_dir = aim_dir
+	_zone_mat.set_shader_parameter("color", sc.lerp(Color(1.0, 0.9, 0.6), 0.5))
+
+
+func _place_zone(dir: Vector3) -> void:
+	_zone.global_position = Vector3(global_position.x, 0.06, global_position.z)
+	_zone.rotation = Vector3(0, atan2(dir.x, dir.z), 0)
+
+
+## 1 when an enemy bullet is right on you, fading to 0 at six metres.
+func _bullet_near() -> float:
+	var best := 0.0
+	for b in Bullet.all:
+		if b.team == team:
+			continue
+		var d := Vector2(b.global_position.x - global_position.x, b.global_position.z - global_position.z).length()
+		best = maxf(best, 1.0 - clampf((d - SWING_REACH) / 4.0, 0.0, 1.0))
+	return best
+
+
+## A flat ring sector on the ground, pointing along +Z: UV.x runs across it,
+## UV.y from the inner radius out.
+static func _arc_mesh(r0: float, r1: float, half: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 28
+	for i in seg:
+		var a0 := lerpf(half, -half, float(i) / seg)
+		var a1 := lerpf(half, -half, float(i + 1) / seg)
+		var u0 := float(i) / seg
+		var u1 := float(i + 1) / seg
+		var p := [Vector3(sin(a0) * r0, 0, cos(a0) * r0), Vector3(sin(a0) * r1, 0, cos(a0) * r1),
+			Vector3(sin(a1) * r1, 0, cos(a1) * r1), Vector3(sin(a1) * r0, 0, cos(a1) * r0)]
+		var uv := [Vector2(u0, 0), Vector2(u0, 1), Vector2(u1, 1), Vector2(u1, 0)]
+		for k in [0, 1, 2, 0, 2, 3]:
+			st.set_uv(uv[k])
+			st.add_vertex(p[k])
+	return st.commit()
 
 
 ## A dodge roll the way you walk, untouchable for its length.
@@ -468,8 +538,15 @@ func preview(form: String) -> Dictionary:
 
 ## Cast what is queued in [param form]. [param button] is held to channel.
 func cast(form: String, button: int) -> void:
-	if channel and is_instance_valid(channel) and channel.is_physics_processing():
+	if _swing_t > 0.0:
 		return
+	if channel and is_instance_valid(channel) and channel.is_physics_processing():
+		# RT again ends the stream, and casts what you loaded since if any.
+		if form != "cast" or queue.is_empty():
+			if form == "cast":
+				channel = null
+			return
+		channel = null
 	if not _charging.is_empty():
 		return
 	var s := preview(form)
@@ -560,7 +637,7 @@ func _ward(s: Dictionary) -> void:
 		if El.contains(e, El.AIR):
 			haste += 0.15 * k
 	if s.counts.has(El.LIFE):
-		hp = minf(max_hp, hp + El.EFFECT[El.LIFE].heal * 2.2 * s.counts[El.LIFE] * float(_mod("heal", 1.0)))
+		healed(El.EFFECT[El.LIFE].heal * 2.2 * s.counts[El.LIFE] * float(_mod("heal", 1.0)))
 		Fx.burst(global_position + Vector3.UP, El.COLOR[El.LIFE], 24, 3.0)
 	if s.counts.size() == 1 and s.counts.has(El.LIFE):
 		ward = {}
@@ -601,7 +678,7 @@ func _swing(s: Dictionary) -> void:
 func on_dealt(dmg: float, spell: Dictionary) -> void:
 	var siphon := float(_mod("siphon", 0.0))
 	if siphon > 0.0 and spell.counts.has(El.VOID):
-		hp = minf(max_hp, hp + dmg * siphon)
+		healed(dmg * siphon)
 
 
 func die(src: Actor) -> void:
@@ -660,10 +737,27 @@ func _visuals(dt: float) -> void:
 	# Casting points the staff ahead (positive x tips the gem forward).
 	staff.rotation.x = lerpf(staff.rotation.x, 0.95 * lift, 12.0 * dt)
 	staff.position.z = lerpf(staff.position.z, 0.18 + 0.25 * lift, 12.0 * dt)
-	if _swing_t > 0.0:
-		staff.rotation.y = sin(_swing_t / SWING_COOLDOWN * PI) * 1.6
+	# The swing: the staff sweeps flat from one side to the other, the body
+	# twists with it, and the arc on the ground opens behind the staff.
+	var sweep := 1.0 - _swing_t / SWING_COOLDOWN if _swing_t > 0.0 else -1.0
+	if sweep >= 0.0:
+		var e := 1.0 - pow(1.0 - minf(sweep * 1.6, 1.0), 3.0)
+		staff.rotation.y = lerpf(1.9, -1.9, e)
+		staff.rotation.x = lerpf(staff.rotation.x, 1.35, 30.0 * dt)
+		body.rotation.y = target_yaw + lerpf(0.6, -0.6, e)
+		_zone.visible = true
+		_zone_mat.set_shader_parameter("progress", e)
+		_zone_mat.set_shader_parameter("strength", 1.0 - smoothstep(0.55, 1.0, sweep))
+		_place_zone(_swing_dir)
 	else:
 		staff.rotation.y = 0.0
+		var near := _bullet_near() if _swing_cd <= 0.0 else 0.0
+		_zone.visible = near > 0.0 and alive
+		if _zone.visible:
+			_zone_mat.set_shader_parameter("color", Color(1.0, 0.9, 0.6))
+			_zone_mat.set_shader_parameter("progress", 1.0)
+			_zone_mat.set_shader_parameter("strength", 0.22 * near)
+			_place_zone(aim_dir)
 	# Orbs circle the hat, one per queued element.
 	var slots := queue.slots
 	var gem_color := Color(0.9, 0.85, 0.7)
@@ -680,7 +774,10 @@ func _visuals(dt: float) -> void:
 		else:
 			o.visible = false
 	gem_color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
-	model.gem.material_override = Fx.glow(gem_color, 3.0)
+	if _swing_cd > 0.0:
+		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5)
+	else:
+		model.gem.material_override = Fx.glow(gem_color, 3.0)
 	_ward_shell.visible = ward_time > 0.0
 	if ward_time > 0.0:
 		var pulse := 0.95 + 0.05 * sin(Time.get_ticks_msec() / 150.0)

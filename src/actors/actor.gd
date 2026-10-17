@@ -12,8 +12,8 @@ extends CharacterBody3D
 
 signal died(actor: Actor)
 
-const BURN_DPS := 7.0
-const FREEZE_TIME := 2.6
+const BURN_DPS := Balance.BURN_DPS
+const FREEZE_TIME := Balance.FREEZE_TIME
 
 var team := 0
 var hp := 100.0
@@ -37,6 +37,9 @@ var stun := 0.0
 var slow := 0.0
 var slick := 0.0
 var push := Vector3.ZERO
+## Damage and healing since the last floating number (Game shows them),
+## and whether a hit in that time found a weakness or a resistance.
+var shown := {dmg = 0.0, heal = 0.0, weak = false, resist = false}
 var ward := {}
 var ward_time := 0.0
 var flash := 0.0
@@ -97,6 +100,11 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 		var n: float = spell.counts[e] * scale * float(mods.get("el_%d" % e, 1.0))
 		var eff: Dictionary = El.EFFECT[e]
 		var mult := 1.0 - resistance(e)
+		if eff.has("dmg") and (e != El.LIFE or undead):
+			if mult > 1.05:
+				shown.weak = true
+			elif mult < 0.95:
+				shown.resist = true
 		if heals_from != -1 and El.contains(e, heals_from):
 			heal += float(eff.get("dmg", 0.0)) * n
 			continue
@@ -127,7 +135,7 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 		shove *= maxf(ff, 0.35)
 	dmg *= float(mods.get("dmg", 1.0)) * armor
 	if heal > 0.0:
-		hp = minf(max_hp, hp + heal)
+		healed(heal)
 	if shove > 0.0 and dir.length() > 0.01:
 		push += dir.normalized() * shove * 2.2 / mass
 	if dmg > 0.0:
@@ -171,9 +179,17 @@ func _freeze() -> void:
 	burn = 0.0
 
 
+## Heal by [param amount], up to full, and show it.
+func healed(amount: float) -> void:
+	var before := hp
+	hp = minf(max_hp, hp + amount)
+	shown.heal += hp - before
+
+
 func take(dmg: float, src: Actor = null) -> void:
 	if not alive or invuln > 0.0:
 		return
+	shown.dmg += minf(dmg, hp)
 	hp -= dmg
 	if dmg > 2.5:
 		flash = maxf(flash, 0.08)

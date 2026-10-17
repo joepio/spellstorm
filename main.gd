@@ -44,7 +44,6 @@ var _shake := 0.0
 var _cam_center := Vector3.ZERO
 var _cam_height := 20.0
 var _confluence_t := {}
-var _dmg_acc := {}
 var _dmg_t := 0.0
 var _globes: Array = []
 
@@ -320,14 +319,6 @@ func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
-func damage_number(at: Vector3, dmg: float) -> void:
-	var k := snappedf(at.x, 0.5) * 1000.0 + snappedf(at.z, 0.5)
-	var acc: Dictionary = _dmg_acc.get(k, {at = at, dmg = 0.0})
-	acc.dmg += dmg
-	acc.at = at
-	_dmg_acc[k] = acc
-
-
 func summon_circle(at: Vector3) -> void:
 	var c := Color(0.8, 0.08, 0.05)
 	Fx.ring(at, c, 1.2, 0.8)
@@ -337,11 +328,11 @@ func summon_circle(at: Vector3) -> void:
 
 func _globe(at: Vector3) -> void:
 	var g := Node3D.new()
-	Art.part(g, Art.sphere(0.22, 10), Fx.glow(Color(0.85, 0.05, 0.05), 2.5), Vector3(0, 0.5, 0))
+	Art.part(g, Art.sphere(0.12, 8), Fx.glow(Color(0.85, 0.05, 0.05), 2.5), Vector3(0, 0.5, 0))
 	var l := OmniLight3D.new()
 	l.light_color = Color(1, 0.1, 0.1)
-	l.light_energy = 1.0
-	l.omni_range = 2.5
+	l.light_energy = 0.6
+	l.omni_range = 1.8
 	l.position.y = 0.6
 	g.add_child(l)
 	spawn(g, Vector3(at.x, 0, at.z))
@@ -366,20 +357,45 @@ func _physics_process(dt: float) -> void:
 		g.get_child(0).position.y = 0.5 + sin(Time.get_ticks_msec() / 300.0) * 0.1
 		for w in wizards:
 			if w.alive and w.global_position.distance_to(g.global_position) < 1.0:
-				w.hp = minf(w.max_hp, w.hp + 30.0)
+				w.healed(30.0)
 				Fx.burst(g.global_position + Vector3.UP * 0.5, Color(1, 0.1, 0.1), 16, 3.0)
 				_globes.erase(g)
 				g.queue_free()
 				break
 	_dmg_t -= dt
 	if _dmg_t <= 0.0:
-		_dmg_t = 0.35
-		for k in _dmg_acc:
-			var a: Dictionary = _dmg_acc[k]
-			if a.dmg >= 4.0:
-				var big: bool = a.dmg > 40.0
-				Fx.text(a.at + Vector3(randf_range(-0.3, 0.3), 0, 0), "%d" % int(a.dmg), Color(1.0, 0.85, 0.3) if big else Color(0.95, 0.92, 0.85), 54 if big else 36, 0.8)
-		_dmg_acc.clear()
+		_dmg_t = 0.3
+		for a in wizards + enemies:
+			if is_instance_valid(a):
+				_numbers(a)
+
+
+## Small floating numbers for what an actor took and healed since the last
+## time: white on monsters, gold and bigger on a weakness, grey and smaller
+## when it resists, red on wizards, green for healing.
+func _numbers(a: Actor) -> void:
+	var s: Dictionary = a.shown
+	var top: Vector3 = a.global_position + Vector3.UP * (2.6 if a is Wizard else 1.4 + a.radius * 1.4)
+	var side := Vector3(randf_range(-0.35, 0.35), 0, 0)
+	if s.dmg >= 1.0:
+		var txt := "%d" % roundi(s.dmg)
+		var c := Color(0.95, 0.92, 0.85)
+		var size := 30
+		if a is Wizard:
+			c = Color(1.0, 0.3, 0.25)
+		elif s.weak:
+			txt += "!"
+			c = Color(1.0, 0.72, 0.15)
+			size = 42
+		elif s.resist:
+			c = Color(0.6, 0.62, 0.68)
+			size = 24
+		Fx.text(top + side, txt, c, size, 0.8)
+	elif s.resist and a is Enemy:
+		Fx.text(top + side, "resist", Color(0.6, 0.62, 0.68), 22, 0.8)
+	if s.heal >= 1.0:
+		Fx.text(top - side + Vector3.UP * 0.25, "+%d" % roundi(s.heal), Color(0.4, 1.0, 0.45), 28, 0.9)
+	a.shown = {dmg = 0.0, heal = 0.0, weak = false, resist = false}
 
 
 ## Two wizards' streams that cross meet in the middle: the elements of both
@@ -473,9 +489,9 @@ func _world() -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 1.05
 	e.glow_enabled = true
-	e.glow_intensity = 0.7
-	e.glow_bloom = 0.08
-	e.glow_hdr_threshold = 0.9
+	e.glow_intensity = 0.8
+	e.glow_bloom = 0.12
+	e.glow_hdr_threshold = 0.8
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.08, 0.1, 0.12)
 	e.fog_density = 0.006

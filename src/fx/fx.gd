@@ -108,6 +108,30 @@ static func flames(r: float) -> CPUParticles3D:
 	return p
 
 
+static var _halo_mats := {}
+
+
+## A soft camera-facing glow of [param size] metres across, to put round
+## anything bright (src/fx/halo.gdshader).
+static func halo(c: Color, size: float, strength := 1.0, pulse := 0.0) -> MeshInstance3D:
+	var key := "%s%.2f%.2f" % [c.to_html(), strength, pulse]
+	if not _halo_mats.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://src/fx/halo.gdshader")
+		m.set_shader_parameter("color", c)
+		m.set_shader_parameter("strength", strength)
+		m.set_shader_parameter("pulse", pulse)
+		_halo_mats[key] = m
+	var q := MeshInstance3D.new()
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2.ONE
+	q.mesh = mesh
+	q.scale = Vector3.ONE * size
+	q.material_override = _halo_mats[key]
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return q
+
+
 static func _spawn(n: Node3D, at: Vector3) -> void:
 	if root == null:
 		n.queue_free()

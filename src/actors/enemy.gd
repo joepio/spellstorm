@@ -364,7 +364,7 @@ func _strike() -> void:
 			if to.length() <= cfg.reach + target.radius + 0.6:
 				var dealt := target.hit_spell(s, s.scale, self, to.normalized(), 1.0)
 				if elite.has("leech"):
-					hp = minf(max_hp, hp + dealt * elite.leech)
+					healed(dealt * elite.leech)
 				_model.position = to.normalized() * 0.3
 				create_tween().tween_property(_model, "position", Vector3.ZERO, 0.2)
 		"slam":
@@ -531,12 +531,6 @@ func _animate(dt: float) -> void:
 		_hp_mat.set_shader_parameter("fill", f)
 
 
-func take(dmg: float, src: Actor = null) -> void:
-	super.take(dmg, src)
-	if alive and dmg > 3.0 and Game.I:
-		Game.I.damage_number(global_position + Vector3.UP * (1.8 * cfg.size), dmg)
-
-
 func die(src: Actor) -> void:
 	super.die(src)
 	set_physics_process(false)
@@ -545,6 +539,7 @@ func die(src: Actor) -> void:
 	Fx.burst(global_position + Vector3.UP * 0.8, Color(0.55, 0.03, 0.03), 26 + int(cfg.size * 10), 5.0, 0.3)
 	if Game.I:
 		Game.I.on_enemy_died(self, src)
+		Soul.drop(self)
 	if cfg.get("burst", false):
 		var s := _attack_spell(El.MUD, 18.0)
 		var nova := NovaFx.new()

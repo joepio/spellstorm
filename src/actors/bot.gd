@@ -39,7 +39,7 @@ var fixed_recipe := -1
 func think(w: Wizard, dt: float) -> void:
 	var pad := w.pad
 	pad.poll()
-	for b in [Pad.A, Pad.B, Pad.X, Pad.Y, Pad.LB, Pad.LT, Pad.RB, Pad.RS, Pad.UP, Pad.DOWN]:
+	for b in [Pad.A, Pad.B, Pad.X, Pad.Y, Pad.LB, Pad.LT, Pad.RB, Pad.RS, Pad.UP, Pad.LS]:
 		pad.set_button(b, false)
 	pad.fire = false
 	if not w.alive:
@@ -83,6 +83,12 @@ func think(w: Wizard, dt: float) -> void:
 		elif d < want - 1.5:
 			move = -to.normalized()
 		move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
+	# Low on mana: go and take the souls lying around.
+	var soul := _nearest_soul(w)
+	if soul and w.mana < Wizard.MANA_MAX * 0.75:
+		var ts := soul.global_position - w.global_position
+		ts.y = 0
+		move = ts.normalized() * 1.2
 	pad.move = Vector2(move.x, move.z).limit_length(1.0)
 	pad.aim = Vector2(aim.x, aim.z)
 	if downed and plan.has(El.LIFE):
@@ -125,7 +131,7 @@ func think(w: Wizard, dt: float) -> void:
 					_hold_t = Wizard.NOVA_HOLD + 0.1
 					_phase = "hold_rb"
 				"plant":
-					pad.set_button(Pad.DOWN, true)
+					pad.set_button(Pad.LS, true)
 					_phase = "idle"
 				"ward":
 					pad.set_button(Pad.RS, true)
@@ -208,6 +214,17 @@ func _choose(w: Wizard, d: float) -> void:
 	plan = r2[0].duplicate()
 	form = r2[1]
 	hold = r2[2] * randf_range(0.8, 1.3)
+
+
+func _nearest_soul(w: Wizard) -> Soul:
+	var best: Soul = null
+	var best_d := 9.0
+	for s in Soul.all:
+		var d := w.global_position.distance_to(s.global_position)
+		if d < best_d:
+			best = s
+			best_d = d
+	return best
 
 
 func _nearest_enemy(w: Wizard) -> Actor:

@@ -160,7 +160,7 @@ const CONTROLS := [
 	["rb_hold", "Hold and let go: burst around you"],
 	["lt", "Dodge roll"],
 	["rs", "Ward yourself"],
-	["dpad_down", "Plant the spell on the ground"],
+	["ls", "Plant the spell on the ground"],
 	["dpad_up", "Load your last spell again"],
 	["dpad_side", "Saved spells (hold to save)"],
 	["start", "This menu"],
@@ -225,12 +225,13 @@ const PAD_LIT := Color(1.0, 0.82, 0.4)
 func _glyph(kind: String, c: Vector2) -> void:
 	var f := Art.title_font()
 	match kind:
-		"lstick", "rstick", "rs":
+		"lstick", "rstick", "rs", "ls":
 			draw_circle(c, 17, PAD_EDGE)
 			draw_circle(c, 15, PAD_DARK)
-			draw_circle(c, 10, PAD_LIT if kind == "rs" else Color(0.32, 0.29, 0.26))
-			draw_string(f, c + Vector2(-10, 6), "L" if kind == "lstick" else "R", HORIZONTAL_ALIGNMENT_CENTER, 20, 15, Color(0.05, 0.04, 0.03) if kind == "rs" else PAD_EDGE)
-			if kind == "rs":
+			var click := kind in ["rs", "ls"]
+			draw_circle(c, 10, PAD_LIT if click else Color(0.32, 0.29, 0.26))
+			draw_string(f, c + Vector2(-10, 6), "L" if kind in ["lstick", "ls"] else "R", HORIZONTAL_ALIGNMENT_CENTER, 20, 15, Color(0.05, 0.04, 0.03) if click else PAD_EDGE)
+			if click:
 				draw_arc(c, 21, 0, TAU, 24, PAD_LIT, 2.0, true)
 			else:
 				for a in 4:
@@ -256,9 +257,9 @@ func _glyph(kind: String, c: Vector2) -> void:
 			var pts := PackedVector2Array([c + Vector2(-18, 18), c + Vector2(-18, -6), c + Vector2(-10, -18), c + Vector2(18, -18), c + Vector2(18, 18)])
 			draw_colored_polygon(pts, PAD_LIT)
 			draw_string(f, c + Vector2(-18, 8), kind.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 36, 16, Color(0.05, 0.04, 0.03))
-		"dpad_up", "dpad_down", "dpad_side":
+		"dpad_up", "dpad_side":
 			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-				var lit: bool = (kind == "dpad_up" and d == Vector2.UP) or (kind == "dpad_down" and d == Vector2.DOWN) or (kind == "dpad_side" and d.y == 0.0)
+				var lit: bool = (kind == "dpad_up" and d == Vector2.UP) or (kind == "dpad_side" and d.y == 0.0)
 				draw_rect(Rect2(c + d * 12 - Vector2(7, 7), Vector2(14, 14)), PAD_LIT if lit else PAD_EDGE)
 			draw_rect(Rect2(c - Vector2(7, 7), Vector2(14, 14)), PAD_EDGE)
 		"start":

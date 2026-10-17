@@ -94,6 +94,9 @@ static var _mats := {}
 
 var _body: MeshInstance3D
 var _look: Dictionary
+## How big the bolt looks: a plain bolt is a small spark, a full queue of
+## one element a proper fireball. Follows how hard it hits.
+var _size := 1.0
 
 
 static func _material(e: int) -> ShaderMaterial:
@@ -125,6 +128,10 @@ static func _mesh_for(e: int) -> Mesh:
 
 func _ready() -> void:
 	_look = LOOK[el]
+	var loaded := 0
+	for e in spell.counts:
+		loaded += spell.counts[e]
+	_size = 0.45 if loaded == 0 else 0.6 + 0.13 * (loaded - 1)
 	global_position.y = 1.1
 	reset_physics_interpolation()
 	_body = MeshInstance3D.new()
@@ -136,17 +143,21 @@ func _ready() -> void:
 		_body.material_override = _material(el)
 	if _look.get("shard", false):
 		_body.rotation_degrees.x = -90.0
+		_body.scale = Vector3.ONE * _size
 	else:
-		_body.scale = Vector3(1, 1, _look.stretch) * _look.size
+		_body.scale = Vector3(1, 1, _look.stretch) * _look.size * _size
 	add_child(_body)
+	# The bloom round it: faint on a plain spark, a real glow on a full one.
+	var glow_c: Color = _look.edge
+	add_child(Fx.halo(Color(glow_c.r, glow_c.g, glow_c.b), 1.1 * _size * _look.size + 0.3, 0.35 + 0.25 * _size, 1.0 if _look.flicker > 0.5 else 0.0))
 	if not _look.get("rock", false) and not _look.get("shard", false):
 		# A smaller white-hot heart inside the glow.
 		var heart := MeshInstance3D.new()
-		heart.mesh = Art.sphere(0.08, 6)
+		heart.mesh = Art.sphere(0.08 * _size, 6)
 		heart.material_override = Fx.glow(_look.core, 4.0)
 		heart.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(heart)
-	var trail := Fx.particles(_look.trail, 18, 0.4, 0.22)
+	var trail := Fx.particles(_look.trail, int(6 + 14 * _size), 0.25 + 0.2 * _size, 0.22 * _size)
 	trail.local_coords = false
 	trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	trail.emission_sphere_radius = 0.08
@@ -165,7 +176,7 @@ func _physics_process(dt: float) -> void:
 	if _look.get("rock", false):
 		_body.rotate_x(dt * 14.0)
 	elif _look.get("jitter", false):
-		_body.scale = Vector3(randf_range(0.6, 1.3), randf_range(0.6, 1.3), _look.stretch * randf_range(0.8, 1.2)) * _look.size
+		_body.scale = Vector3(randf_range(0.6, 1.3), randf_range(0.6, 1.3), _look.stretch * randf_range(0.8, 1.2)) * _look.size * _size
 	if t > LIFE:
 		_end(global_position)
 		return
@@ -183,9 +194,7 @@ func _physics_process(dt: float) -> void:
 			continue
 		if a.hit_by(from, to, 0.18):
 			strike(a, spell, 1.0, caster, vel.normalized())
-			if a.team != caster.team:
-				caster.add_mana(Wizard.MANA_PER_BOLT)
-			Fx.burst(to, _look.trail, 5, 2.5, 0.15)
+			Fx.burst(to, _look.trail, int(3 + 6 * _size), 2.0 + 2.0 * _size, 0.12 * _size + 0.04)
 			_end(to)
 			return
 

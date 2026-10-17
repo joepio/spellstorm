@@ -86,7 +86,7 @@ func _ready() -> void:
 			for a in Game.I.wizards:
 				if not a.alive:
 					a.revive(0.6)
-				a.hp = minf(a.max_hp, a.hp + a.max_hp * 0.6)
+				a.healed(a.max_hp * 0.6)
 				Fx.burst(a.global_position + Vector3.UP, c, 30, 4.0)
 				Fx.light_pop(a.global_position, c, 3.0, 5.0, 0.6)
 			for a in targets():

@@ -179,31 +179,47 @@ func _room_cleared() -> void:
 		var node := _altar(picks[i])
 		node.position = Vector3(x, 0, -2.0)
 		Game.I.arena.add_child(node)
-		altars.append({node = node, relic = picks[i], taken = false})
+		altars.append({node = node, relic = picks[i], taken = false, hold = 0.0,
+			fill = node.get_meta("fill")})
 	portal = _portal()
 	portal.position = Vector3(0, 0, -7.5)
 	Game.I.arena.add_child(portal)
 	_portal_t = 0.0
 
 
+## Stand in an altar's ring this long to take its tome.
+const TAKE_TIME := 0.9
+const ALTAR_R := 1.4
+
+
 func _cleared(dt: float) -> void:
 	for a in altars:
 		if a.taken:
 			continue
+		# The ring round the altar fills while a wizard who has not taken a
+		# tome this level stands in it; full, the tome is theirs.
+		var taker: Wizard = null
 		for w in Game.I.wizards:
 			if not w.alive or w.get_meta("took", -1) == depth():
 				continue
-			if w.global_position.distance_to(a.node.global_position) < 1.0:
-				a.taken = true
-				w.set_meta("took", depth())
-				w.give_relic(a.relic)
-				Fx.text(w.global_position + Vector3.UP * 3.0, a.relic.name, Color(1.0, 0.8, 0.4), 52, 2.2)
-				Fx.burst(a.node.global_position + Vector3.UP * 1.3, Color(1.0, 0.8, 0.4), 30, 4.0)
-				Game.I.toast(w, a.relic)
-				var tw: Tween = a.node.create_tween()
-				tw.tween_property(a.node, "scale", Vector3(1, 0.01, 1), 0.4)
-				tw.tween_callback(a.node.queue_free)
+			if Vector2(w.global_position.x - a.node.global_position.x, w.global_position.z - a.node.global_position.z).length() < ALTAR_R:
+				taker = w
 				break
+		a.hold = minf(a.hold + dt, TAKE_TIME) if taker else maxf(a.hold - dt * 2.0, 0.0)
+		var fill_mat: ShaderMaterial = a.fill.material_override
+		fill_mat.set_shader_parameter("progress", a.hold / TAKE_TIME)
+		if taker:
+			fill_mat.set_shader_parameter("color", taker.robe.lightened(0.35))
+		if taker and a.hold >= TAKE_TIME:
+			a.taken = true
+			taker.set_meta("took", depth())
+			taker.give_relic(a.relic)
+			Fx.burst(a.node.global_position + Vector3.UP * 1.3, Color(1.0, 0.8, 0.4), 30, 4.0)
+			Fx.ring(a.node.global_position, taker.robe.lightened(0.35), ALTAR_R + 0.4, 0.4)
+			Game.I.toast(taker, a.relic)
+			var tw: Tween = a.node.create_tween()
+			tw.tween_property(a.node, "scale", Vector3(1, 0.01, 1), 0.4)
+			tw.tween_callback(a.node.queue_free)
 	var living := Game.I.wizards.filter(func(w): return w.alive)
 	var inside := living.filter(func(w): return w.global_position.distance_to(portal.global_position) < PORTAL_R)
 	if not living.is_empty() and inside.size() == living.size():
@@ -238,6 +254,23 @@ func _altar(relic: Dictionary) -> Node3D:
 	l.omni_range = 3.5
 	l.position.y = 1.8
 	n.add_child(l)
+	# The ring to stand in: a faint guide, and a fill that sweeps round it
+	# while you stand there (see _cleared).
+	var slash := preload("res://src/fx/slash.gdshader")
+	for k in 2:
+		var ring := MeshInstance3D.new()
+		ring.mesh = Wizard._arc_mesh(ALTAR_R - 0.18, ALTAR_R, PI)
+		var m := ShaderMaterial.new()
+		m.shader = slash
+		m.set_shader_parameter("color", Color(1.0, 0.8, 0.45))
+		m.set_shader_parameter("progress", 1.0 if k == 0 else 0.0)
+		m.set_shader_parameter("strength", 0.45 if k == 0 else 1.6)
+		ring.material_override = m
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.position.y = 0.05 + 0.01 * k
+		n.add_child(ring)
+		if k == 1:
+			n.set_meta("fill", ring)
 	var sparks := Fx.particles(Color(1.0, 0.8, 0.4), 16, 1.2, 0.15)
 	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	sparks.emission_sphere_radius = 0.4

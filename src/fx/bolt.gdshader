@@ -37,6 +37,6 @@ void fragment() {
 	float k = mix(1.0, 0.25 + n * 0.75 + n2 * 0.5, flicker);
 	float inner = 1.0 - rim;
 	vec3 c = mix(edge.rgb, core.rgb, smoothstep(0.25, 0.95, inner * k));
-	ALBEDO = c * (0.7 + 1.1 * k);
+	ALBEDO = c * (0.9 + 1.6 * k);
 	ALPHA = clamp((0.3 + inner) * k, 0.0, 1.0) * edge.a;
 }
