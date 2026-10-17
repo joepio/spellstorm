@@ -183,6 +183,25 @@ static func light_pop(at: Vector3, c: Color, energy := 3.0, range_m := 6.0, time
 	var tw := l.create_tween()
 	tw.tween_property(l, "light_energy", 0.0, time)
 	tw.tween_callback(l.queue_free)
+	flash(at + Vector3.UP * 0.8, c, range_m * 0.3 * clampf(energy / 3.0, 0.5, 1.2), time * 0.8)
+
+
+## A bright glow that shrinks away, for the moment something lands.
+static func flash(at: Vector3, c: Color, size := 2.0, time := 0.25) -> void:
+	var h := halo(c, size, 0.9)
+	_spawn(h, at)
+	var tw := h.create_tween()
+	tw.tween_property(h, "scale", Vector3.ONE * size * 0.15, time).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(h.queue_free)
+
+
+## A fresh material for one of the spell shaders in src/fx.
+static func shader(name: String, params := {}) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://src/fx/%s.gdshader" % name)
+	for k in params:
+		m.set_shader_parameter(k, params[k])
+	return m
 
 
 ## An expanding flat ring on the ground.

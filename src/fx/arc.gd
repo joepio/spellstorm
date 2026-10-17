@@ -16,7 +16,7 @@ func _ready() -> void:
 	_im = ImmediateMesh.new()
 	_mesh = MeshInstance3D.new()
 	_mesh.mesh = _im
-	_mesh.material_override = Fx.glow(color().lightened(0.3), 5.0)
+	_mesh.material_override = Fx.shader("zap", {core = color().lerp(Color.WHITE, 0.8), edge = color()})
 	_mesh.top_level = true
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_mesh)
@@ -116,27 +116,47 @@ func _draw(pts: Array) -> void:
 	for i in pts.size() - 1:
 		var a: Vector3 = pts[i]
 		var b: Vector3 = pts[i + 1]
-		var steps := maxi(3, int(a.distance_to(b) / 0.6))
-		var prev := a
-		for s in range(1, steps + 1):
-			var p := a.lerp(b, float(s) / steps)
-			if s < steps:
-				p += Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * 0.5
-			_quad(prev, p, 0.07)
-			prev = p
+		_bolt(a, b, 0.5, 0.26, 1.0)
+		# A couple of forks that crackle off the main strike and die out.
+		for _f in randi_range(1, 2):
+			var at := a.lerp(b, randf_range(0.2, 0.8))
+			var off := Vector3(randf() - 0.5, randf() * 0.4 - 0.3, randf() - 0.5).normalized() * randf_range(0.6, 1.3)
+			_bolt(at, at + off, 0.3, 0.14, 0.55)
 	_im.surface_end()
 	_show_t = 0.1
+	for p: Vector3 in pts.slice(1):
+		Fx.flash(p, color(), 1.6, 0.14)
 
 
-func _quad(a: Vector3, b: Vector3, w: float) -> void:
+## One jagged ribbon from [param a] to [param b].
+func _bolt(a: Vector3, b: Vector3, jag: float, w: float, alpha: float) -> void:
+	var steps := maxi(3, int(a.distance_to(b) / 0.5))
+	var prev := a
+	for s in range(1, steps + 1):
+		var p := a.lerp(b, float(s) / steps)
+		if s < steps:
+			p += Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * jag
+		_quad(prev, p, w, alpha)
+		prev = p
+
+
+## A ribbon piece, flat and upright so it shows from any side. UV.x runs
+## across it for the core falloff in src/fx/zap.gdshader.
+func _quad(a: Vector3, b: Vector3, w: float, alpha := 1.0) -> void:
 	var side := (b - a).cross(Vector3.UP).normalized() * w
 	if side.length() < 0.001:
 		side = Vector3.RIGHT * w
 	var up := Vector3.UP * w
+	_im.surface_set_color(Color(1, 1, 1, alpha))
 	for off in [side, up]:
-		_im.surface_add_vertex(a - off)
-		_im.surface_add_vertex(b - off)
-		_im.surface_add_vertex(b + off)
-		_im.surface_add_vertex(a - off)
-		_im.surface_add_vertex(b + off)
-		_im.surface_add_vertex(a + off)
+		_v(a - off, 0.0)
+		_v(b - off, 0.0)
+		_v(b + off, 1.0)
+		_v(a - off, 0.0)
+		_v(b + off, 1.0)
+		_v(a + off, 1.0)
+
+
+func _v(p: Vector3, u: float) -> void:
+	_im.surface_set_uv(Vector2(u, 0.0))
+	_im.surface_add_vertex(p)

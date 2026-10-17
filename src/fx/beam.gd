@@ -5,6 +5,9 @@ extends SpellFx
 
 var _core: MeshInstance3D
 var _halo: MeshInstance3D
+var _halo_mat: ShaderMaterial
+var _end_glow: MeshInstance3D
+var _muzzle: MeshInstance3D
 var _end_light: OmniLight3D
 var _sparks: CPUParticles3D
 var _touch_t := 0.0
@@ -12,12 +15,20 @@ var _touch_t := 0.0
 
 func _ready() -> void:
 	is_stream = true
-	_core = _tube(n.width * 0.45, Fx.glow(color().lightened(0.5), 4.0))
-	_halo = _tube(n.width, Fx.additive(color(), 1.2))
 	var mixed := color()
 	for c in colors():
 		mixed = mixed.lerp(c, 0.3)
-	_halo.material_override = Fx.additive(mixed, 1.3)
+	_core = _tube(n.width * 0.18, Fx.glow(color().lerp(Color.WHITE, 0.5), 1.6))
+	# The sheath: pulses running down a coloured glow (src/fx/beam.gdshader).
+	_halo_mat = Fx.shader("beam", {core = color().lerp(Color.WHITE, 0.6), edge = mixed,
+		speed = 14.0 if spell.primary == El.VOID else 9.0})
+	_halo = _tube(n.width, _halo_mat)
+	_muzzle = Fx.halo(mixed, 1.2, 0.9, 1.0)
+	_muzzle.top_level = true
+	add_child(_muzzle)
+	_end_glow = Fx.halo(mixed, 2.2, 0.9, 1.0)
+	_end_glow.top_level = true
+	add_child(_end_glow)
 	_end_light = OmniLight3D.new()
 	_end_light.light_color = color()
 	_end_light.light_energy = 2.5
@@ -75,10 +86,14 @@ func _physics_process(dt: float) -> void:
 		tube.global_position = (from + to_pos) * 0.5
 		tube.global_basis = Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, PI / 2)
 		tube.scale = Vector3(1, length, 1)
-	var pulse := 1.0 + 0.15 * sin(t * 30.0)
+	var pulse := 1.0 + 0.12 * sin(t * 30.0)
 	_halo.scale.x = pulse
 	_halo.scale.z = pulse
+	_halo_mat.set_shader_parameter("length", length)
 	_end_light.global_position = to_pos
+	_end_glow.global_position = to_pos
+	_muzzle.global_position = from
+	_end_glow.scale = Vector3.ONE * (2.4 if first else 1.4) * pulse
 	_sparks.global_position = to_pos
 	if first and caster.can_act():
 		first.hit_spell(spell, dt * n.rate, caster, dir, ff())

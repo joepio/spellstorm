@@ -13,8 +13,10 @@ func _ready() -> void:
 	radius = n.get("radius", radius)
 	var at := global_position
 	var cs := colors()
-	for i in cs.size():
+	_shock(cs[0])
+	for i in range(1, cs.size()):
 		Fx.ring(at, cs[i], radius * (1.0 - 0.12 * i), 0.3 + 0.08 * i)
+	Fx.flash(at + Vector3.UP * 0.6, cs[0], radius * 1.2, 0.3)
 	var p := Fx.particles(cs[0], 70, 0.55, 0.6)
 	p.one_shot = true
 	p.explosiveness = 1.0
@@ -43,3 +45,17 @@ func _ready() -> void:
 	var tw := create_tween()
 	tw.tween_interval(1.0)
 	tw.tween_callback(queue_free)
+
+
+## The shockwave running out over the ground (src/fx/shock.gdshader).
+func _shock(c: Color) -> void:
+	var mat := Fx.shader("shock", {core = c.lerp(Color.WHITE, 0.6), edge = c, seed = randf() * 10.0, progress = 0.0})
+	var m := MeshInstance3D.new()
+	var q := PlaneMesh.new()
+	q.size = Vector2.ONE * (radius + 0.4) * 2.0
+	m.mesh = q
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = Vector3.UP * 0.12
+	add_child(m)
+	create_tween().tween_property(mat, "shader_parameter/progress", 1.0, 0.55)

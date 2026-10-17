@@ -17,7 +17,8 @@ func _ready() -> void:
 	match spell.primary:
 		El.FIRE:
 			_thing = Node3D.new()
-			Art.part(_thing, Art.sphere(1.0, 10), Fx.glow(c, 4.0))
+			Art.part(_thing, Art.sphere(1.0, 16), Fx.shader("molten", {core = Color(1, 0.9, 0.55), edge = c, crust = 0.7, speed = 2.5}))
+			_thing.add_child(Fx.halo(c, 6.0, 1.1, 1.0))
 			var trail := Fx.particles(c, 80, 0.6, 1.4)
 			trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			trail.emission_sphere_radius = 0.9

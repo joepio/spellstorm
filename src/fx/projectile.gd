@@ -31,8 +31,10 @@ func _ready() -> void:
 	match spell.primary:
 		El.ICE:
 			Art.part(_model, Art.cyl(0.0, radius * 0.6, radius * 4.0, 5), Fx.glow(c, 1.2), Vector3.ZERO, Vector3(-90, 0, 0))
+			add_child(Fx.halo(c, radius * 4.0, 0.7))
 		El.MAGMA:
-			Art.part(_model, Art.sphere(radius, 8), Fx.glow(c, 3.0))
+			Art.part(_model, Art.sphere(radius, 10), Fx.shader("molten", {core = Color(1, 0.85, 0.4), edge = c, crust = 1.0}))
+			add_child(Fx.halo(c, radius * 6.0, 1.2, 1.0))
 			var l := OmniLight3D.new()
 			l.light_color = c
 			l.light_energy = 1.5
@@ -43,7 +45,8 @@ func _ready() -> void:
 		El.EARTH:
 			Art.part(_model, Art.sphere(radius, 6), Fx.solid(c, 1.0))
 		_:
-			Art.part(_model, Art.sphere(radius, 8), Fx.glow(c, 3.0))
+			Art.part(_model, Art.sphere(radius, 10), Fx.shader("molten", {core = c.lerp(Color.WHITE, 0.7), edge = c, speed = 3.0}))
+			add_child(Fx.halo(c, radius * 6.0, 1.3, 1.0))
 			var l2 := OmniLight3D.new()
 			l2.light_color = c
 			l2.light_energy = 1.2
