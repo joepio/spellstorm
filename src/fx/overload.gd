@@ -4,6 +4,8 @@ extends SpellFx
 
 var target := Vector3.ZERO
 var _thing: Node3D
+## Where the meteor starts its fall, above and behind the target.
+const METEOR_FROM := Vector3(4, 22, -4)
 var _strikes := 0
 var _field: Field
 
@@ -29,7 +31,7 @@ func _ready() -> void:
 			l.omni_range = 10.0
 			_thing.add_child(l)
 			add_child(_thing)
-			_thing.position = Vector3(4, 22, -4)
+			_thing.position = METEOR_FROM
 		El.FROST:
 			_field = Game.I.arena.add_field(target, El.FROST, 5.5, 9.0, caster)
 			_field.spell = {counts = {El.FROST: 3}, payload = [], primary = El.FROST, n = {rate = 0.8}}
@@ -113,7 +115,9 @@ func _physics_process(dt: float) -> void:
 	match spell.primary:
 		El.FIRE:
 			if _thing:
-				_thing.position = _thing.position.lerp(Vector3.ZERO, clampf(t / 0.9, 0, 1) * 0.25)
+				# Falls faster and faster, like a real rock, and hits at full speed.
+				var k := clampf(t / 0.9, 0.0, 1.0)
+				_thing.position = METEOR_FROM.lerp(Vector3.ZERO, k * k)
 				if t > 0.9:
 					_thing.queue_free()
 					_thing = null
