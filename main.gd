@@ -24,6 +24,12 @@ var camera: Camera3D
 var env: WorldEnvironment
 var moon: DirectionalLight3D
 var paused_play := false
+var menu: Menu
+## The GameNight host paused us; the menu pauses too. Either one keeps the tree paused.
+var host_paused := false
+var menu_open := false
+var ff_name := "half"
+var difficulty_name := "normal"
 
 var ff := 0.5
 var monster_hp := 1.0
@@ -87,6 +93,8 @@ func _ready() -> void:
 	add_child(run)
 	hud = Hud.new()
 	add_child(hud)
+	menu = Menu.new()
+	hud.add_child(menu)
 	run.banner.connect(hud.show_banner)
 	run.room_started.connect(func(b, r): hud.room(b, r, run.depth()))
 	_load_grimoire()
@@ -115,9 +123,11 @@ func _declare() -> void:
 func _on_setting(key: String, value: Variant) -> void:
 	match key:
 		"friendly_fire":
+			ff_name = str(value)
 			ff = {"off": 0.0, "half": 0.5, "full": 1.0}.get(str(value), 0.5)
 		"difficulty":
 			var d: String = str(value)
+			difficulty_name = d
 			monster_hp = {"easy": 0.7, "normal": 1.0, "hard": 1.4}.get(d, 1.0)
 			monster_damage = {"easy": 0.6, "normal": 1.0, "hard": 1.35}.get(d, 1.0)
 			monster_count = {"easy": 0.8, "normal": 1.0, "hard": 1.25}.get(d, 1.0)
@@ -154,8 +164,29 @@ func _on_disposed(_s: String) -> void:
 
 
 func _set_paused(p: bool) -> void:
-	get_tree().paused = p
+	host_paused = p
+	get_tree().paused = host_paused or menu_open
 	_trace("paused" if p else "running")
+
+
+func set_menu(on: bool) -> void:
+	menu_open = on
+	get_tree().paused = host_paused or menu_open
+	_trace("menu open" if on else "menu closed")
+
+
+## A setting changed from the in-game menu.
+func set_option(key: String, value: String) -> void:
+	_on_setting(key, value)
+
+
+## A fresh run that starts in [param biome] (0 is the chapel).
+func start_at(biome: int) -> void:
+	new_run()
+	if biome > 0:
+		run.biome_index = biome
+		run.room = 0
+		run.enter_room()
 
 
 var _tracing := OS.get_environment("SPELLSTORM_TRACE") != ""
@@ -190,6 +221,8 @@ func _standalone() -> void:
 		run.enter_room()
 	if shot != "":
 		_take_shot()
+	elif not demo:
+		menu.open(true)
 
 
 func _seat(roster: Array) -> void:
@@ -206,7 +239,6 @@ func _seat(roster: Array) -> void:
 			c = COLORS[i % COLORS.size()]
 		used[c.to_html()] = true
 		w.robe = c
-		w.bolt_el = [El.FIRE, El.WATER, El.LIGHTNING, El.EARTH][i % 4]
 		if r.get("bot", false):
 			w.pad = Pad.new()
 			w.bot = Bot.new()
@@ -510,6 +542,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _take_shot() -> void:
 	for _f in shot_frames:
 		await get_tree().physics_frame
+	if "--menu" in OS.get_cmdline_user_args():
+		menu.open(false)
+		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(shot)

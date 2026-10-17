@@ -25,6 +25,7 @@ const KINDS := {
 	pit_lord = {name = "The Pit Lord", model = "demon", hp = 2200.0, speed = 2.8, dmg = 34.0, reach = 3.0, el = El.FIRE, size = 2.6, attack = "slam", mass = 10.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}, boss = true, ring = 16, summon = ["imp", "imp", "demon"], nova = El.MAGMA},
 }
 
+const HP_SHADER := preload("res://src/fx/hp_bar.gdshader")
 const BOSS_PATTERNS := ["spiral", "rings", "nova", "fan9"]
 
 const AFFIXES := [
@@ -55,6 +56,7 @@ var _walk := 0.0
 var _eyes: Array = []
 var _label: Label3D
 var _hp_bar: MeshInstance3D
+var _hp_mat: ShaderMaterial
 var _shot_i := 0
 var _pattern_i := 0
 ## Bullets fired later: [seconds left, Callable].
@@ -128,10 +130,12 @@ func _ready() -> void:
 			aura.emitting = true
 	_hp_bar = MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(1.0, 0.08)
+	q.size = Vector2(1.0 + cfg.size * 0.3, 0.13)
 	_hp_bar.mesh = q
-	_hp_bar.material_override = Fx.glow(Color(0.8, 0.05, 0.05), 1.0)
-	(_hp_bar.material_override as StandardMaterial3D).billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_hp_mat = ShaderMaterial.new()
+	_hp_mat.shader = HP_SHADER
+	_hp_mat.render_priority = 2
+	_hp_bar.material_override = _hp_mat
 	_hp_bar.position = Vector3(0, 1.95 * cfg.size + 0.15, 0)
 	_hp_bar.visible = false
 	_hp_bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -524,7 +528,7 @@ func _animate(dt: float) -> void:
 	_hp_bar.visible = hp < max_hp and alive
 	if _hp_bar.visible:
 		var f := hp / max_hp
-		_hp_bar.scale = Vector3(maxf(f, 0.02) * (1.0 + cfg.size * 0.3), 1, 1)
+		_hp_mat.set_shader_parameter("fill", f)
 
 
 func take(dmg: float, src: Actor = null) -> void:

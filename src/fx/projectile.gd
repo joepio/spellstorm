@@ -82,8 +82,7 @@ func _physics_process(dt: float) -> void:
 			continue
 		if not a.alive and not spell.counts.has(El.LIFE):
 			continue
-		var d := Vector2(a.global_position.x - to.x, a.global_position.z - to.z).length()
-		if d < a.radius + radius:
+		if a.hit_by(from, to, radius):
 			_hit.append(a)
 			a.hit_spell(spell, power * n.rate, caster, vel.normalized(), ff())
 			Fx.burst(to, color(), 10, 4.0, 0.25)

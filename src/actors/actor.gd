@@ -187,6 +187,21 @@ func die(_src: Actor) -> void:
 	died.emit(self)
 
 
+## Whether a shot of radius [param r] moving from [param a] to [param b]
+## this frame touches this actor. Checks the whole path, not just where the
+## shot ends up, and is a little generous: the body you see is wider than the
+## collision capsule, and shots fly above the ground under a tilted camera.
+func hit_by(a: Vector3, b: Vector3, r: float) -> bool:
+	var p := Vector2(global_position.x, global_position.z)
+	var s := Vector2(a.x, a.z)
+	var e := Vector2(b.x, b.z)
+	var seg := e - s
+	var t := 0.0
+	if seg.length_squared() > 0.0001:
+		t = clampf((p - s).dot(seg) / seg.length_squared(), 0.0, 1.0)
+	return p.distance_to(s + seg * t) < radius * 1.3 + r + 0.1
+
+
 func revive_progress(_amount: float) -> void:
 	pass
 

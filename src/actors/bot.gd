@@ -150,9 +150,10 @@ func think(w: Wizard, dt: float) -> void:
 
 ## Roughly what the plan will cost; fusions make it a little cheaper.
 func _price() -> float:
+	var load := Wizard.MANA_PER_LOAD * plan.size()
 	if plan.size() >= 5 and form == "cast" and plan.count(plan[0]) == plan.size():
-		return Wizard.MANA_MAX
-	return Wizard.MANA_PER_ELEMENT * plan.size()
+		return load + Wizard.OVERLOAD_COST
+	return load
 
 
 ## Which way to roll when a bullet is about to hit, or zero.

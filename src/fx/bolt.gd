@@ -1,46 +1,170 @@
 class_name BoltFx
 extends Node3D
-## One staff bolt, the shot that fires while the right stick aims. Small, fast
-## and of one element, so it brings that element's status: fire burns, frost
-## chills, water soaks, lightning shocks. Life bolts fly through the living
-## and heal friends instead.
+## One staff bolt, the shot that fires while the right stick aims. It carries
+## the wizard's whole loaded queue (see Wizard.bolt_spell), so each element in
+## it brings its status: fire burns, frost chills, water soaks, lightning
+## shocks. Life heals friends and flies through the living; an empty queue
+## shoots plain golden bolts.
 
 const SPEED := 22.0
 const LIFE := 0.85
-
-static var _mesh: SphereMesh
+const PLAIN := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
 
 var caster: Wizard
-var el := El.FIRE
-var scale_k := 0.5
+## The element the bolt looks like (the front of the queue), -1 for plain.
+var el := -1
 var vel := Vector3.ZERO
 var spell: Dictionary
 var t := 0.0
 
 
-func setup(w: Wizard, e: int, k: float, dir: Vector3) -> BoltFx:
+func setup(w: Wizard, s: Dictionary, dir: Vector3) -> BoltFx:
 	caster = w
-	el = e
-	scale_k = k
+	spell = s
+	el = s.primary
 	vel = dir.normalized() * SPEED
-	spell = {counts = {e: 1}, payload = [], primary = e, n = {}}
 	return self
 
 
+## Whether [param s] does anything to [param a]: friends only take its Life,
+## the living (not undead) ignore Life.
+static func affects(a: Actor, s: Dictionary, src: Actor) -> bool:
+	var friend := a.team == src.team
+	if s.counts.is_empty():
+		return not friend and a.alive
+	for e in s.counts:
+		if friend:
+			if e == El.LIFE and (not a.alive or a.hp < a.max_hp):
+				return true
+		elif a.alive and (e != El.LIFE or a.undead):
+			return true
+	return false
+
+
+## Land [param s] on [param a], each element at its own strength times [param mult].
+static func strike(a: Actor, s: Dictionary, mult: float, src: Actor, dir: Vector3) -> void:
+	var friend := a.team == src.team
+	if s.counts.is_empty():
+		if not friend:
+			a.hit_spell(PLAIN, Wizard.PLAIN_BOLT * mult, src, dir, 1.0)
+		return
+	for e in s.counts:
+		if friend and e != El.LIFE:
+			continue
+		if not friend and e == El.LIFE and not a.undead:
+			continue
+		a.hit_spell({counts = {e: 1}, payload = [], primary = e, n = {}}, s.scales[e] * mult, src, dir, 1.0)
+
+
+## How each element's bolt looks: core and rim colour, how much it flickers
+## and how fast, its stretch along the flight, and its trail.
+const LOOK := {
+	El.FIRE: {core = Color(1.0, 0.92, 0.55), edge = Color(1.0, 0.32, 0.04), flicker = 1.0, speed = 10.0, stretch = 2.6, size = 1.0,
+		trail = Color(1.0, 0.45, 0.08), rise = 2.5},
+	El.FROST: {core = Color(0.95, 1.0, 1.0), edge = Color(0.35, 0.75, 1.0), flicker = 0.25, speed = 3.0, stretch = 3.2, size = 0.8,
+		trail = Color(0.85, 0.95, 1.0), rise = -1.0, shard = true},
+	El.WATER: {core = Color(0.7, 0.9, 1.0), edge = Color(0.1, 0.35, 0.95), flicker = 0.6, speed = 5.0, stretch = 1.7, size = 1.05,
+		trail = Color(0.3, 0.55, 1.0), rise = -3.0},
+	El.LIGHTNING: {core = Color(1.0, 1.0, 1.0), edge = Color(0.65, 0.55, 1.0), flicker = 1.0, speed = 40.0, stretch = 3.4, size = 0.75,
+		trail = Color(0.8, 0.75, 1.0), rise = 0.0, jitter = true},
+	El.EARTH: {core = Color(0.75, 0.6, 0.4), edge = Color(0.45, 0.32, 0.18), flicker = 0.0, speed = 0.0, stretch = 1.0, size = 1.15,
+		trail = Color(0.55, 0.45, 0.32), rise = -2.0, rock = true},
+	El.AIR: {core = Color(0.95, 1.0, 0.97), edge = Color(0.55, 0.85, 0.8, 0.7), flicker = 0.9, speed = 14.0, stretch = 2.2, size = 1.1,
+		trail = Color(0.8, 0.95, 0.9, 0.6), rise = 0.5},
+	El.LIFE: {core = Color(0.9, 1.0, 0.75), edge = Color(0.2, 0.9, 0.3), flicker = 0.4, speed = 4.0, stretch = 1.6, size = 0.95,
+		trail = Color(0.5, 1.0, 0.45), rise = 1.5},
+	El.VOID: {core = Color(0.25, 0.0, 0.35), edge = Color(0.75, 0.25, 1.0), flicker = 0.7, speed = 6.0, stretch = 1.5, size = 1.1,
+		trail = Color(0.55, 0.15, 0.85), rise = 0.0},
+	El.STEAM: {core = Color(1.0, 1.0, 1.0), edge = Color(0.75, 0.8, 0.9, 0.8), flicker = 0.9, speed = 7.0, stretch = 1.8, size = 1.2,
+		trail = Color(0.9, 0.92, 0.95, 0.6), rise = 2.0},
+	El.ICE: {core = Color(0.95, 1.0, 1.0), edge = Color(0.45, 0.8, 1.0), flicker = 0.15, speed = 2.0, stretch = 3.2, size = 1.0,
+		trail = Color(0.75, 0.92, 1.0), rise = -1.5, shard = true},
+	El.MUD: {core = Color(0.5, 0.38, 0.22), edge = Color(0.3, 0.22, 0.12), flicker = 0.0, speed = 0.0, stretch = 1.0, size = 1.1,
+		trail = Color(0.4, 0.3, 0.18), rise = -4.0, rock = true},
+	El.MAGMA: {core = Color(1.0, 0.85, 0.3), edge = Color(1.0, 0.25, 0.02), flicker = 0.8, speed = 5.0, stretch = 1.3, size = 1.25,
+		trail = Color(1.0, 0.35, 0.05), rise = 1.0},
+	El.STORM: {core = Color(1.0, 1.0, 1.0), edge = Color(0.45, 0.55, 1.0), flicker = 1.0, speed = 35.0, stretch = 3.0, size = 0.95,
+		trail = Color(0.6, 0.7, 1.0), rise = 0.5, jitter = true},
+	-1: {core = Color(1.0, 0.95, 0.75), edge = Color(1.0, 0.75, 0.3), flicker = 0.3, speed = 6.0, stretch = 2.0, size = 0.7,
+		trail = Color(1.0, 0.85, 0.45), rise = 0.5},
+}
+
+static var _meshes := {}
+static var _mats := {}
+
+var _body: MeshInstance3D
+var _look: Dictionary
+
+
+static func _material(e: int) -> ShaderMaterial:
+	if not _mats.has(e):
+		var l: Dictionary = LOOK[e]
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://src/fx/bolt.gdshader")
+		m.set_shader_parameter("core", l.core)
+		m.set_shader_parameter("edge", l.edge)
+		m.set_shader_parameter("flicker", l.flicker)
+		m.set_shader_parameter("speed", l.speed)
+		_mats[e] = m
+	return _mats[e]
+
+
+static func _mesh_for(e: int) -> Mesh:
+	if not _meshes.has(e):
+		var l: Dictionary = LOOK[e]
+		if l.get("shard", false):
+			# An ice shard: a long six-sided point, tip first.
+			var c := Art.cyl(0.0, 0.17, 0.8, 6)
+			_meshes[e] = c
+		elif l.get("rock", false):
+			_meshes[e] = Art.sphere(0.22, 5)
+		else:
+			_meshes[e] = Art.sphere(0.2, 12)
+	return _meshes[e]
+
+
 func _ready() -> void:
-	if _mesh == null:
-		_mesh = Art.sphere(0.13, 8)
-	var m := MeshInstance3D.new()
-	m.mesh = _mesh
-	m.material_override = Fx.glow(El.COLOR[el].lightened(0.2), 3.5)
-	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	m.scale = Vector3(1, 1, 2.4)
-	add_child(m)
+	_look = LOOK[el]
+	global_position.y = 1.1
+	_body = MeshInstance3D.new()
+	_body.mesh = _mesh_for(el)
+	_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if _look.get("rock", false):
+		_body.material_override = Fx.solid(_look.core, 0.9)
+	else:
+		_body.material_override = _material(el)
+	if _look.get("shard", false):
+		_body.rotation_degrees.x = -90.0
+	else:
+		_body.scale = Vector3(1, 1, _look.stretch) * _look.size
+	add_child(_body)
+	if not _look.get("rock", false) and not _look.get("shard", false):
+		# A smaller white-hot heart inside the glow.
+		var heart := MeshInstance3D.new()
+		heart.mesh = Art.sphere(0.08, 6)
+		heart.material_override = Fx.glow(_look.core, 4.0)
+		heart.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(heart)
+	var trail := Fx.particles(_look.trail, 18, 0.4, 0.22)
+	trail.local_coords = false
+	trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	trail.emission_sphere_radius = 0.08
+	trail.direction = Vector3.UP
+	trail.spread = 180.0
+	trail.initial_velocity_min = 0.2
+	trail.initial_velocity_max = 0.8
+	trail.gravity = Vector3(0, _look.rise, 0)
+	add_child(trail)
+	trail.emitting = true
 	look_at(global_position + vel, Vector3.UP)
 
 
 func _physics_process(dt: float) -> void:
 	t += dt
+	if _look.get("rock", false):
+		_body.rotate_x(dt * 14.0)
+	elif _look.get("jitter", false):
+		_body.scale = Vector3(randf_range(0.6, 1.3), randf_range(0.6, 1.3), _look.stretch * randf_range(0.8, 1.2)) * _look.size
 	if t > LIFE:
 		_end(global_position)
 		return
@@ -48,28 +172,19 @@ func _physics_process(dt: float) -> void:
 	var to := from + vel * dt
 	var wall: Dictionary = Game.I.arena.ray(from, to) if Game.I else {}
 	if wall:
-		if wall.collider and wall.collider.has_method("damage") and el != El.LIFE:
+		if wall.collider and wall.collider.has_method("damage") :
 			wall.collider.damage(2.0)
 		_end(wall.position)
 		return
 	global_position = to
 	for a in (Game.I.living() if Game.I else []):
-		if a == caster:
+		if a == caster or not affects(a, spell, caster):
 			continue
-		var friend: bool = a.team == caster.team
-		if el == El.LIFE:
-			if not friend and not a.undead:
-				continue
-		elif friend or not a.alive:
-			continue
-		if friend and a.alive and a.hp >= a.max_hp:
-			continue
-		var d := Vector2(a.global_position.x - to.x, a.global_position.z - to.z).length()
-		if d < a.radius + 0.18:
-			a.hit_spell(spell, scale_k, caster, vel.normalized(), 1.0)
-			if not friend:
+		if a.hit_by(from, to, 0.18):
+			strike(a, spell, 1.0, caster, vel.normalized())
+			if a.team != caster.team:
 				caster.add_mana(Wizard.MANA_PER_BOLT)
-			Fx.burst(to, El.COLOR[el], 5, 2.5, 0.15)
+			Fx.burst(to, _look.trail, 5, 2.5, 0.15)
 			_end(to)
 			return
 
@@ -78,5 +193,6 @@ func _end(at: Vector3) -> void:
 	set_physics_process(false)
 	# A bolt that lands still touches the ground: fire bolts boil puddles.
 	if Game.I and Game.I.arena:
-		Game.I.arena.touch_ground(Vector3(at.x, 0, at.z), 0.5, el, caster)
+		for e in spell.counts:
+			Game.I.arena.touch_ground(Vector3(at.x, 0, at.z), 0.5, e, caster)
 	queue_free()

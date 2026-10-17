@@ -5,7 +5,7 @@ Checks the session lifecycle and the controller path: the game declares its
 settings, prepares a local seat and a bot seat, reports ready, starts, turns a
 seat's controller frames into play (the right stick shoots bolts, RB swings
 the staff, LT rolls, B then RT is a Flamethrower, LB+X then RT is Chain
-Lightning), pauses, resumes and disposes.
+Lightning, Start opens the pause menu), pauses, resumes and disposes.
 
     python3 tests/lifecycle.py [--godot path/to/godot] [--pack game.pck]   (needs `websockets`)
 """
@@ -22,7 +22,7 @@ import websockets
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 7941
 
-A, B, X, Y, LB, RB = 0, 1, 2, 3, 4, 5
+A, B, X, Y, LB, RB, START = 0, 1, 2, 3, 4, 5, 7
 
 
 def frame(buttons=0, rt=False, aim=(0, -32767), lt=False):
@@ -133,6 +133,14 @@ async def run(godot: str, pack: str = "") -> None:
             await hold(frame(), 0.2)
             await saw("cast Joep Chain Lightning")
             print("ok: LB+X then RT casts Chain Lightning")
+
+            await hold(frame(1 << START), 0.15)
+            await hold(frame(), 0.2)
+            await saw("menu open")
+            await hold(frame(1 << B), 0.15)
+            await hold(frame(), 0.2)
+            await saw("menu closed")
+            print("ok: Start opens the menu, B closes it")
 
             await send({"type": "pause", "session": "s1"})
             await saw("paused")

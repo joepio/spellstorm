@@ -97,6 +97,9 @@ func _queue_wave(players: int) -> void:
 		for _i in mix[k]:
 			pool.append(k)
 	var count := int((3 + 2.2 * players) * (1.0 + 0.12 * depth()) * Game.I.monster_count)
+	# The first biome is where you learn to shoot and roll: fewer monsters.
+	if biome_index == 0:
+		count = maxi(2, int(count * 0.6))
 	if room == 2:
 		count = int(count * 0.5)
 	for _i in count:

@@ -105,7 +105,7 @@ func _read_joypad() -> void:
 ## WASD moves, the mouse aims. 1 2 3 4 (or J K L I) are the four element
 ## pairs, Shift flips to the opposite. Left click shoots, right click casts,
 ## Space swings the staff (hold for a burst), Q dodges, V plants, F wards,
-## R recasts.
+## R recasts, Esc opens the menu (arrows and Enter in it).
 func _read_keyboard() -> void:
 	var m := Vector2(
 		float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
@@ -117,9 +117,9 @@ func _read_keyboard() -> void:
 		var d := mp - mouse_origin
 		aim = d.normalized() if d.length() > 20.0 else Vector2.ZERO
 	var keys := {
-		A: [KEY_1, KEY_J], B: [KEY_2, KEY_K], X: [KEY_3, KEY_L], Y: [KEY_4, KEY_I],
-		LB: [KEY_SHIFT], RB: [KEY_SPACE], RS: [KEY_F], LT: [KEY_Q], UP: [KEY_R],
-		LEFT: [KEY_Z], RIGHT: [KEY_C], DOWN: [KEY_V],
+		A: [KEY_1, KEY_J, KEY_ENTER], B: [KEY_2, KEY_K, KEY_BACKSPACE], X: [KEY_3, KEY_L], Y: [KEY_4, KEY_I],
+		LB: [KEY_SHIFT], RB: [KEY_SPACE], RS: [KEY_F], LT: [KEY_Q], UP: [KEY_R, KEY_UP],
+		LEFT: [KEY_Z, KEY_LEFT], RIGHT: [KEY_C, KEY_RIGHT], DOWN: [KEY_V, KEY_DOWN], START: [KEY_ESCAPE],
 	}
 	var bits := 0
 	for b in keys:

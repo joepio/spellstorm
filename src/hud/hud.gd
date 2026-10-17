@@ -78,7 +78,7 @@ func _ready() -> void:
 	add_child(_legend)
 
 	_toasts = VBoxContainer.new()
-	_toasts.position = Vector2(24, 262)
+	_toasts.position = Vector2(24, 120)
 	add_child(_toasts)
 
 
@@ -172,20 +172,10 @@ class Legend:
 
 	func _draw() -> void:
 		var f := Art.body_font()
-		var y := 0.0
-		draw_rect(Rect2(-10, -8, 420, 232), Color(0, 0, 0, 0.45))
-		for key in ["A", "B", "X", "Y"]:
-			var pair: Array = El.PAIRS[key]
-			var bc: Color = {"A": Color(0.3, 0.75, 0.3), "B": Color(0.85, 0.25, 0.2), "X": Color(0.25, 0.45, 0.9), "Y": Color(0.9, 0.75, 0.2)}[key]
-			draw_circle(Vector2(14, y + 14), 13, bc)
-			draw_string(f, Vector2(6, y + 22), key, HORIZONTAL_ALIGNMENT_CENTER, 18, 22, Color(0.05, 0.05, 0.05))
-			draw_string(f, Vector2(36, y + 22), El.NAMES[pair[0]], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, El.COLOR[pair[0]].lightened(0.2))
-			draw_string(f, Vector2(150, y + 22), "LB  " + El.NAMES[pair[1]], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, El.COLOR[pair[1]].lightened(0.2))
-			y += 30
-		var lines := ["Right stick shoot   RB swing   LT roll", "RT spell   hold RB burst   ▼ plant", "RS ward   ▲ again"]
-		for l in lines:
-			draw_string(f, Vector2(0, y + 26), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(0.78, 0.72, 0.62))
-			y += 28
+		draw_rect(Rect2(-10, -8, 400, 98), Color(0, 0, 0, 0.45))
+		var lines := ["Right stick shoot   RB swing   LT roll", "RT spell   hold RB burst   ▼ plant", "RS ward   ▲ again   Start menu"]
+		for i in lines.size():
+			draw_string(f, Vector2(0, 22 + i * 28), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(0.78, 0.72, 0.62))
 
 
 ## One wizard's panel.
@@ -232,20 +222,27 @@ class WizardPanel:
 			if i < slots.size():
 				var e: int = slots[i]
 				draw_circle(oc, 15, El.COLOR[e])
-				draw_circle(oc + Vector2(-4, -5), 5, Color(1, 1, 1, 0.35))
-				draw_string(f, oc + Vector2(-15, 7), El.GLYPH[e], HORIZONTAL_ALIGNMENT_CENTER, 30, 18, Color(0.05, 0.03, 0.03))
+				draw_circle(oc + Vector2(-4, -5), 5, Color(1, 1, 1, 0.25))
+				Icons.draw(self, e, oc, 9.5, Color(0.06, 0.04, 0.04, 0.92))
 				if El.is_fused(e):
 					draw_arc(oc, 19, 0, TAU, 24, Color(1, 0.9, 0.6), 2.0)
+		# Ammo: how many bolts the loaded queue has left.
+		if not slots.is_empty():
+			var full := float(Wizard.BOLTS_PER_ELEMENT * slots.size())
+			var bw := wizard.queue.size * 42.0 - 8.0
+			draw_rect(Rect2(108, 90, bw, 6), Color(0.12, 0.09, 0.07))
+			draw_rect(Rect2(108, 90, bw * clampf(wizard.ammo / full, 0.0, 1.0), 6), El.COLOR[slots[0]].lightened(0.2))
 		var y := 112.0
 		if not wizard.alive:
 			draw_string(f, Vector2(110, y + 10), "Fallen. Heal the grave with Life", HORIZONTAL_ALIGNMENT_LEFT, w - 120, 22, Color(0.85, 0.3, 0.25))
 			return
-		# What the staff shoots, then what each button casts right now and its mana.
-		var bc: Color = El.COLOR[wizard.bolt_el]
-		draw_circle(Vector2(26, y + 6), 9, bc)
-		draw_string(f, Vector2(42, y + 13), El.NAMES[wizard.bolt_el] + " bolts", HORIZONTAL_ALIGNMENT_LEFT, w * 0.5 - 50, 21, bc.lightened(0.35))
+		_buttons(Vector2(64, 160))
+		# What each button casts right now, and its mana.
+		var x0 := 122.0
 		if slots.is_empty():
-			draw_string(f, Vector2(16, y + 50), "A B X Y pick your element and fill the queue", HORIZONTAL_ALIGNMENT_LEFT, w - 24, 19, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(x0, 140), "Load elements: your bolts carry", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(x0, 164), "them, RT spends them as a spell", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(x0, 190), "Hold LB for the opposites", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.5, 0.46, 0.4))
 			return
 		var rows := [["RT", "cast"], ["RB", "nova"], ["▼", "plant"], ["RS", "ward"]]
 		for i in rows.size():
@@ -256,11 +253,34 @@ class WizardPanel:
 				col = El.COLOR[s.primary].lightened(0.35)
 			if price > wizard.mana:
 				col = col.darkened(0.55)
-			var x := 16.0 + (i % 2) * (w * 0.5 - 6.0)
-			var yy := y + 38.0 + floorf(i / 2.0) * 38.0
-			draw_string(f, Vector2(x, yy + 12), rows[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.5, 0.42))
-			draw_string(f, Vector2(x + 34, yy + 12), s.name, HORIZONTAL_ALIGNMENT_LEFT, w * 0.5 - 96, 19, col)
-			draw_string(f, Vector2(x + w * 0.5 - 62, yy + 12), "%d" % int(price), HORIZONTAL_ALIGNMENT_RIGHT, 30, 17, Color(0.45, 0.6, 1.0))
+			var yy := 126.0 + i * 24.0
+			draw_string(f, Vector2(x0, yy), rows[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.55, 0.5, 0.42))
+			draw_string(f, Vector2(x0 + 30, yy), s.name, HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 80, 19, col)
+			if price > 0.0:
+				draw_string(f, Vector2(w - 50, yy), "%d" % int(price), HORIZONTAL_ALIGNMENT_RIGHT, 36, 16, Color(0.45, 0.6, 1.0))
+
+	## The four face buttons where they sit on the controller (Y top, X left,
+	## B right, A bottom), each showing the element it conjures as an icon.
+	## Holding LB flips every button to its opposite.
+	func _buttons(c: Vector2) -> void:
+		var flip := wizard.pad != null and wizard.pad.down(Pad.LB)
+		var places := {"Y": Vector2(0, -31), "X": Vector2(-31, 0), "B": Vector2(31, 0), "A": Vector2(0, 31)}
+		var bits := {"A": Pad.A, "B": Pad.B, "X": Pad.X, "Y": Pad.Y}
+		draw_circle(c, 52, Color(0, 0, 0, 0.35))
+		for key in places:
+			var e: int = El.PAIRS[key][1 if flip else 0]
+			var p: Vector2 = c + places[key]
+			var held: bool = wizard.pad != null and wizard.pad.down(bits[key])
+			var r := 19.0 if held else 17.0
+			var col: Color = El.COLOR[e]
+			draw_circle(p, r + 2.5, Color(0.04, 0.03, 0.03))
+			draw_circle(p, r, col.darkened(0.15) if not held else col.lightened(0.2))
+			draw_circle(p + Vector2(-r * 0.3, -r * 0.35), r * 0.35, Color(1, 1, 1, 0.18))
+			Icons.draw(self, e, p, r * 0.62, Color(0.06, 0.04, 0.04, 0.92))
+			if e == wizard.bolt_el:
+				draw_arc(p, r + 4.5, 0, TAU, 28, Color(1.0, 0.85, 0.4), 2.0, true)
+		if flip:
+			draw_arc(c, 50, 0, TAU, 40, Color(1, 1, 1, 0.25), 1.5, true)
 
 	func _orb(c: Vector2, r: float, frac: float, fill: Color, rim: Color) -> void:
 		draw_circle(c, r + 3, rim)

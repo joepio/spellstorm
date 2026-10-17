@@ -36,7 +36,7 @@ jobs:
       - name: Spell grammar (every reachable queue)
         run: $RUNNER_TEMP/godot --headless --script tests/spell_test.gd
       - name: A live run with bots (shoot, swing, roll, bullets, spells)
-        run: $RUNNER_TEMP/godot --headless --fixed-fps 60 --path . -- --sim 3600
+        run: $RUNNER_TEMP/godot --headless --fixed-fps 60 --path . -- --sim 3600 --seed 1
       - name: GameNight lifecycle and controller input
         run: python tests/lifecycle.py --godot $RUNNER_TEMP/godot
       - name: Export Windows build

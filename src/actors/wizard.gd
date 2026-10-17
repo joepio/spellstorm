@@ -1,9 +1,10 @@
 class_name Wizard
 extends Actor
 ## A player's wizard. Twin-stick at heart: the left stick walks, the right
-## stick aims and shoots staff bolts of your element. Face buttons conjure
-## elements: the last one you pressed is what your staff shoots, and every
-## press also goes in the queue that RT casts as a spell, for mana.
+## stick aims and shoots staff bolts. Face buttons load elements into the
+## queue for mana, and the queue is ammunition: every bolt carries its mix
+## (water and fire loaded shoot steam bolts) and uses it up a little, and RT
+## spends all of it at once as a spell. An empty queue shoots plain bolts.
 ##
 ##   A Life / Void     B Fire / Frost     X Water / Lightning   Y Earth / Air
 ##   (hold LB for the second of each pair, its opposite)
@@ -20,7 +21,12 @@ const SAVE_HOLD := 0.6
 
 const MANA_MAX := 100.0
 const MANA_REGEN := 3.0
-const MANA_PER_ELEMENT := 10.0
+const MANA_PER_LOAD := 6.0
+const OVERLOAD_COST := 40.0
+## Bolts each loaded element is good for; the queue empties when they run out.
+const BOLTS_PER_ELEMENT := 12
+## Plain bolts when the queue is empty: weak, so loading is worth it.
+const PLAIN_BOLT := 0.2
 const MANA_PER_BOLT := 1.2
 const MANA_PER_SWING := 7.0
 const MANA_PER_DEFLECT := 4.0
@@ -36,7 +42,8 @@ const ROLL_COOLDOWN := 0.75
 ## status: fire burns, frost freezes after a few hits, water soaks and
 ## shoves, lightning shocks (double on wet), air pushes, life heals friends.
 const BOLT := {El.LIFE: 0.3, El.VOID: 0.25, El.FIRE: 0.45, El.FROST: 0.6, El.WATER: 0.9,
-	El.LIGHTNING: 0.3, El.EARTH: 0.28, El.AIR: 0.6}
+	El.LIGHTNING: 0.3, El.EARTH: 0.28, El.AIR: 0.6,
+	El.STEAM: 0.35, El.ICE: 0.33, El.MUD: 0.6, El.MAGMA: 0.3, El.STORM: 0.4}
 
 var player_name := "Wizard"
 var robe := Color(0.6, 0.15, 0.15)
@@ -47,8 +54,10 @@ var relics: Array = []
 var saved := {Pad.LEFT: [], Pad.RIGHT: []}
 var last_cast: Array = []
 var bot: Bot
-## The element the staff shoots: the last base element you conjured.
-var bolt_el := El.FIRE
+## The element the staff's bolts look like: the front of the queue, -1 plain.
+var bolt_el := -1
+## Bolts left in the loaded queue.
+var ammo := 0
 var mana := MANA_MAX
 ## Set briefly when a spell was too dear, so the HUD can flash the orb.
 var no_mana := 0.0
@@ -229,6 +238,7 @@ func _physics_process(dt: float) -> void:
 		_visuals(dt)
 		return
 	mana = minf(MANA_MAX, mana + MANA_REGEN * dt)
+	bolt_el = queue.slots[0] if not queue.is_empty() else -1
 	_read_input(dt)
 	if _roll_t > 0.0:
 		_roll_t -= dt
@@ -256,9 +266,7 @@ func _read_input(dt: float) -> void:
 	var flip := pad.down(Pad.LB)
 	for b in [Pad.A, Pad.B, Pad.X, Pad.Y]:
 		if pad.pressed(b):
-			var e: int = El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0]
-			bolt_el = e
-			conjure(e)
+			conjure(El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0])
 	if pad.pressed(Pad.LT):
 		roll()
 	if _roll_t > 0.0:
@@ -289,7 +297,7 @@ func _read_input(dt: float) -> void:
 		_bolt_t = 1.0 / BOLT_RATE
 		shoot()
 	if pad.pressed(Pad.UP) and not last_cast.is_empty():
-		queue.set_slots(last_cast)
+		load_slots(last_cast)
 		_conjure_fx()
 	for b in [Pad.LEFT, Pad.RIGHT]:
 		if pad.down(b):
@@ -299,7 +307,7 @@ func _read_input(dt: float) -> void:
 				Fx.text(global_position + Vector3.UP * 3.2, "Saved: " + preview("cast").name, Color(1, 0.85, 0.4), 40)
 		elif pad.released(b):
 			if _save_t.get(b, 0.0) < SAVE_HOLD and not saved[b].is_empty():
-				queue.set_slots(saved[b])
+				load_slots(saved[b])
 				_conjure_fx()
 			_save_t[b] = 0.0
 
@@ -313,13 +321,9 @@ func add_mana(amount: float) -> void:
 	mana = minf(MANA_MAX, mana + amount)
 
 
-## What a spell costs: per element in it, and the whole orb for an overload.
+## What casting costs on top of loading: only the overload asks for more.
 func cost(s: Dictionary) -> float:
-	if s.shape == "overload":
-		return MANA_MAX
-	if s.shape in ["staff", "stomp", "fizzle"]:
-		return 0.0
-	return MANA_PER_ELEMENT * s.power
+	return OVERLOAD_COST if s.shape == "overload" else 0.0
 
 
 func _trace_once(what: String) -> void:
@@ -328,10 +332,30 @@ func _trace_once(what: String) -> void:
 		Game.I._trace("%s %s" % [what, player_name])
 
 
+## What one bolt carries: every loaded element, a little stronger for each
+## copy, split across the mix so a mixed bolt is not simply stronger.
+func bolt_spell() -> Dictionary:
+	if queue.is_empty():
+		return {counts = {}, payload = [], primary = -1, n = {}, scales = {}}
+	var counts := {}
+	for e in queue.slots:
+		counts[e] = int(counts.get(e, 0)) + 1
+	var scales := {}
+	var split := 1.0 / sqrt(float(counts.size()))
+	for e in counts:
+		scales[e] = BOLT[e] * (0.6 + 0.4 * counts[e]) * split
+	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = scales}
+
+
 func shoot() -> void:
 	var dir := aim_dir.rotated(Vector3.UP, randf_range(-0.03, 0.03))
-	var b := BoltFx.new().setup(self, bolt_el, BOLT[bolt_el], dir)
+	var b := BoltFx.new().setup(self, bolt_spell(), dir)
 	Game.I.spawn(b, staff_tip() + dir * 0.3)
+	if not queue.is_empty():
+		ammo -= 1
+		if ammo <= 0:
+			queue.clear()
+			Fx.puff(staff_tip(), Color(0.7, 0.65, 0.6, 0.5), 0.5)
 	_cast_anim = maxf(_cast_anim, 0.12)
 	_trace_once("shoot")
 	Game.I.count("shots")
@@ -346,7 +370,7 @@ func melee() -> void:
 	_trace_once("melee")
 	Game.I.count("swings")
 	var bonk := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
-	var touch := {counts = {bolt_el: 1}, payload = [], primary = bolt_el, n = {}}
+	var touch := bolt_spell()
 	for a in Game.I.enemies:
 		if not is_instance_valid(a) or not a.alive:
 			continue
@@ -355,8 +379,7 @@ func melee() -> void:
 		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > 1.2:
 			continue
 		a.hit_spell(bonk, 0.4, self, to.normalized())
-		if bolt_el != El.LIFE or a.undead:
-			a.hit_spell(touch, BOLT[bolt_el] * 2.5, self, to.normalized())
+		BoltFx.strike(a, touch, 2.5, self, to.normalized())
 		add_mana(MANA_PER_SWING)
 	for b in Bullet.all.duplicate():
 		if not is_instance_valid(b) or b.team == team:
@@ -367,7 +390,8 @@ func melee() -> void:
 			b.deflect(self, aim_dir)
 			add_mana(MANA_PER_DEFLECT)
 			Game.I.count("deflects")
-	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, El.COLOR[bolt_el].lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
+	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
+	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
 
 
 ## A dodge roll the way you walk, untouchable for its length.
@@ -389,8 +413,24 @@ func roll() -> void:
 	Fx.puff(global_position + Vector3.UP * 0.4, Color(0.6, 0.6, 0.65, 0.5), 0.8)
 
 
+## Load one element for mana. Cancelling with an opposite is free.
 func conjure(e: int) -> void:
+	var trial := SpellQueue.new()
+	trial.size = queue.size
+	trial.set_slots(queue.copy())
+	var would := trial.add(e)
+	if would == "full":
+		return
+	if would != "cancel":
+		if mana < MANA_PER_LOAD - 0.01:
+			_no_mana()
+			return
+		mana -= MANA_PER_LOAD
+		ammo += BOLTS_PER_ELEMENT
 	var what := queue.add(e)
+	ammo = mini(ammo, BOLTS_PER_ELEMENT * queue.slots.size())
+	if queue.is_empty():
+		ammo = 0
 	var c: Color = El.COLOR[e]
 	match what:
 		"cancel":
@@ -398,6 +438,25 @@ func conjure(e: int) -> void:
 		"fuse":
 			Fx.burst(global_position + Vector3.UP * 1.9, c, 12, 2.5, 0.25)
 	_conjure_fx()
+
+
+## Load a remembered queue (D-pad recast or a saved spell), paying for each slot.
+func load_slots(slots: Array) -> void:
+	var price := MANA_PER_LOAD * slots.size()
+	if mana < price - 0.01:
+		_no_mana()
+		return
+	mana -= price
+	queue.set_slots(slots)
+	ammo = BOLTS_PER_ELEMENT * slots.size()
+
+
+func _no_mana() -> void:
+	no_mana = 0.6
+	Fx.text(global_position + Vector3.UP * 3.1, "Not enough mana", Color(0.45, 0.6, 1.0), 32, 0.9)
+	_trace_once("no mana")
+	if Game.I:
+		Game.I.count("no_mana")
 
 
 func _conjure_fx() -> void:
@@ -419,12 +478,10 @@ func cast(form: String, button: int) -> void:
 		return
 	var price := cost(s)
 	if mana < price - 0.01:
-		no_mana = 0.6
-		Fx.text(global_position + Vector3.UP * 3.1, "Not enough mana", Color(0.45, 0.6, 1.0), 32, 0.9)
-		_trace_once("no mana")
-		Game.I.count("no_mana")
+		_no_mana()
 		return
 	mana -= price
+	ammo = 0
 	if not queue.is_empty():
 		last_cast = queue.copy()
 	queue.clear()
@@ -601,7 +658,8 @@ func _visuals(dt: float) -> void:
 	var lift := 0.0
 	if _cast_anim > 0.0 or (channel and is_instance_valid(channel)) or not _charging.is_empty():
 		lift = 1.0
-	staff.rotation.x = lerpf(staff.rotation.x, -1.1 * lift, 12.0 * dt)
+	# Casting points the staff ahead (positive x tips the gem forward).
+	staff.rotation.x = lerpf(staff.rotation.x, 0.95 * lift, 12.0 * dt)
 	staff.position.z = lerpf(staff.position.z, 0.18 + 0.25 * lift, 12.0 * dt)
 	if _swing_t > 0.0:
 		staff.rotation.y = sin(_swing_t / SWING_COOLDOWN * PI) * 1.6
@@ -622,7 +680,7 @@ func _visuals(dt: float) -> void:
 			o.scale = Vector3.ONE * big
 		else:
 			o.visible = false
-	gem_color = El.COLOR[bolt_el]
+	gem_color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
 	model.gem.material_override = Fx.glow(gem_color, 3.0)
 	# Say what RT will do, so every spell is predictable before you cast it.
 	if slots.is_empty():
