@@ -24,6 +24,8 @@ var _banner: Label
 var _banner_sub: Label
 var _banner_t := 0.0
 var _vignette: ColorRect
+## Black over everything, for going through a portal.
+var _fade: ColorRect
 var _toasts: VBoxContainer
 
 
@@ -63,6 +65,12 @@ func _ready() -> void:
 	_banner_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.modulate.a = 0.0
 	_banner_sub.modulate.a = 0.0
+
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fade)
 
 	# Toasts (a tome taken) sit at the top in the middle, between the panels.
 	_toasts = VBoxContainer.new()
@@ -143,6 +151,12 @@ func room(biome: Dictionary, r: int, depth: int) -> void:
 func set_grimoire(found: int, total: int) -> void:
 	_grimoire.text = "Grimoire  %d / %d spells" % [found, total]
 	grimoire_text = "Grimoire: %d of %d spells discovered" % [found, total]
+
+
+## Fade the screen to [param alpha] black over [param time] seconds.
+func fade_to(alpha: float, time: float) -> void:
+	var tw := _fade.create_tween()
+	tw.tween_property(_fade, "color:a", alpha, time)
 
 
 func show_banner(text: String, sub: String, c: Color) -> void:

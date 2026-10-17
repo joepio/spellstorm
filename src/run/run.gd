@@ -15,7 +15,7 @@ const PORTAL_TIME := 1.2
 
 var biome_index := 0
 var room := 0
-var state := "fight"   # fight, cleared, dead, won
+var state := "fight"   # fight, cleared, travel, dead, won
 var waves_left := 0
 var wave_t := 0.0
 var spawn_queue: Array = []
@@ -270,12 +270,28 @@ func _cleared(dt: float) -> void:
 	if not living.is_empty() and inside.size() == living.size():
 		_portal_t += dt
 		if _portal_t >= PORTAL_TIME:
-			_next()
+			_travel()
 			return
 	else:
 		_portal_t = maxf(_portal_t - dt * 2.0, 0.0)
 	var fill: MeshInstance3D = portal.get_meta("fill")
 	(fill.material_override as ShaderMaterial).set_shader_parameter("progress", _portal_t / PORTAL_TIME)
+
+
+## Through the portal: the wizards vanish into it in a flash, the screen
+## goes black, and it opens again on the next room.
+func _travel() -> void:
+	state = "travel"
+	var at := portal.global_position
+	Fx.burst(at + Vector3.UP * 1.4, Color(0.55, 0.75, 1.0), 40, 6.0, 0.35)
+	Fx.light_pop(at, Color(0.55, 0.75, 1.0), 6.0, 10.0, 0.5)
+	for w in Game.I.wizards:
+		Fx.burst(w.global_position + Vector3.UP, w.robe.lightened(0.3), 14, 3.0, 0.25)
+	Game.I.hud.fade_to(1.0, 0.35)
+	await get_tree().create_timer(0.4).timeout
+	if state == "travel":
+		_next()
+	Game.I.hud.fade_to(0.0, 0.6)
 
 
 func _next() -> void:

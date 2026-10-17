@@ -95,7 +95,9 @@ func _ready() -> void:
 	menu = Menu.new()
 	hud.add_child(menu)
 	run.banner.connect(hud.show_banner)
-	run.room_started.connect(func(b, r): hud.room(b, r, run.depth()))
+	run.room_started.connect(func(b, r):
+		hud.room(b, r, run.depth())
+		snap_camera())
 	_load_grimoire()
 	spell_total = Grammar.TOTAL
 	hud.set_grimoire(grimoire.size(), spell_total)
@@ -442,6 +444,17 @@ func _confluence(dt: float) -> void:
 
 func _process(dt: float) -> void:
 	_update_camera(dt)
+
+
+## Put the camera straight over the wizards, for a new room: gliding there
+## from where the last room ended looks like walking back to its start.
+func snap_camera() -> void:
+	var c := Vector3.ZERO
+	for w in wizards:
+		c += w.global_position
+	if not wizards.is_empty():
+		_cam_center = c / wizards.size()
+	_cam_height = 16.0
 
 
 func _update_camera(dt: float) -> void:
