@@ -18,7 +18,7 @@ const DMG_PER_MANA := 5.0
 # leaves wisps worth SOUL_MANA_PER_HP of its health, which you walk over to
 # take. Regen only keeps an empty wizard from being stuck.
 const MANA_MAX := 100.0
-const MANA_REGEN := 1.0
+const MANA_REGEN := 3.0
 const SOUL_MANA_PER_HP := 0.15
 const MANA_PER_LOAD := 3.0
 const MANA_PER_ELEMENT := 8.0

@@ -180,8 +180,11 @@ func set_option(key: String, value: String) -> void:
 
 
 ## A fresh run that starts in [param biome] (0 is the chapel).
+## Start a run in [param biome], or a random one when it is -1.
 func start_at(biome: int) -> void:
 	new_run()
+	if biome < 0:
+		biome = randi() % Arena.BIOMES.size()
 	if biome > 0:
 		run.biome_index = biome
 		run.room = 0
@@ -305,8 +308,8 @@ func on_cast(w: Wizard, s: Dictionary) -> void:
 	_trace("cast %s %s" % [w.player_name, s.name])
 	count("casts")
 	if not grimoire.has(key):
+		# Spell names are never shown in play (Joep): the grimoire just counts.
 		grimoire[key] = s.name
-		hud.toast("%s discovered %s" % [w.player_name, s.name], Color(1.0, 0.82, 0.35))
 		hud.set_grimoire(grimoire.size(), spell_total)
 		_save_grimoire()
 
@@ -435,8 +438,6 @@ func _confluence(dt: float) -> void:
 			spawn(nova, Vector3(hit.x, 0, hit.y))
 			if not confluences.has(s.key):
 				confluences[s.key] = s.name
-				hud.toast("Confluence: " + s.name, Color(0.7, 0.9, 1.0))
-				Fx.text(Vector3(hit.x, 2.5, hit.y), "Confluence!", Color(0.7, 0.9, 1.0), 50, 1.4)
 
 
 func _process(dt: float) -> void:

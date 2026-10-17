@@ -3,7 +3,7 @@ extends Control
 ## The start menu and the pause menu, one screen. Start (Esc on the keyboard)
 ## opens it during play and pauses the game. Up and down pick a row, left and
 ## right change its value, A (Enter) confirms, B or Start closes it.
-##   Level          which biome to play; confirm to go there now
+##   Level          which biome to play (Random by default); confirm to go there now
 ##   Friendly fire  off / half / full
 ##   Difficulty     easy / normal / hard
 ##   Restart run    start the chosen level again from its first room
@@ -16,7 +16,8 @@ const REPEAT := 0.22
 var title_mode := false
 var rows: Array = []
 var sel := 0
-var biome := 0
+## The chosen biome, or -1 for a random one.
+var biome := -1
 var _nav_t := 0.0
 
 
@@ -30,7 +31,7 @@ func _ready() -> void:
 ## [param title] shows the start menu (Start instead of Resume, no restart).
 func open(title: bool) -> void:
 	title_mode = title
-	biome = Game.I.run.biome_index
+	biome = -1 if title else Game.I.run.biome_index
 	rows = ["start" if title else "resume", "level", "friendly_fire", "difficulty"]
 	if not title:
 		rows.append("restart")
@@ -114,7 +115,7 @@ func _physics_process(dt: float) -> void:
 func _change(row: String, dx: int) -> void:
 	match row:
 		"level":
-			biome = posmod(biome + dx, Arena.BIOMES.size())
+			biome = posmod(biome + 1 + dx, Arena.BIOMES.size() + 1) - 1
 		"friendly_fire":
 			Game.I.set_option("friendly_fire", FF[posmod(FF.find(Game.I.ff_name) + dx, FF.size())])
 		"difficulty":
@@ -141,7 +142,7 @@ func _label(row: String) -> Array:
 	match row:
 		"start": return ["Start", ""]
 		"resume": return ["Resume", ""]
-		"level": return ["Level", Arena.BIOMES[biome].name]
+		"level": return ["Level", "Random" if biome < 0 else Arena.BIOMES[biome].name]
 		"friendly_fire": return ["Friendly fire", Game.I.ff_name.capitalize()]
 		"difficulty": return ["Difficulty", Game.I.difficulty_name.capitalize()]
 		"restart": return ["Restart run", ""]
@@ -197,8 +198,6 @@ func _draw() -> void:
 			draw_string(tf, Vector2(cx - pw * 0.5 + 36, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.42, 32, col)
 			var v: String = ("‹  %s  ›" % l[1]) if on else l[1]
 			draw_string(f, Vector2(cx - 50, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.55, 30, col)
-	var hint := "Up / down choose   ·   left / right change   ·   A confirm" + ("" if title_mode else "   ·   B or Start back")
-	draw_string(f, Vector2(cx - pw * 0.5, y + rows.size() * 64 + 30), hint, HORIZONTAL_ALIGNMENT_CENTER, pw, 22, Color(0.55, 0.5, 0.42))
 	# The controls, each next to a drawing of its part of the controller.
 	var kx := w * 0.5 + 40.0
 	var kw := 680.0

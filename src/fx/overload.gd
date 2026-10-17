@@ -11,7 +11,6 @@ var _field: Field
 func _ready() -> void:
 	var c := color()
 	target = global_position
-	Fx.text(global_position + Vector3.UP * 3.0, spell.name.to_upper(), c, 110, 1.8)
 	if Game.I:
 		Game.I.shake(0.5)
 	match spell.primary:

@@ -16,7 +16,6 @@ const ALL := [
 	{"name": "Black Grimoire", "text": "Void +40%, and it heals you for 15% of the damage", "el_1": 1.4, "siphon": 0.15},
 	{"name": "Long Nozzle", "text": "Sprays reach 35% further", "spray_range": 1.35},
 	{"name": "Quick Hands", "text": "Thrown spells charge twice as fast", "charge": 0.5},
-	{"name": "Sixth Orb", "text": "Hold one more element", "slots": 1},
 	{"name": "Echo Stone", "text": "Bursts around you go off twice", "echo": true},
 	{"name": "Warded Robes", "text": "Wards last twice as long", "ward_time": 2.0},
 	{"name": "Thick Hide", "text": "+40 health", "hp": 40},

@@ -95,7 +95,6 @@ var _charge_ring: MeshInstance3D
 ## while a bullet is close so you can see what you would knock back.
 var _zone: MeshInstance3D
 var _zone_mat: ShaderMaterial
-var _ring: MeshInstance3D
 
 
 func _ready() -> void:
@@ -123,18 +122,11 @@ func _ready() -> void:
 	_light.position = Vector3(0, 2.6, 0)
 	_light.shadow_enabled = false
 	add_child(_light)
-	# A ring on the ground in the player's colour, so you find yourself.
-	_ring = MeshInstance3D.new()
 	var tor := TorusMesh.new()
 	tor.inner_radius = 0.55
 	tor.outer_radius = 0.66
 	tor.rings = 28
 	tor.ring_segments = 4
-	_ring.mesh = tor
-	_ring.material_override = Fx.glow(robe.lightened(0.25), 1.6)
-	_ring.scale = Vector3(1, 0.05, 1)
-	_ring.position.y = 0.04
-	add_child(_ring)
 	for i in 6:
 		var o := Art.part(self, Art.sphere(0.12, 8), Fx.glow(Color.WHITE, 3.0))
 		o.visible = false
@@ -196,7 +188,7 @@ func mods() -> Dictionary:
 				continue
 			if typeof(r[k]) == TYPE_BOOL:
 				m[k] = r[k]
-			elif k in ["hp", "hops", "slots"]:
+			elif k in ["hp", "hops"]:
 				m[k] = m.get(k, 0) + r[k]
 			else:
 				m[k] = m.get(k, 1.0) * r[k]
@@ -216,7 +208,7 @@ func give_relic(r: Dictionary) -> void:
 	var old := max_hp
 	max_hp = 100.0 + float(_mod("hp", 0.0))
 	hp += max_hp - old
-	queue.size = SpellQueue.SIZE + int(_mod("slots", 0.0))
+	queue.size = SpellQueue.SIZE
 
 
 func staff_tip() -> Vector3:
@@ -273,8 +265,27 @@ func _physics_process(dt: float) -> void:
 		spd *= 0.55
 	elif not _charging.is_empty():
 		spd *= 0.6
-	drive(mv * spd, dt)
+	drive(_leash(mv) * spd, dt)
 	_visuals(dt)
+
+
+## Couch co-op shares one screen: nobody walks further than LEASH from
+## another wizard, or the camera could not show everyone.
+const LEASH := 15.0
+
+
+func _leash(mv: Vector3) -> Vector3:
+	if not Game.I:
+		return mv
+	for w in Game.I.wizards:
+		if w == self or not w.alive:
+			continue
+		var away: Vector3 = global_position - w.global_position
+		away.y = 0.0
+		if away.length() > LEASH and mv.dot(away) > 0.0:
+			var n: Vector3 = away.normalized()
+			mv -= n * mv.dot(n)
+	return mv
 
 
 func _read_input(dt: float) -> void:
@@ -327,7 +338,7 @@ func _read_input(dt: float) -> void:
 			_save_t[b] = _save_t.get(b, 0.0) + dt
 			if _save_t[b] >= SAVE_HOLD and _save_t[b] - dt < SAVE_HOLD and not queue.is_empty():
 				saved[b] = queue.copy()
-				Fx.text(global_position + Vector3.UP * 3.2, "Saved: " + preview("cast").name, Color(1, 0.85, 0.4), 40)
+				Fx.text(global_position + Vector3.UP * 3.2, "Saved", Color(1, 0.85, 0.4), 40)
 		elif pad.released(b):
 			if _save_t.get(b, 0.0) < SAVE_HOLD and not saved[b].is_empty():
 				load_slots(saved[b])
@@ -688,7 +699,6 @@ func die(src: Actor) -> void:
 	queue.clear()
 	burn = 0.0
 	model.root.visible = false
-	_ring.visible = false
 	_light.light_energy = 0.4
 	_tomb = Art.tombstone()
 	add_child(_tomb)
@@ -709,7 +719,6 @@ func revive(frac: float) -> void:
 	alive = true
 	hp = max_hp * frac
 	model.root.visible = true
-	_ring.visible = true
 	_light.light_energy = 1.3
 	if _tomb:
 		_tomb.queue_free()

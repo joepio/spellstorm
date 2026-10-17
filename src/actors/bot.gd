@@ -71,6 +71,11 @@ func think(w: Wizard, dt: float) -> void:
 		move = goal - w.global_position
 		pad.move = Vector2(move.x, move.z).normalized() if move.length() > 0.3 else Vector2.ZERO
 		return
+	# Nothing to fight: walk on along the path to where the next monsters wait.
+	if run and run.state == "fight" and enemy == null and downed == null:
+		var to_goal := run.walk_goal(w) - w.global_position
+		to_goal.y = 0
+		move = to_goal.normalized() * 0.8
 	var target_pos := downed.global_position if (downed and plan.has(El.LIFE)) else (enemy.global_position if enemy else w.global_position)
 	var to := target_pos - w.global_position
 	to.y = 0

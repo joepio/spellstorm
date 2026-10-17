@@ -1,8 +1,13 @@
 class_name Arena
 extends Node3D
 ## One dungeon room: floor, walls, props, torches and the fields on the ground.
+## A room is a long hall you walk through from the entrance (front, +z) to
+## the gate at the back (-z); a boss room is a short arena.
 
-const HALF := Vector2(17.0, 11.0)
+## Half the room's width and length; set per room in build().
+var half := Vector2(15.0, 30.0)
+const HALL_HALF := Vector2(15.0, 30.0)
+const BOSS_HALF := Vector2(16.0, 12.0)
 
 const BIOMES := [
 	{id = "chapel", name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
@@ -39,7 +44,11 @@ var path := PackedVector2Array()
 ## straight way at the altars, like the transept of a church: two points.
 var cross_path := PackedVector2Array()
 const PATH_W := 2.4
-const ALTAR_Z := -2.0
+## Where the altars and the portal stand, near the back wall, and where the
+## wizards come in, near the front.
+var altar_z := -21.5
+var portal_z := -26.5
+var start_z := 26.0
 ## Islands in a water biome, as (x, z, rx, rz) ellipses; empty elsewhere.
 var isles: Array[Vector4] = []
 var fields: Array = []
@@ -56,6 +65,10 @@ func build(biome_index: int, room: int, seed_value: int) -> void:
 	_props_at.clear()
 	biome = BIOMES[biome_index % BIOMES.size()]
 	_rng.seed = seed_value
+	half = BOSS_HALF if room == 2 else HALL_HALF
+	altar_z = -half.y + 8.5
+	portal_z = -half.y + 3.5
+	start_z = half.y - 4.0
 	_plan()
 	_floor()
 	_walls()
@@ -64,10 +77,13 @@ func build(biome_index: int, room: int, seed_value: int) -> void:
 	if biome.get("layout", "") == "nave":
 		_nave_props()
 	else:
-		var count := 9 if boss_room else 14
+		var count := 9 if boss_room else int(14 * half.y / 11.0)
 		for i in count:
 			_prop(biome.props[_rng.randi() % biome.props.size()])
-	for k in biome.fields:
+	var fields_list: Array = []
+	for _r in maxi(1, int(half.y / 11.0)):
+		fields_list.append_array(biome.fields)
+	for k in fields_list:
 		var p := _free_spot(3.0)
 		if p == Vector3.INF:
 			continue
@@ -77,8 +93,8 @@ func build(biome_index: int, room: int, seed_value: int) -> void:
 
 
 ## Lay out the path, and in a water biome the islands it hops between. The
-## wizards start at the front (z 6 to 8.5), the altars stand at z -2 and the
-## portal at z -7.5, so all of those are on the path or on dry land.
+## wizards start at the front (start_z), the altars stand at altar_z and the
+## portal at portal_z, so all of those are on the path or on dry land.
 func _plan() -> void:
 	path = PackedVector2Array()
 	cross_path = PackedVector2Array()
@@ -86,26 +102,40 @@ func _plan() -> void:
 	if biome.get("layout", "") == "nave":
 		# Built by people: a straight aisle from the door to the gate, and a
 		# crossing where the altars stand.
-		for i in 9:
-			path.append(Vector2(0, lerpf(HALF.y + 1.5, -HALF.y - 1.0, i / 8.0)))
-		cross_path = PackedVector2Array([Vector2(-8.5, ALTAR_Z), Vector2(8.5, ALTAR_Z)])
+		var n := int(half.y / 2.5) + 1
+		for i in n:
+			path.append(Vector2(0, lerpf(half.y + 1.5, -half.y - 1.0, float(i) / (n - 1))))
+		cross_path = PackedVector2Array([Vector2(-8.5, altar_z), Vector2(8.5, altar_z)])
 		return
+	# A trodden way: it swings from side to side every few metres on its way
+	# back, and runs straight into the altars and the gate.
+	var keys := PackedVector2Array([Vector2(0, half.y + 1.5), Vector2(_rng.randf_range(-1.0, 1.0), start_z - 1.5)])
+	var bends: Array[Vector2] = []
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
-	var mid_a := Vector2(side * _rng.randf_range(3.5, 7.0), 3.0)
-	var mid_b := Vector2(-side * _rng.randf_range(2.0, 4.5), -2.0)
-	var keys := PackedVector2Array([Vector2(0, HALF.y + 1.5), Vector2(_rng.randf_range(-1.0, 1.0), 7.5),
-		mid_a, mid_b, Vector2(0, -7.5), Vector2(0, -HALF.y - 1.0)])
-	path = _smooth(keys, 7)
+	var z := start_z - 7.0
+	while z > altar_z + 5.0:
+		var b := Vector2(side * _rng.randf_range(2.5, minf(7.0, half.x - 5.0)), z)
+		keys.append(b)
+		bends.append(b)
+		side = -side
+		z -= _rng.randf_range(7.5, 9.5)
+	keys.append(Vector2(0, altar_z + 1.0))
+	keys.append(Vector2(0, portal_z))
+	keys.append(Vector2(0, -half.y - 1.0))
+	path = _smooth(keys, maxi(2, 60 / (keys.size() - 1)))
 	if not biome.get("isles", false):
 		return
 	# Where you start and where the altars and portal stand are big islands;
 	# the path's bends are small ones, with bridges between.
-	isles.append(Vector4(0, 8.0, 8.5, 4.4))
-	isles.append(Vector4(0, -5.6, 8.0, 4.6))
-	isles.append(Vector4(mid_a.x, mid_a.y, _rng.randf_range(2.6, 3.4), _rng.randf_range(2.2, 2.8)))
+	isles.append(Vector4(0, start_z - 1.0, 8.5, 4.4))
+	isles.append(Vector4(0, (altar_z + portal_z) * 0.5 - 0.6, 8.0, 4.6))
+	for b in bends:
+		isles.append(Vector4(b.x, b.y, _rng.randf_range(2.6, 3.4), _rng.randf_range(2.2, 2.8)))
 	# A few islands off the path to fight from.
-	for _i in 4:
-		var c := Vector2(_rng.randf_range(-HALF.x + 3, HALF.x - 3), _rng.randf_range(-HALF.y + 3, HALF.y - 3))
+	for _i in 12:
+		if isles.size() >= 16:
+			break
+		var c := Vector2(_rng.randf_range(-half.x + 3, half.x - 3), _rng.randf_range(-half.y + 3, half.y - 3))
 		var clear := true
 		for e in isles:
 			if c.distance_to(Vector2(e.x, e.y)) < maxf(e.z, e.w) + 3.0:
@@ -152,46 +182,52 @@ static func _line_dist(line: PackedVector2Array, p: Vector2) -> float:
 ## pillars lining it, coffins side by side. Nothing stands where the wizards
 ## come in or on the crossing.
 func _nave_props() -> void:
+	# The rows run from just inside the back wall to a little way in from
+	# the door, so the wizards come in on open floor.
+	var back := -half.y + 2.4
+	var front := start_z - 3.5
 	match biome.id:
 		"chapel":
-			for x: float in [4.2, 6.6, 9.0, 11.4, 13.8]:
+			for x: float in [4.2, 6.6, 9.0, 11.4, 13.0]:
 				for sgn: float in [-1.0, 1.0]:
-					var z := -8.6
-					while z < 8.8:
-						var free: bool = absf(z - ALTAR_Z) > 2.2 and not (z > 4.0 and x < 7.0)
+					var z := back
+					while z < half.y - 2.0:
+						var free: bool = absf(z - altar_z) > 2.2 and not (z > front and x < 7.0)
 						if free and _rng.randf() < 0.62:
 							_prop("grave", Vector3(sgn * x + _rng.randf_range(-0.15, 0.15), 0, z), _rng.randf_range(-0.12, 0.12))
 						z += 2.5
-			for c: Vector2 in [Vector2(-2.1, ALTAR_Z + 1.9), Vector2(2.1, ALTAR_Z + 1.9), Vector2(-2.1, ALTAR_Z - 1.9), Vector2(2.1, ALTAR_Z - 1.9)]:
+			for c: Vector2 in [Vector2(-2.1, altar_z + 1.9), Vector2(2.1, altar_z + 1.9), Vector2(-2.1, altar_z - 1.9), Vector2(2.1, altar_z - 1.9)]:
 				_prop("candles", Vector3(c.x, 0, c.y), 0.0)
-			for _i in 3:
+			for _i in int(half.y / 4.0):
 				_prop("dead_tree")
 		"catacombs":
-			var z2 := -8.4
-			while z2 < 5.0:
-				if absf(z2 - ALTAR_Z) > 2.0:
+			var z2 := back
+			while z2 < front:
+				if absf(z2 - altar_z) > 2.0:
 					for sgn: float in [-1.0, 1.0]:
 						_prop("pillar", Vector3(sgn * 2.9, 0, z2), 0.0)
 				z2 += 3.4
 			for x: float in [7.0, 10.0, 13.0]:
 				for sgn: float in [-1.0, 1.0]:
-					for z: float in [-8.0, -4.9, 1.2, 4.4]:
-						if _rng.randf() < 0.7 and not (z > 4.0 and x < 8.0):
+					var z := back + 0.4
+					while z < half.y - 2.0:
+						if _rng.randf() < 0.7 and absf(z - altar_z) > 2.0 and not (z > front and x < 8.0):
 							_prop("sarcophagus", Vector3(sgn * x, 0, z), 0.0)
-			for _i in 4:
+						z += 3.2
+			for _i in int(half.y / 2.5):
 				_prop("bones")
-			for _i in 3:
+			for _i in int(half.y / 3.5):
 				_prop("candles")
 		_:
-			var z3 := -8.4
-			while z3 < 5.0:
-				if absf(z3 - ALTAR_Z) > 2.0:
+			var z3 := back
+			while z3 < front:
+				if absf(z3 - altar_z) > 2.0:
 					for sgn: float in [-1.0, 1.0]:
 						_prop("pillar", Vector3(sgn * 3.1, 0, z3), 0.0)
 				z3 += 4.0
-			for _i in 5:
+			for _i in int(half.y / 2.0):
 				_prop("ice")
-			for _i in 2:
+			for _i in int(half.y / 5.0):
 				_prop("rock")
 
 
@@ -245,7 +281,7 @@ func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
 	while t < len:
 		var c := a + dir * t
 		var at := run + t
-		var inside := absf(c.x) < HALF.x - 0.5 and absf(c.y) < HALF.y - 0.5
+		var inside := absf(c.x) < half.x - 0.5 and absf(c.y) < half.y - 0.5
 		if inside and at >= _next_post:
 			if not isles.is_empty() and shore(c) > 0.1:
 				# Posts along a bridge.
@@ -260,7 +296,7 @@ func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
 					var q2: Vector2 = c + nrm * sgn * (PATH_W * 0.5 + 0.15)
 					if _rng.randf() < 0.55 and path_dist(q2) > PATH_W * 0.5:
 						Art.part(self, Art.box(0.32, 0.12, 0.24), stone, Vector3(q2.x, 0.06, q2.y), Vector3(0, _rng.randf() * 60.0, 0))
-		if inside and at >= _next_lamp and (isles.is_empty() or shore(c) < -0.5) and absf(c.y - ALTAR_Z) > 1.5:
+		if inside and at >= _next_lamp and (isles.is_empty() or shore(c) < -0.5) and absf(c.y - altar_z) > 1.5:
 			if built:
 				# Lanterns in pairs, both sides of the aisle.
 				_next_lamp = at + 6.0
@@ -298,7 +334,7 @@ func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 ## An open archway in the back wall where the path leads out.
 func _gate() -> void:
 	var stone := Fx.solid(biome.wall.lightened(0.05), 0.95)
-	var z := -HALF.y - 0.6
+	var z := -half.y - 0.6
 	for sgn: float in [-1.0, 1.0]:
 		Art.part(self, Art.box(0.9, 4.2, 1.5), stone, Vector3(sgn * 1.7, 2.1, z))
 	Art.part(self, Art.box(4.3, 0.7, 1.5), stone, Vector3(0, 4.3, z))
@@ -321,7 +357,7 @@ func _floor() -> void:
 	mat.set_shader_parameter("base_a", biome.floor_a)
 	mat.set_shader_parameter("base_b", biome.floor_b)
 	mat.set_shader_parameter("tiles", biome.tiles)
-	mat.set_shader_parameter("half_size", HALF)
+	mat.set_shader_parameter("half_size", half)
 	mat.set_shader_parameter("wet", biome.get("wet", 0.0))
 	mat.set_shader_parameter("path_pts", path)
 	mat.set_shader_parameter("path_n", path.size())
@@ -340,10 +376,10 @@ func _floor() -> void:
 	# The floor is cut into chunks so each chunk gets its own nearby torches
 	# (the compatibility renderer lights each mesh with a few lights only).
 	var chunk := 4.0
-	var x := -HALF.x - 4.0
-	while x < HALF.x + 4.0:
-		var z := -HALF.y - 4.0
-		while z < HALF.y + 6.0:
+	var x := -half.x - 4.0
+	while x < half.x + 4.0:
+		var z := -half.y - 4.0
+		while z < half.y + 6.0:
 			var m := MeshInstance3D.new()
 			var pm := PlaneMesh.new()
 			pm.size = Vector2(chunk, chunk)
@@ -371,11 +407,11 @@ func _walls() -> void:
 	# hides a wizard. Out on the water the sides are a low, broken sea wall.
 	var low: bool = biome.get("low_walls", false)
 	var segs := [
-		[Vector3(-(HALF.x + 1.2 + 1.25) * 0.5, 0, -HALF.y - 0.6), Vector3(HALF.x + 1.2 - 1.25, 3.4, 1.2)],
-		[Vector3((HALF.x + 1.2 + 1.25) * 0.5, 0, -HALF.y - 0.6), Vector3(HALF.x + 1.2 - 1.25, 3.4, 1.2)],
-		[Vector3(-HALF.x - 0.6, 0, 0), Vector3(1.2, 1.1 if low else 3.0, HALF.y * 2 + 2.4)],
-		[Vector3(HALF.x + 0.6, 0, 0), Vector3(1.2, 1.1 if low else 3.0, HALF.y * 2 + 2.4)],
-		[Vector3(0, 0, HALF.y + 0.6), Vector3(HALF.x * 2 + 2.4, 0.7, 1.2)],
+		[Vector3(-(half.x + 1.2 + 1.25) * 0.5, 0, -half.y - 0.6), Vector3(half.x + 1.2 - 1.25, 3.4, 1.2)],
+		[Vector3((half.x + 1.2 + 1.25) * 0.5, 0, -half.y - 0.6), Vector3(half.x + 1.2 - 1.25, 3.4, 1.2)],
+		[Vector3(-half.x - 0.6, 0, 0), Vector3(1.2, 1.1 if low else 3.0, half.y * 2 + 2.4)],
+		[Vector3(half.x + 0.6, 0, 0), Vector3(1.2, 1.1 if low else 3.0, half.y * 2 + 2.4)],
+		[Vector3(0, 0, half.y + 0.6), Vector3(half.x * 2 + 2.4, 0.7, 1.2)],
 	]
 	for s in segs:
 		var body := StaticBody3D.new()
@@ -434,8 +470,8 @@ func _torch(parent: Node3D, at: Vector3) -> void:
 
 func _free_spot(clear: float) -> Vector3:
 	for _i in 40:
-		var p := Vector3(_rng.randf_range(-HALF.x + 2, HALF.x - 2), 0, _rng.randf_range(-HALF.y + 2, HALF.y - 2))
-		if p.length() < 4.0:
+		var p := Vector3(_rng.randf_range(-half.x + 2, half.x - 2), 0, _rng.randf_range(-half.y + 2, half.y - 2))
+		if p.distance_to(Vector3(0, 0, start_z)) < 5.0:
 			continue
 		if path_dist(Vector2(p.x, p.z)) < PATH_W * 0.5 + 1.0:
 			continue
@@ -596,7 +632,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 func _dust() -> void:
 	var p := Fx.particles(Color(0.8, 0.7, 0.6, 0.25), 60, 8.0, 0.08)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(HALF.x, 1.5, HALF.y)
+	p.emission_box_extents = Vector3(half.x, 1.5, half.y)
 	p.position.y = 1.5
 	p.direction = Vector3(1, 0.2, 0)
 	p.spread = 60.0
@@ -692,7 +728,30 @@ func ray(from: Vector3, to: Vector3) -> Dictionary:
 
 
 func clamp_inside(p: Vector3) -> Vector3:
-	return Vector3(clampf(p.x, -HALF.x + 0.8, HALF.x - 0.8), 0, clampf(p.z, -HALF.y + 0.8, HALF.y - 0.8))
+	return Vector3(clampf(p.x, -half.x + 0.8, half.x - 0.8), 0, clampf(p.z, -half.y + 0.8, half.y - 0.8))
+
+
+## Where a monster of an encounter walks in: ahead of the wizards, between
+## [param near] and [param far] metres further into the room than
+## [param lead_z], from the far side or out of the side walls.
+func spawn_ahead(lead_z: float, near: float, far: float, away_from: Array) -> Vector3:
+	var best := Vector3.ZERO
+	var best_d := -1.0
+	for _i in 12:
+		var z := clampf(lead_z - _rng.randf_range(near, far), -half.y + 1.5, half.y - 1.5)
+		var x := _rng.randf_range(-half.x + 1.5, half.x - 1.5)
+		if _rng.randf() < 0.35:
+			x = (half.x - 1.2) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		var p := Vector3(x, 0, z)
+		var d := INF
+		for w in away_from:
+			d = minf(d, p.distance_to(w.global_position))
+		# Out of the water when there is land close by, and never on top of a wizard.
+		var score := minf(d, 9.0) - (3.0 if in_water(p) else 0.0) + _rng.randf()
+		if score > best_d:
+			best_d = score
+			best = p
+	return best
 
 
 ## Where a monster can walk in from: along the walls, away from the wizards.
@@ -703,9 +762,9 @@ func spawn_point(away_from: Array) -> Vector3:
 		var side := _rng.randi() % 3
 		var p: Vector3
 		match side:
-			0: p = Vector3(_rng.randf_range(-HALF.x + 1.5, HALF.x - 1.5), 0, -HALF.y + 1.2)
-			1: p = Vector3(-HALF.x + 1.2, 0, _rng.randf_range(-HALF.y + 1.5, HALF.y - 1.5))
-			_: p = Vector3(HALF.x - 1.2, 0, _rng.randf_range(-HALF.y + 1.5, HALF.y - 1.5))
+			0: p = Vector3(_rng.randf_range(-half.x + 1.5, half.x - 1.5), 0, -half.y + 1.2)
+			1: p = Vector3(-half.x + 1.2, 0, _rng.randf_range(-half.y + 1.5, half.y - 1.5))
+			_: p = Vector3(half.x - 1.2, 0, _rng.randf_range(-half.y + 1.5, half.y - 1.5))
 		var d := INF
 		for w in away_from:
 			d = minf(d, p.distance_to(w.global_position))

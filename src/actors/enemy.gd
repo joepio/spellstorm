@@ -287,7 +287,7 @@ func _physics_process(dt: float) -> void:
 		return
 	_think -= dt
 	_cool = maxf(0.0, _cool - dt)
-	if _think <= 0.0 or target == null or not target.alive:
+	if _think <= 0.0 or target == null or (not target.alive and Game.I and Game.I.wizards.any(func(w): return w.alive)):
 		_think = 0.5
 		target = _pick_target()
 	var want := Vector3.ZERO
@@ -485,11 +485,15 @@ func _boss(dt: float) -> void:
 			Game.I.run.spawn_enemy(k, global_position + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), false)
 
 
+## The nearest living wizard. With every wizard down, the nearest grave:
+## the monsters gather round it and beat on it instead of standing still.
 func _pick_target() -> Actor:
 	var best: Actor = null
 	var bd := INF
-	for w in (Game.I.wizards if Game.I else []):
-		if not w.alive:
+	var wizards: Array = Game.I.wizards if Game.I else []
+	var anyone := wizards.any(func(w): return w.alive)
+	for w in wizards:
+		if anyone and not w.alive:
 			continue
 		var d := global_position.distance_to(w.global_position)
 		if w == target:

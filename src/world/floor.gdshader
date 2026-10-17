@@ -14,7 +14,7 @@ uniform float wet = 0.0;
 
 // The path: a polyline in world xz. Style 0 trodden earth, 1 flagstones,
 // 2 a worn carpet runner, 3 basalt with glowing seams.
-uniform vec2 path_pts[48];
+uniform vec2 path_pts[64];
 uniform int path_n = 0;
 uniform float path_w = 2.4;
 uniform int path_style = 0;
@@ -25,7 +25,7 @@ uniform vec3 path_a : source_color = vec3(0.3, 0.24, 0.17);
 uniform vec3 path_b : source_color = vec3(0.18, 0.14, 0.1);
 
 // Islands as ellipses (x, z, rx, rz); with isle_n > 0 everything else is water.
-uniform vec4 isles[10];
+uniform vec4 isles[16];
 uniform int isle_n = 0;
 uniform vec3 water_a : source_color = vec3(0.015, 0.05, 0.065);
 uniform vec3 water_b : source_color = vec3(0.04, 0.13, 0.14);
@@ -62,7 +62,7 @@ vec4 path_info(vec2 p) {
 	float along = 0.0;
 	float run = 0.0;
 	vec2 dir = vec2(0.0, 1.0);
-	for (int i = 0; i < 47; i++) {
+	for (int i = 0; i < 63; i++) {
 		if (i >= path_n - 1) break;
 		vec2 a = path_pts[i];
 		vec2 b = path_pts[i + 1];
@@ -95,7 +95,7 @@ vec4 path_info(vec2 p) {
 // Signed distance to the nearest island shore: negative on land.
 float isle_sdf(vec2 p) {
 	float d = 1e5;
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < 16; i++) {
 		if (i >= isle_n) break;
 		vec4 e = isles[i];
 		vec2 q = (p - e.xy) / e.zw;

@@ -1,13 +1,17 @@
 class_name Run
 extends Node3D
-## A descent: five biomes of three rooms, the third a boss. Clear a room's
-## waves, take a tome from an altar, step into the portal together.
+## A descent: five biomes of three rooms, the third a boss. A room is a long
+## hall: walk it along the path, and each time the wizards get further in a
+## new encounter comes at them from ahead. Beat them all, take a tome from an
+## altar at the far end, step into the portal together.
 
 signal room_started(biome: Dictionary, room: int)
 signal banner(text: String, sub: String, color: Color)
 
 const ROOMS := 3
 const PORTAL_R := 1.7
+## Everyone stands in the portal's ring this long to go on.
+const PORTAL_TIME := 1.2
 
 var biome_index := 0
 var room := 0
@@ -16,6 +20,11 @@ var waves_left := 0
 var wave_t := 0.0
 var spawn_queue: Array = []
 var spawn_t := 0.0
+## How far into the room (z, going down) the front wizard must get to start
+## each encounter still to come, nearest first.
+var encounters: Array[float] = []
+## Where the encounter being spawned started; its monsters come from ahead of it.
+var _wave_z := INF
 var rng := RandomNumberGenerator.new()
 var seed_value := 1
 var kills := 0
@@ -48,7 +57,8 @@ func enter_room() -> void:
 	state = "fight"
 	Game.I.arena.build(biome_index, room, seed_value * 31 + depth())
 	Game.I.apply_biome(Game.I.arena.biome)
-	var starts := [Vector3(-1.5, 0, 6), Vector3(1.5, 0, 6), Vector3(-3.5, 0, 7.5), Vector3(3.5, 0, 7.5), Vector3(0, 0, 8.5), Vector3(-5, 0, 8.5)]
+	var sz: float = Game.I.arena.start_z
+	var starts := [Vector3(-1.5, 0, sz - 1), Vector3(1.5, 0, sz - 1), Vector3(-3.5, 0, sz + 0.5), Vector3(3.5, 0, sz + 0.5), Vector3(0, 0, sz + 1.5), Vector3(-5, 0, sz + 1.5)]
 	var i := 0
 	for w in Game.I.wizards:
 		if not w.alive:
@@ -59,16 +69,26 @@ func enter_room() -> void:
 		w.push = Vector3.ZERO
 		w.aim_dir = Vector3.FORWARD
 		i += 1
-	var players := maxi(1, Game.I.wizards.size())
-	waves_left = 1 if room == 2 else 2 + int(room == 1)
 	wave_t = 2.0
+	encounters.clear()
+	_wave_z = INF
 	if room == 2:
+		# The boss room is a short arena: the boss and one wave, at once.
 		var b: String = Game.I.arena.biome.boss
-		spawn_enemy(b, Vector3(0, 0, -6), false)
+		spawn_enemy(b, Vector3(0, 0, Game.I.arena.altar_z - 4.0), false)
 		banner.emit(Enemy.KINDS[b].name, Game.I.arena.biome.name, Color(1.0, 0.7, 0.3))
+		encounters.append(INF)
+	else:
+		# Spread along the hall: the first a few steps in, the last guarding
+		# the altars.
+		var n := 3 + int(room == 1)
+		var first: float = Game.I.arena.start_z - 3.0
+		var last: float = Game.I.arena.altar_z + 7.0
+		for k in n:
+			encounters.append(lerpf(first, last, float(k) / (n - 1)))
+	waves_left = encounters.size()
 	# Where you are (biome, room, level) is in the pause menu, not on screen.
 	room_started.emit(Game.I.arena.biome, room)
-	_queue_wave(players)
 
 
 func _clear_room() -> void:
@@ -86,6 +106,7 @@ func _clear_room() -> void:
 		portal.queue_free()
 		portal = null
 	spawn_queue.clear()
+	encounters.clear()
 	boss = null
 
 
@@ -141,19 +162,43 @@ func _physics_process(dt: float) -> void:
 		Game.I.run_over(false)
 
 
+## How far into the room the front living wizard is (the lowest z).
+func lead_z() -> float:
+	var z := INF
+	for w in Game.I.wizards:
+		if w.alive:
+			z = minf(z, w.global_position.z)
+	return z
+
+
 func _fight(dt: float) -> void:
+	var lead := lead_z()
+	if not encounters.is_empty() and lead < encounters[0]:
+		encounters.pop_front()
+		_wave_z = lead
+		wave_t = 0.0
+		_queue_wave(maxi(1, Game.I.wizards.size()))
 	spawn_t -= dt
 	if not spawn_queue.is_empty() and spawn_t <= 0.0:
 		spawn_t = 0.35
-		spawn_enemy(spawn_queue.pop_front(), Game.I.arena.spawn_point(Game.I.wizards))
+		var at: Vector3 = Game.I.arena.spawn_point(Game.I.wizards) if _wave_z == INF \
+			else Game.I.arena.spawn_ahead(_wave_z, 7.0, 13.0, Game.I.wizards)
+		spawn_enemy(spawn_queue.pop_front(), at)
 	var alive_count := Game.I.enemies.filter(func(e): return e.alive).size()
 	if spawn_queue.is_empty():
 		wave_t -= dt
-		if waves_left > 0 and (alive_count <= 2 or wave_t <= -22.0):
-			wave_t = 0.0
-			_queue_wave(maxi(1, Game.I.wizards.size()))
-		elif waves_left <= 0 and alive_count == 0 and wave_t < -1.5:
+		if encounters.is_empty() and alive_count == 0 and wave_t < -1.5:
 			_room_cleared()
+
+
+## Where a wizard with nothing to fight walks to: along the path, a few
+## metres further in than the front wizard (bots use it).
+func walk_goal(w: Wizard) -> Vector3:
+	var ahead := minf(lead_z(), w.global_position.z) - 4.0
+	for p in Game.I.arena.path:
+		if p.y < ahead:
+			return Vector3(p.x, 0, p.y)
+	return Vector3(0, 0, Game.I.arena.altar_z)
 
 
 func _room_cleared() -> void:
@@ -177,12 +222,12 @@ func _room_cleared() -> void:
 	for i in picks.size():
 		var x := (i - (picks.size() - 1) * 0.5) * 3.2
 		var node := _altar(picks[i])
-		node.position = Vector3(x, 0, -2.0)
+		node.position = Vector3(x, 0, Game.I.arena.altar_z)
 		Game.I.arena.add_child(node)
 		altars.append({node = node, relic = picks[i], taken = false, hold = 0.0,
 			fill = node.get_meta("fill")})
 	portal = _portal()
-	portal.position = Vector3(0, 0, -7.5)
+	portal.position = Vector3(0, 0, Game.I.arena.portal_z)
 	Game.I.arena.add_child(portal)
 	_portal_t = 0.0
 
@@ -224,10 +269,13 @@ func _cleared(dt: float) -> void:
 	var inside := living.filter(func(w): return w.global_position.distance_to(portal.global_position) < PORTAL_R)
 	if not living.is_empty() and inside.size() == living.size():
 		_portal_t += dt
-		if _portal_t > 1.0:
+		if _portal_t >= PORTAL_TIME:
 			_next()
+			return
 	else:
-		_portal_t = 0.0
+		_portal_t = maxf(_portal_t - dt * 2.0, 0.0)
+	var fill: MeshInstance3D = portal.get_meta("fill")
+	(fill.material_override as ShaderMaterial).set_shader_parameter("progress", _portal_t / PORTAL_TIME)
 
 
 func _next() -> void:
@@ -254,23 +302,7 @@ func _altar(relic: Dictionary) -> Node3D:
 	l.omni_range = 3.5
 	l.position.y = 1.8
 	n.add_child(l)
-	# The ring to stand in: a faint guide, and a fill that sweeps round it
-	# while you stand there (see _cleared).
-	var slash := preload("res://src/fx/slash.gdshader")
-	for k in 2:
-		var ring := MeshInstance3D.new()
-		ring.mesh = Wizard._arc_mesh(ALTAR_R - 0.18, ALTAR_R, PI)
-		var m := ShaderMaterial.new()
-		m.shader = slash
-		m.set_shader_parameter("color", Color(1.0, 0.8, 0.45))
-		m.set_shader_parameter("progress", 1.0 if k == 0 else 0.0)
-		m.set_shader_parameter("strength", 0.45 if k == 0 else 1.6)
-		ring.material_override = m
-		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		ring.position.y = 0.05 + 0.01 * k
-		n.add_child(ring)
-		if k == 1:
-			n.set_meta("fill", ring)
+	_fill_ring(n, ALTAR_R, Color(1.0, 0.8, 0.45))
 	var sparks := Fx.particles(Color(1.0, 0.8, 0.4), 16, 1.2, 0.15)
 	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	sparks.emission_sphere_radius = 0.4
@@ -297,6 +329,26 @@ func _altar(relic: Dictionary) -> Node3D:
 	return n
 
 
+## The ring to stand in, on [param n]'s floor: a faint guide, and a fill that
+## sweeps round it while you stand there (meta "fill", see _cleared).
+static func _fill_ring(n: Node3D, r: float, c: Color) -> void:
+	var slash := preload("res://src/fx/slash.gdshader")
+	for k in 2:
+		var ring := MeshInstance3D.new()
+		ring.mesh = Wizard._arc_mesh(r - 0.18, r, PI)
+		var m := ShaderMaterial.new()
+		m.shader = slash
+		m.set_shader_parameter("color", c)
+		m.set_shader_parameter("progress", 1.0 if k == 0 else 0.0)
+		m.set_shader_parameter("strength", 0.45 if k == 0 else 1.6)
+		ring.material_override = m
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.position.y = 0.05 + 0.01 * k
+		n.add_child(ring)
+		if k == 1:
+			n.set_meta("fill", ring)
+
+
 func _portal() -> Node3D:
 	var n := Node3D.new()
 	var c := Color(0.3, 0.55, 1.0)
@@ -309,8 +361,8 @@ func _portal() -> Node3D:
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var disc := Art.part(n, Art.cyl(1.25, 1.25, 0.02, 32), Fx.additive(Color(0.2, 0.4, 1.0, 0.6), 1.2), Vector3(0, 1.6, 0), Vector3(90, 0, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var floor_ring := Art.part(n, tor, Fx.glow(c, 1.5), Vector3(0, 0.03, 0), Vector3.ZERO, Vector3(1.2, 0.05, 1.2))
-	floor_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Everyone stands in the ring until it fills, as at an altar.
+	_fill_ring(n, PORTAL_R, Color(0.55, 0.75, 1.0))
 	var p := Fx.particles(c, 60, 1.2, 0.3)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	p.emission_ring_axis = Vector3(0, 0, 1)
@@ -328,16 +380,4 @@ func _portal() -> Node3D:
 	l.omni_range = 7.0
 	l.position.y = 1.6
 	n.add_child(l)
-	var lbl := Label3D.new()
-	lbl.text = "Portal: all wizards step in"
-	lbl.font = Art.body_font()
-	lbl.font_size = 32
-	lbl.outline_size = 10
-	lbl.outline_modulate = Color(0, 0, 0, 0.9)
-	lbl.modulate = Color(0.6, 0.8, 1.0)
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.pixel_size = 0.005
-	lbl.position.y = 3.4
-	n.add_child(lbl)
 	return n

@@ -118,7 +118,7 @@ leaves them for the others. They fade after 14 seconds.
 
 Besides souls:
 
-- regen of 1 mana a second, so an empty wizard is never stuck
+- regen of 3 mana a second, so an empty wizard is never stuck for long
   (`MANA_REGEN`);
 - 3 mana for a staff hit, and 3 for a deflected bullet.
 
