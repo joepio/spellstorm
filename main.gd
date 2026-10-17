@@ -305,10 +305,8 @@ func on_cast(w: Wizard, s: Dictionary) -> void:
 		return
 	_trace("cast %s %s" % [w.player_name, s.name])
 	count("casts")
-	Fx.text(w.global_position + Vector3.UP * 3.1, s.name, El.COLOR[s.primary].lightened(0.3) if s.primary >= 0 else Color.WHITE, 36, 1.0)
 	if not grimoire.has(key):
 		grimoire[key] = s.name
-		Fx.text(w.global_position + Vector3.UP * 3.6, "New spell!", Color(1.0, 0.82, 0.35), 32, 1.4)
 		hud.toast("%s discovered %s" % [w.player_name, s.name], Color(1.0, 0.82, 0.35))
 		hud.set_grimoire(grimoire.size(), spell_total)
 		_save_grimoire()
@@ -433,12 +431,15 @@ func _update_camera(dt: float) -> void:
 	if camera == null:
 		return
 	var pts: Array = []
+	# Wizards move on the physics tick and are drawn in between
+	# (physics_interpolation), so follow where they are drawn: following the
+	# raw tick position on a 120 Hz screen shows every wizard twice.
 	for w in wizards:
 		if w.alive:
-			pts.append(w.global_position)
+			pts.append(w.get_global_transform_interpolated().origin)
 	if pts.is_empty():
 		for w in wizards:
-			pts.append(w.global_position)
+			pts.append(w.get_global_transform_interpolated().origin)
 	var center := Vector3.ZERO
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
@@ -491,6 +492,8 @@ func _world() -> void:
 	moon.directional_shadow_max_distance = 60.0
 	add_child(moon)
 	camera = Camera3D.new()
+	# The camera moves every drawn frame itself, so it is not interpolated.
+	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.fov = 42.0
 	camera.far = 200.0
 	add_child(camera)

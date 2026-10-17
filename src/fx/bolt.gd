@@ -126,6 +126,7 @@ static func _mesh_for(e: int) -> Mesh:
 func _ready() -> void:
 	_look = LOOK[el]
 	global_position.y = 1.1
+	reset_physics_interpolation()
 	_body = MeshInstance3D.new()
 	_body.mesh = _mesh_for(el)
 	_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

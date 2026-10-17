@@ -83,7 +83,6 @@ var _walk := 0.0
 
 var model: Dictionary
 var _orbs: Array[MeshInstance3D] = []
-var _label: Label3D
 var _name_label: Label3D
 var _light: OmniLight3D
 var _ward_shell: MeshInstance3D
@@ -134,16 +133,6 @@ func _ready() -> void:
 		o.visible = false
 		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_orbs.append(o)
-	_label = Label3D.new()
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.no_depth_test = true
-	_label.font = Art.title_font()
-	_label.font_size = 44
-	_label.outline_size = 12
-	_label.outline_modulate = Color(0, 0, 0, 0.9)
-	_label.pixel_size = 0.006
-	_label.position = Vector3(0, 2.75, 0)
-	add_child(_label)
 	_name_label = Label3D.new()
 	_name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_name_label.no_depth_test = true
@@ -692,13 +681,6 @@ func _visuals(dt: float) -> void:
 			o.visible = false
 	gem_color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
 	model.gem.material_override = Fx.glow(gem_color, 3.0)
-	# Say what RT will do, so every spell is predictable before you cast it.
-	if slots.is_empty():
-		_label.text = ""
-	else:
-		var s := preview("cast")
-		_label.text = s.name
-		_label.modulate = El.COLOR[s.primary].lightened(0.3)
 	_ward_shell.visible = ward_time > 0.0
 	if ward_time > 0.0:
 		var pulse := 0.95 + 0.05 * sin(Time.get_ticks_msec() / 150.0)

@@ -54,6 +54,7 @@ func enter_room() -> void:
 		if not w.alive:
 			w.revive(0.4)
 		w.global_position = starts[i % starts.size()]
+		w.reset_physics_interpolation()
 		w.velocity = Vector3.ZERO
 		w.push = Vector3.ZERO
 		w.aim_dir = Vector3.FORWARD
@@ -65,8 +66,7 @@ func enter_room() -> void:
 		var b: String = Game.I.arena.biome.boss
 		spawn_enemy(b, Vector3(0, 0, -6), false)
 		banner.emit(Enemy.KINDS[b].name, Game.I.arena.biome.name, Color(1.0, 0.7, 0.3))
-	else:
-		banner.emit(Game.I.arena.biome.name, "Level %d" % (depth() + 1), Color(0.85, 0.2, 0.15))
+	# Where you are (biome, room, level) is in the pause menu, not on screen.
 	room_started.emit(Game.I.arena.biome, room)
 	_queue_wave(players)
 
