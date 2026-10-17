@@ -14,7 +14,7 @@ const PORTAL_R := 1.7
 ## Everyone stands in the portal's ring this long to go on.
 const PORTAL_TIME := 1.2
 ## Metres along the path between the packs that come at you on the way.
-const WAVE_GAP := 30.0
+const WAVE_GAP := 34.0
 
 var biome_index := 0
 var state := "fight"   # fight, cleared, travel, dead, won
@@ -142,12 +142,18 @@ func _queue_wave(players: int, scale: float) -> void:
 	for k in mix:
 		for _i in mix[k]:
 			pool.append(k)
-	var count := int((3 + 2.2 * players) * (1.0 + 0.36 * depth()) * Game.I.monster_count * scale)
+	var count := int((2.0 + 1.6 * players) * (1.0 + 0.3 * depth()) * Game.I.monster_count * scale)
 	# The first biome is where you learn to shoot and roll: fewer monsters.
 	if biome_index == 0:
 		count = maxi(2, int(count * 0.6))
-	for _i in count:
-		spawn_queue.append(pool[rng.randi() % pool.size()])
+	while count > 0:
+		# Some come in packs (hellhounds): the whole pack at once.
+		var k: String = pool[rng.randi() % pool.size()]
+		if Enemy.KINDS[k].get("solo", false) and k in spawn_queue:
+			continue
+		for _j in int(Enemy.KINDS[k].get("pack", 1)):
+			spawn_queue.append(k)
+			count -= 1
 
 
 func spawn_enemy(k: String, at: Vector3, telegraph := true) -> void:
@@ -206,7 +212,9 @@ func _fight(dt: float) -> void:
 	if _lead_t <= 0.0:
 		_lead_t = 0.2
 		_lead = lead_progress()
-	while not encounters.is_empty() and _lead >= encounters[0].at:
+	# The next pack holds off while the field is still full of the last ones.
+	var alive_count := Game.I.enemies.filter(func(e): return e.alive).size()
+	while not encounters.is_empty() and _lead >= encounters[0].at and alive_count + spawn_queue.size() < 9:
 		var enc: Dictionary = encounters.pop_front()
 		_wave_at = _lead
 		var players := maxi(1, Game.I.wizards.size())
@@ -226,10 +234,9 @@ func _fight(dt: float) -> void:
 	spawn_t -= dt
 	if not spawn_queue.is_empty() and spawn_t <= 0.0:
 		spawn_t = 0.35
-		var at: Vector3 = Game.I.arena.spawn_point(Game.I.wizards) if _wave_at < 0.0 \
-			else Game.I.arena.spawn_ahead(_wave_at, 7.0, 15.0, Game.I.wizards)
-		spawn_enemy(spawn_queue.pop_front(), at)
-	var alive_count := Game.I.enemies.filter(func(e): return e.alive).size()
+		var k: String = spawn_queue.pop_front()
+		spawn_enemy(k, _spawn_spot(k), Enemy.KINDS[k].get("spawn", "") != "under")
+	alive_count = Game.I.enemies.filter(func(e): return e.alive).size()
 	_quiet_t = _quiet_t + dt if spawn_queue.is_empty() and alive_count == 0 else 0.0
 	if _quiet_t < 1.5:
 		return
@@ -239,6 +246,27 @@ func _fight(dt: float) -> void:
 	_pending.clear()
 	if encounters.is_empty() and (boss == null or not is_instance_valid(boss) or not boss.alive):
 		_level_cleared()
+
+
+## Where a monster of [param k] comes in, by what it is: archers and
+## necromancers far ahead among the props, lurkers already under the floor
+## close by, hounds round behind you, toads out in the water, the rest
+## from ahead along the path.
+func _spawn_spot(k: String) -> Vector3:
+	var arena: Arena = Game.I.arena
+	var wz: Array = Game.I.wizards
+	if _wave_at < 0.0:
+		return arena.spawn_point(wz)
+	match Enemy.KINDS[k].get("spawn", ""):
+		"far":
+			return arena.spawn_ahead(_wave_at, 15.0, 22.0, wz)
+		"under":
+			return arena.spawn_ahead(_wave_at, 4.0, 10.0, wz)
+		"flank":
+			return arena.spawn_ahead(_wave_at, -12.0, -5.0, wz)
+		"water":
+			return arena.spawn_ahead(_wave_at, 8.0, 16.0, wz, 1.0)
+	return arena.spawn_ahead(_wave_at, 7.0, 15.0, wz)
 
 
 ## Where a wizard with nothing to fight walks to: along the path, a few

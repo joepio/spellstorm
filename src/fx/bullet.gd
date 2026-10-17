@@ -61,6 +61,8 @@ static func _mesh(kind: String, r: float) -> Mesh:
 				_meshes[key] = Art.sphere(r, 5)
 			"tail":
 				_meshes[key] = Art.cyl(0.0, r * 0.9, r * 3.0, 8)
+			"arrow":
+				_meshes[key] = Art.cyl(r * 0.18, r * 0.18, r * 7.0, 5)
 			_:
 				_meshes[key] = Art.sphere(r, 12)
 	return _meshes[key]
@@ -76,6 +78,14 @@ func _ready() -> void:
 	_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_shell.material_override = material(e)
 	add_child(_shell)
+	if spell.get("arrow", false):
+		# A bone archer's arrow: a long thin shaft with a pale head.
+		_shell.mesh = _mesh("arrow", r)
+		_shell.rotation_degrees.x = -90.0
+		var head := Art.part(_shell, Art.cyl(0.0, r * 0.5, r * 1.4, 5), Fx.glow(Color(1.0, 0.9, 0.75), 2.0), Vector3(0, r * 4.0, 0))
+		head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_face()
+		return
 	match e:
 		El.FROST, El.ICE:
 			_shell.mesh = _mesh("shard", r * 0.8)

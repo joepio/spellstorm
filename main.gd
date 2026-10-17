@@ -580,6 +580,14 @@ func _take_shot() -> void:
 	var args := OS.get_cmdline_user_args()
 	var die_i := args.find("--die")
 	var how: String = args[die_i + 1] if die_i >= 0 and die_i + 1 < args.size() else ""
+	# --spawn a,b,c puts those monsters in a ring round the wizards.
+	var sp_i := args.find("--spawn")
+	if sp_i >= 0 and sp_i + 1 < args.size():
+		var kinds: PackedStringArray = args[sp_i + 1].split(",")
+		var c: Vector3 = wizards[0].global_position
+		for i in kinds.size():
+			var ang := TAU * i / kinds.size()
+			run.spawn_enemy(kinds[i], c + Vector3(cos(ang), 0, sin(ang)) * 6.0, false)
 	for f in shot_frames:
 		await get_tree().physics_frame
 		if how != "" and f == shot_frames - 70:

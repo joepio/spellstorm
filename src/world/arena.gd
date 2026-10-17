@@ -14,27 +14,27 @@ const LEVEL_HALF := Vector2(34.0, 105.0)
 const BIOMES := [
 	{id = "chapel", zones = [["grave", "grave", "grave", "dead_tree", "rock"], ["grave", "candles", "dead_tree", "bones"], ["dead_tree", "dead_tree", "rock", "rock", "grave"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
-		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2}, boss = "gravekeeper", fields = [],
+		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2, bone_archer = 2, necromancer = 1}, boss = "gravekeeper", fields = [],
 		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave"},
 	{id = "catacombs", zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
-		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1}, boss = "abbot", fields = [],
+		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1, bone_archer = 2, necromancer = 1, shieldbearer = 2}, boss = "abbot", fields = [],
 		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave"},
 	{id = "isles", zones = [["reeds", "reeds", "rock", "dead_tree"], ["reeds", "reeds", "lantern", "rock"], ["dead_tree", "dead_tree", "reeds", "rock"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
 		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4,
-		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 2, bile = 1, wraith = 1}, boss = "drowned_king", fields = [],
+		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 1, bile = 1, wraith = 1, toad = 3, sprite = 3}, boss = "drowned_king", fields = [],
 		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true},
 	{id = "caves", zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
 		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.15, 0.3, 0.32), moon = Color(0.3, 0.6, 0.6), moon_energy = 0.15,
-		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 3, bile = 2, ghoul = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
+		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 2, bile = 2, ghoul = 2, lurker = 3, toad = 1, sprite = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
 		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16)},
 	{id = "keep", zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
 		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3,
-		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
+		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1, shieldbearer = 2, necromancer = 1, bone_archer = 2}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
 		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave"},
 	{id = "pit", zones = [["basalt", "basalt", "bones"], ["brazier", "basalt", "bones"], ["basalt", "basalt", "brazier", "bones"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
 		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2,
-		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
+		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1, hellhound = 2, lurker = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
 		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04)},
 ]
 
@@ -906,12 +906,13 @@ func clamp_inside(p: Vector3) -> Vector3:
 
 ## Where a monster of an encounter walks in: ahead of the wizards, between
 ## [param near] and [param far] metres further along the path than
-## [param lead], off to either side of it, out of the water when it can.
-func spawn_ahead(lead: float, near: float, far: float, away_from: Array) -> Vector3:
+## [param lead] (behind it when they are negative), off to either side of
+## it, out of the water when it can ([param water] 1 for in it).
+func spawn_ahead(lead: float, near: float, far: float, away_from: Array, water := -1.0) -> Vector3:
 	var best := Vector3.ZERO
 	var best_d := -INF
 	for _i in 14:
-		var run := minf(lead + _rng.randf_range(near, far), length())
+		var run := clampf(lead + _rng.randf_range(near, far), 0.0, length())
 		var c := point_at(run)
 		var dir := (point_at(run + 1.0) - point_at(run - 1.0)).normalized()
 		var side := Vector2(-dir.y, dir.x) * _rng.randf_range(-9.0, 9.0)
@@ -920,7 +921,7 @@ func spawn_ahead(lead: float, near: float, far: float, away_from: Array) -> Vect
 		for w in away_from:
 			d = minf(d, p.distance_to(w.global_position))
 		# Never on top of a wizard.
-		var score := minf(d, 9.0) - (3.0 if in_water(p) else 0.0) + _rng.randf()
+		var score := minf(d, 9.0) + (3.0 * water if in_water(p) else 0.0) + _rng.randf()
 		if score > best_d:
 			best_d = score
 			best = p
