@@ -23,6 +23,8 @@ const SOUL_MANA_PER_HP := 0.15
 const MANA_PER_LOAD := 3.0
 const MANA_PER_ELEMENT := 8.0
 const OVERLOAD_COST := 40.0
+## A sentry is the big plant (a full queue): it costs this to plant.
+const SENTRY_COST := 50.0
 const MANA_PER_SWING := 3.0
 const MANA_PER_DEFLECT := 3.0
 
@@ -49,11 +51,11 @@ const FIT_RANGE := Vector2(0.05, 6.0)
 
 ## How many monsters each shape is expected to hit in a normal fight.
 const TARGETS := {
-	"projectile": 1.0, "beam": 1.0, "spray": 2.0, "nova": 3.0, "field": 2.0,
-	"rune": 2.5, "overload": 4.0, "wall": 1.0,
+	"projectile": 1.0, "beam": 1.0, "spray": 2.0, "nova": 3.0,
+	"trap": 2.5, "overload": 4.0, "sentry": 1.0,
 }
-## How much of a lasting spell's life a monster actually spends in it.
-const UPTIME := {"field": 0.4, "totem": 0.6, "wall": 0.25}
+## How much of a lasting spell's life it actually has something to hit.
+const UPTIME := {"sentry": 0.6, "rune": 0.3}
 ## Status worth, in damage: a freeze holds a monster still for FREEZE_TIME.
 const FREEZE_WORTH := 12.0
 const FREEZE_TIME := 2.6
@@ -70,6 +72,8 @@ static func price(s: Dictionary) -> float:
 	var load_cost: float = MANA_PER_LOAD * s.slots.size()
 	if s.shape == "overload":
 		return load_cost + OVERLOAD_COST
+	if s.shape == "sentry":
+		return load_cost + SENTRY_COST
 	return load_cost + MANA_PER_ELEMENT * s.power
 
 
@@ -99,19 +103,14 @@ static func delivery(s: Dictionary) -> Dictionary:
 			return {scale = hit, time = 0.0, targets = targets}
 		"nova":
 			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.nova}
-		"field":
-			return {scale = n.rate * n.duration * UPTIME.field, time = n.duration * UPTIME.field, targets = TARGETS.field}
-		"totem":
-			var zaps: float = floorf(n.duration / n.interval) * UPTIME.totem
-			return {scale = n.rate * zaps, time = n.duration * UPTIME.totem, targets = minf(1.0 + n.hops, 3.0)}
-		"rune":
+		"trap":
 			if s.primary == El.LIFE:
-				return {scale = 0.35 * n.rate * n.duration * 0.3, time = n.duration * 0.3, targets = 1.0}
-			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.rune}
-		"wall":
-			var hot: bool = s.primary == El.MAGMA or not s.payload.is_empty()
-			var ticks: float = n.duration * 4.0 * UPTIME.wall if hot else 0.0
-			return {scale = 0.25 * n.rate * ticks, time = n.duration * UPTIME.wall, targets = TARGETS.wall}
+				# A healing rune pulses once a second (RuneFx-style, TrapFx).
+				return {scale = 0.35 * n.rate * n.duration * UPTIME.rune, time = n.duration * UPTIME.rune, targets = 1.0}
+			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.trap}
+		"sentry":
+			var shots: float = floorf(n.duration / n.interval) * UPTIME.sentry
+			return {scale = n.rate * shots, time = n.duration * UPTIME.sentry, targets = TARGETS.sentry}
 		"overload":
 			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.overload}
 	return {scale = 0.0, time = 0.0, targets = 0.0}
@@ -162,11 +161,10 @@ static func target(s: Dictionary) -> float:
 	return 1.0 + BONUS_PER_SLOT * (s.slots.size() - 1) + BONUS_PER_KIND * (s.counts.size() - 1)
 
 
-## Spells held to the budget. Wards are protection and walls block; the
-## overloads are hand-made showpieces (OverloadFx), so all three are only
-## listed. Bolts and the staff are the free attacks, see bolt_dps.
+## Spells held to the budget. Wards are protection; the overloads are
+## hand-made showpieces (OverloadFx), so both are only listed. Bolts and the staff are the free attacks, see bolt_dps.
 static func measured(s: Dictionary) -> bool:
-	return not s.shape in ["staff", "stomp", "fizzle", "ward", "wall", "overload"]
+	return not s.shape in ["staff", "stomp", "fizzle", "ward", "overload"]
 
 
 ## The factor on the spell's rate that puts it on its target. Worth grows

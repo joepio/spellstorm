@@ -3,14 +3,20 @@ class_name Grammar
 ## spell system; the effects in src/fx only carry out what this returns.
 ##
 ## The rules, in the order the player learns them:
-##   * The form is the button: RT casts ahead, LT bursts around you,
-##     RB plants it on the ground, RS (click) wards yourself.
-##   * The heaviest element decides the shape of a cast or a plant:
-##       solid (Earth, Ice, Mud, Magma)  throw it      | build a wall
-##       energy (Lightning, Storm)       arc to targets | a totem that zaps
-##       spirit (Life, Void)             a beam         | a rune mine
-##       flow (Fire, Frost, Water,       a spray        | a field on the ground
+##   * The form is the button: RT casts ahead, RB (hold) bursts around you,
+##     LS (click) plants it at your feet, RS (click) wards yourself.
+##   * The heaviest element decides the shape of a cast:
+##       solid (Earth, Ice, Mud, Magma)  throw it
+##       energy (Lightning, Storm)       arc to targets
+##       spirit (Life, Void)             a beam
+##       flow (Fire, Frost, Water,       a spray
 ##             Steam, Air)
+##   * Planting always puts it at your feet. Up to four elements make a
+##     trap that goes off when a monster comes close (what it does depends
+##     on the same class: flow spills a field, solid spikes and pins, energy
+##     blasts, void pulls in, life is a healing rune); a full queue of five
+##     makes a sentry that shoots your mix at monsters. Your own traps and
+##     sentries never hurt your side.
 ##   * Within that class, the element you have most of leads.
 ##   * Every other element rides along as payload and adds its effect.
 ##   * More of an element makes it stronger, bigger or longer.
@@ -30,12 +36,21 @@ const NOVA_NOUN := {
 	El.STORM: "Tempest",
 }
 const PLANT_NOUN := {
-	El.EARTH: "Stone Wall", El.ICE: "Ice Wall", El.MUD: "Mud Pit", El.MAGMA: "Lava Wall",
-	El.LIGHTNING: "Tesla Totem", El.STORM: "Storm Cloud",
+	El.EARTH: "Spike Trap", El.ICE: "Ice Spikes", El.MUD: "Mud Trap", El.MAGMA: "Lava Trap",
+	El.LIGHTNING: "Shock Trap", El.STORM: "Thunder Trap",
 	El.LIFE: "Healing Rune", El.VOID: "Void Mine",
-	El.FIRE: "Fire Carpet", El.FROST: "Ice Slick", El.WATER: "Puddle", El.STEAM: "Fog Bank",
-	El.AIR: "Whirlwind",
+	El.FIRE: "Fire Trap", El.FROST: "Frost Trap", El.WATER: "Puddle Trap", El.STEAM: "Steam Vent",
+	El.AIR: "Gust Trap",
 }
+const SENTRY_NOUN := {
+	El.EARTH: "Stone Sentry", El.ICE: "Ice Sentry", El.MUD: "Mud Sentry", El.MAGMA: "Lava Sentry",
+	El.LIGHTNING: "Tesla Sentry", El.STORM: "Storm Sentry",
+	El.LIFE: "Life Sentry", El.VOID: "Void Sentry",
+	El.FIRE: "Fire Sentry", El.FROST: "Frost Sentry", El.WATER: "Water Sentry", El.STEAM: "Steam Sentry",
+	El.AIR: "Wind Sentry",
+}
+## A queue this full plants a sentry instead of a trap.
+const SENTRY_SLOTS := 5
 const OVERLOAD_NOUN := {
 	El.FIRE: "Meteor", El.FROST: "Blizzard", El.WATER: "Tidal Wave",
 	El.LIGHTNING: "Thunderbolt", El.EARTH: "Earthquake", El.AIR: "Tornado",
@@ -54,12 +69,11 @@ const WARD_ADJ := {
 }
 
 const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "arc", El.Kind.SPIRIT: "beam", El.Kind.FLOW: "spray"}
-const PLANT_SHAPE := {El.Kind.SOLID: "wall", El.Kind.ENERGY: "totem", El.Kind.SPIRIT: "rune", El.Kind.FLOW: "field"}
 
 const FORMS := ["cast", "nova", "plant", "ward"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
 ## by trying every sequence of button presses and fails if this drifts.
-const TOTAL := 3588
+const TOTAL := 4024
 
 
 ## [param slots] in queue order, [param form] one of FORMS. [param mods] are
@@ -89,10 +103,10 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 			best_kind = mini(best_kind, El.KIND[e])
 		var heavy: Array = slots.filter(func(e): return El.KIND[e] == best_kind)
 		primary = _most(slots, counts, heavy)
-		spell.shape = (CAST_SHAPE if form == "cast" else PLANT_SHAPE)[best_kind]
-		# Mud is a solid but it does not stack into a wall: it spreads.
-		if form == "plant" and primary == El.MUD:
-			spell.shape = "field"
+		if form == "cast":
+			spell.shape = CAST_SHAPE[best_kind]
+		else:
+			spell.shape = "sentry" if slots.size() >= SENTRY_SLOTS else "trap"
 	spell.primary = primary
 
 	var payload: Array = []
@@ -116,7 +130,7 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 			spell.shape = "nova"
 			spell.name = _adjectives(payload) + NOVA_NOUN[primary]
 		"plant":
-			spell.name = _adjectives(payload) + PLANT_NOUN[primary]
+			spell.name = _adjectives(payload) + (SENTRY_NOUN if spell.shape == "sentry" else PLANT_NOUN)[primary]
 		"ward":
 			spell.shape = "ward"
 			var only_life := payload.is_empty() and primary == El.LIFE
@@ -213,14 +227,14 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 				pierce = spell.primary == El.ICE}
 		"nova":
 			n = {radius = 2.4 + 0.65 * p, rate = 1.25}
-		"wall":
-			n = {pieces = 1 + p, gap = 1.0, hp = 50.0 + 25.0 * lead, duration = 14.0, rate = 0.5}
-		"field":
-			n = {radius = 1.4 + 0.45 * p, duration = 9.0 + p, rate = 0.55}
-		"totem":
-			n = {range = 6.0 + 0.5 * p, interval = 0.7, duration = 10.0 + p, hops = lead, hop_range = 4.0, rate = 0.8}
-		"rune":
-			n = {radius = 2.2 + 0.4 * p, duration = 25.0, rate = 1.6}
+		"trap":
+			# radius: the blast; field: what flow traps leave behind; stun:
+			# how long solid spikes pin; duration: how long it lies in wait
+			# (a life rune heals for that long instead).
+			n = {radius = 2.2 + 0.35 * p, field = 1.4 + 0.35 * p, field_time = 5.0 + p,
+				stun = 0.8 + 0.25 * lead, duration = 12.0 if spell.primary == El.LIFE else 30.0, rate = 1.6}
+		"sentry":
+			n = {range = 9.0, interval = 0.3, duration = 14.0, rate = 0.5}
 		"ward":
 			n = {duration = 14.0 * float(mods.get("ward_time", 1.0)), resist = 0.5}
 		"overload":

@@ -1,8 +1,8 @@
 class_name Field
 extends Node3D
 ## A patch of ground with an element on it: burning ground, a puddle, an ice
-## slick, a steam cloud, mud, a whirlwind, lava. Planted by wizards (RB with a
-## flow element), left by lava bombs, or part of the room. Fields react to
+## slick, a steam cloud, mud, a whirlwind, lava. Spilled by wizards' traps,
+## left by lava bombs and dying monsters, or part of the room. Fields react to
 ## elements that touch them, see Arena.touch_ground.
 
 var kind := El.WATER
@@ -13,6 +13,8 @@ var permanent := false
 var electrified := 0.0
 var owner_actor: Actor
 var rate := 0.55
+## Left by a wizard's trap: the owner's side walks through it unharmed.
+var friendly := false
 
 var _disc: MeshInstance3D
 var _mat: StandardMaterial3D
@@ -175,6 +177,8 @@ func _physics_process(dt: float) -> void:
 		var d: Vector3 = a.global_position - global_position
 		d.y = 0
 		if d.length() > radius:
+			continue
+		if friendly and owner_actor and a.team == owner_actor.team:
 			continue
 		match kind:
 			El.FROST, El.ICE:

@@ -18,6 +18,7 @@ const RECIPES := [
 	[[El.EARTH, El.EARTH, El.EARTH], "plant", 0.0],
 	[[El.LIGHTNING, El.LIGHTNING], "plant", 0.0],
 	[[El.VOID, El.VOID, El.EARTH], "plant", 0.0],
+	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.FIRE, El.FIRE], "plant", 0.0],
 	[[El.FIRE, El.FIRE, El.FIRE, El.FIRE, El.FIRE], "cast", 0.0],
 	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast", 0.0],
 ]
@@ -213,7 +214,7 @@ func _choose(w: Wizard, d: float) -> void:
 		plan = CLOSE.pick_random().duplicate()
 		form = "nova"
 		return
-	# Walls and totems now and then, not every cast.
+	# Traps and sentries now and then, not every cast.
 	var pool := RECIPES.slice(0, RECIPES.size() - 2).filter(func(r): return r[1] != "plant" or randf() < 0.25)
 	var r2: Array = pool.pick_random() if randf() < 0.95 else RECIPES[RECIPES.size() - 1 - randi() % 2]
 	plan = r2[0].duplicate()

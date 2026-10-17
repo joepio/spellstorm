@@ -13,7 +13,8 @@ extends Actor
 ##   RB  staff swing, knocks bullets back (free); hold and let go: burst
 ##   LT  dodge roll, monsters cannot touch you while you roll (free)
 ##   RT  cast the queue ahead (hold for sprays, beams and arcs, release to throw)
-##   LS click  plant the queue on the ground ahead     RS click  ward yourself
+##   LS click  plant the queue at your feet: a trap, or a sentry when full
+##   RS click  ward yourself
 ##   D-pad up  conjure your last spell again
 ##   D-pad left / right  tap to conjure a saved spell, hold to save the queue
 
@@ -392,6 +393,8 @@ func add_mana(amount: float) -> void:
 func cost(s: Dictionary) -> float:
 	if s.shape == "overload":
 		return OVERLOAD_COST
+	if s.shape == "sentry":
+		return Balance.SENTRY_COST
 	if s.shape in ["staff", "stomp", "fizzle"]:
 		return 0.0
 	return MANA_PER_ELEMENT * s.power
@@ -639,17 +642,10 @@ func cast(form: String, button: int) -> void:
 			if _mod("echo", false):
 				var again := NovaFx.new().setup(self, s) as NovaFx
 				get_tree().create_timer(0.35).timeout.connect(func(): if is_instance_valid(self): Game.I.spawn(again, global_position))
-		"wall":
-			Game.I.spawn(WallFx.new().setup(self, s), Game.I.arena.clamp_inside(global_position + aim_dir * 2.6))
-		"field":
-			var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(global_position + aim_dir * (2.0 + s.n.radius)), s.primary, s.n.radius, s.n.duration, self)
-			f.spell = s
-			f.rate = s.n.rate
-			# Planting into an existing field mixes: fire planted on a puddle boils it.
-		"totem":
-			Game.I.spawn(TotemFx.new().setup(self, s), Game.I.arena.clamp_inside(global_position + aim_dir * 2.4))
-		"rune":
-			Game.I.spawn(RuneFx.new().setup(self, s), Game.I.arena.clamp_inside(global_position + aim_dir * 2.4))
+		"trap":
+			_plant(TrapFx.new().setup(self, s), _traps, MAX_TRAPS)
+		"sentry":
+			_plant(SentryFx.new().setup(self, s), _sentries, 1)
 		"ward":
 			_ward(s)
 		"overload":
@@ -659,6 +655,23 @@ func cast(form: String, button: int) -> void:
 			Game.I.spawn(OverloadFx.new().setup(self, s), Game.I.arena.clamp_inside(at))
 		"stomp":
 			_swing(s)
+
+
+## Traps and sentries go down at your feet. Each wizard keeps at most
+## [param most] of a kind; planting another takes away the oldest.
+const MAX_TRAPS := 3
+var _traps: Array = []
+var _sentries: Array = []
+
+
+func _plant(fx: SpellFx, list: Array, most: int) -> void:
+	for old in list.duplicate():
+		if not is_instance_valid(old) or not old.is_physics_processing():
+			list.erase(old)
+	while list.size() >= most:
+		list.pop_front().remove()
+	list.append(fx)
+	Game.I.spawn(fx, Game.I.arena.clamp_inside(global_position))
 
 
 func _channel(fx: SpellFx, button: int, at: Vector3) -> void:

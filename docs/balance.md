@@ -60,9 +60,8 @@ everything it is likely to hit:
 | spray | 2 | yes |
 | arc (chain lightning) | 1 + hops, at most 3 | yes |
 | nova | 3 | no |
-| field | 2, standing in it 40% of the time | yes |
-| totem | 1 + hops, monster in range 60% of the time | yes |
-| rune | 2.5 | no |
+| trap | 2.5 (a life rune: 1 friend, 30% of the time) | no |
+| sentry | 1, a monster in range 60% of the time | yes |
 
 These are the assumptions to change when playtests show a shape hits more
 or less than this.
@@ -90,11 +89,13 @@ into hit, burn, freeze, utility and heal.
 
 ### Not fitted
 
-- **Wards** protect and **walls** block. These are not damage and are judged
-  in play.
+- **Wards** protect. They are not damage and are judged in play.
 - **Overloads** (five of a kind: Meteor, Black Hole and the rest) are
   hand-made showpieces in `OverloadFx` at a fixed 40 mana plus loading.
   They may be stronger than the budget, because they empty your queue.
+
+**Sentries** (planting a full queue of five) are fitted like the rest, but
+cost a fixed 50 mana plus loading (`SENTRY_COST`), so they are the big plant.
 
 ## Bolts: the free attack
 
