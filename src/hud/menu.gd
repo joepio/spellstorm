@@ -6,7 +6,7 @@ extends Control
 ##   Level          which biome to play (Random by default); confirm to go there now
 ##   Friendly fire  off / half / full
 ##   Difficulty     easy / normal / hard
-##   Restart run    start the chosen level again from its first room
+##   Restart run    start the chosen level again from its entrance
 ## Next to it, every control drawn as its controller part with what it does.
 
 const FF := ["off", "half", "full"]

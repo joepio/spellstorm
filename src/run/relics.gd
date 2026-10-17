@@ -1,5 +1,5 @@
 class_name Relics
-## Tomes found on altars after each room. Each changes numbers in a way you
+## Tomes found on shrines along each level. Each changes numbers in a way you
 ## can say in one sentence; none changes what a spell is.
 ## Keys: el_<element> multiplies that element, dmg, heal, spray_range, charge
 ## and ward_time multiply, hp, hops, slots and siphon add, speed multiplies

@@ -14,7 +14,7 @@ static func report(g: Game) -> int:
 		if int(s.get(k, 0)) <= 0:
 			bad.append(k)
 	var alive := g.wizards.filter(func(w): return w.alive).size()
-	print("sim: ", s, " wizards standing: ", alive, "/", g.wizards.size(), " room: ", g.run.depth())
+	print("sim: ", s, " wizards standing: ", alive, "/", g.wizards.size(), " level: ", g.run.depth(), " at ", int(g.run.lead_progress()), "/", int(g.arena.length()), " m")
 	for w in g.wizards:
 		if w.mana < 0.0 or w.mana > Wizard.MANA_MAX:
 			bad.append("mana of %s is %.1f" % [w.player_name, w.mana])

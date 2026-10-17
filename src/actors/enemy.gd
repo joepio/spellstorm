@@ -18,7 +18,7 @@ const KINDS := {
 	wraith = {name = "Wraith", hp = 45.0, speed = 3.8, dmg = 10.0, reach = 8.0, keep = 6.0, el = El.FROST, size = 1.0, attack = "ranged", shots = ["wave7"], undead = true, resist = {El.FROST: 1.0, El.EARTH: 0.5}},
 	drowned = {name = "Drowned", hp = 55.0, speed = 3.1, dmg = 11.0, reach = 1.4, el = El.WATER, size = 1.0, attack = "melee", resist = {El.WATER: 1.0, El.FIRE: 0.4}, always_wet = true},
 	demon = {name = "Demon", hp = 130.0, speed = 3.5, dmg = 16.0, reach = 1.7, el = El.FIRE, size = 1.35, attack = "melee", mass = 2.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}},
-	# Bosses: one per biome, the last room of it.
+	# Bosses: one per biome, in the arena at the end of its level.
 	gravekeeper = {name = "The Gravekeeper", model = "skeleton", hp = 1100.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.EARTH, size = 2.3, attack = "slam", mass = 8.0, undead = true, resist = {El.VOID: 0.8, El.FROST: 0.3}, boss = true, ring = 16, summon = ["skeleton", "skeleton", "watcher"], nova = El.VOID},
 	abbot = {name = "The Bloated Abbot", model = "bile", hp = 1300.0, speed = 2.0, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.4, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0}, boss = true, ring = 16, summon = ["cultist", "ghoul", "ghoul"], nova = El.MUD},
 	drowned_king = {name = "The Drowned King", model = "drowned", hp = 1400.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.3, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0, El.FIRE: 0.5}, boss = true, ring = 16, summon = ["drowned", "drowned", "bile"], nova = El.WATER, always_wet = true},

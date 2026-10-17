@@ -1,147 +1,213 @@
 class_name Arena
 extends Node3D
-## One dungeon room: floor, walls, props, torches and the fields on the ground.
-## A room is a long hall you walk through from the entrance (front, +z) to
-## the gate at the back (-z); a boss room is a short arena.
+## One level of a biome: floor, walls, props, torches and the fields on the
+## ground. A level is a big stretch of land (Joep: no rooms, a real level to
+## walk through): a winding path from the entrance at the front (+z) through
+## three zones that each look a little different, past clearings where the
+## fights gather and tomes wait on shrines, to the boss's arena near the
+## back and the gate behind it.
 
-## Half the room's width and length; set per room in build().
-var half := Vector2(15.0, 30.0)
-const HALL_HALF := Vector2(15.0, 30.0)
-const BOSS_HALF := Vector2(16.0, 12.0)
+## Half the level's width and length.
+var half := Vector2(34.0, 105.0)
+const LEVEL_HALF := Vector2(34.0, 105.0)
 
 const BIOMES := [
-	{id = "chapel", name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
+	{id = "chapel", zones = [["grave", "grave", "grave", "dead_tree", "rock"], ["grave", "candles", "dead_tree", "bones"], ["dead_tree", "dead_tree", "rock", "rock", "grave"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2}, boss = "gravekeeper", fields = [],
 		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave"},
-	{id = "catacombs", name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
+	{id = "catacombs", zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1}, boss = "abbot", fields = [],
 		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave"},
-	{id = "isles", name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
+	{id = "isles", zones = [["reeds", "reeds", "rock", "dead_tree"], ["reeds", "reeds", "lantern", "rock"], ["dead_tree", "dead_tree", "reeds", "rock"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
 		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4,
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 2, bile = 1, wraith = 1}, boss = "drowned_king", fields = [],
 		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true},
-	{id = "caves", name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
+	{id = "caves", zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
 		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.15, 0.3, 0.32), moon = Color(0.3, 0.6, 0.6), moon_energy = 0.15,
 		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 3, bile = 2, ghoul = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
 		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16)},
-	{id = "keep", name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
+	{id = "keep", zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
 		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3,
 		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
 		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave"},
-	{id = "pit", name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
+	{id = "pit", zones = [["basalt", "basalt", "bones"], ["brazier", "basalt", "bones"], ["basalt", "basalt", "brazier", "bones"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
 		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2,
 		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
 		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04)},
 ]
 
 var biome: Dictionary
-## The way through the room, from the entrance (front) to the portal and
-## the gate behind it, as points in xz. Props keep off it.
+## The way through the level, from the entrance (front) to the gate at the
+## back, as points about every 2.5 m in xz, and how far along it each point
+## is (path_run). Props keep off it.
 var path := PackedVector2Array()
-## In a built room (chapel, crypt, keep) the aisle is crossed by a second
-## straight way at the altars, like the transept of a church: two points.
-var cross_path := PackedVector2Array()
+var path_run := PackedFloat32Array()
 const PATH_W := 2.4
-## Where the altars and the portal stand, near the back wall, and where the
-## wizards come in, near the front.
-var altar_z := -21.5
-var portal_z := -26.5
-var start_z := 26.0
+## Open ground along the path where the fights gather, as (x, z, r): the
+## first two hold shrines with tomes once their monsters are beaten, the last
+## is the boss's arena.
+var clearings: Array[Vector3] = []
+## How far along the path each clearing is.
+var clearing_at: Array[float] = []
+## Where the wizards come in, and where the portal opens after the boss.
+var start := Vector2.ZERO
+var portal_at := Vector2.ZERO
 ## Islands in a water biome, as (x, z, rx, rz) ellipses; empty elsewhere.
 var isles: Array[Vector4] = []
+## Laid stone floors (x, z, r) in a built biome: the clearings and the arena.
+var plazas: Array[Vector3] = []
+## In a built biome the middle zone is a straight nave between these two
+## path distances, lined with rows (graves, pillars, coffins).
+var nave := Vector2(-1, -1)
 var fields: Array = []
 var _torches: Array = []
 var _rng := RandomNumberGenerator.new()
-var _props_at: Array = []
+## Where props stand, by 3 m cell, so finding free ground stays quick on a
+## big level.
+var _props_at := {}
+## Coarse distance to the path, by 2 m cell.
+var _near_path := {}
 
 
-func build(biome_index: int, room: int, seed_value: int) -> void:
+func build(biome_index: int, seed_value: int) -> void:
 	for c in get_children():
 		c.queue_free()
 	fields.clear()
 	_torches.clear()
 	_props_at.clear()
+	_near_path.clear()
 	biome = BIOMES[biome_index % BIOMES.size()]
 	_rng.seed = seed_value
-	half = BOSS_HALF if room == 2 else HALL_HALF
-	altar_z = -half.y + 8.5
-	portal_z = -half.y + 3.5
-	start_z = half.y - 4.0
+	half = LEVEL_HALF
 	_plan()
+	_index_path()
 	_floor()
 	_walls()
 	_path_dressing()
-	var boss_room: bool = room == 2
-	if biome.get("layout", "") == "nave":
+	_arena_ring()
+	if built():
 		_nave_props()
-	else:
-		var count := 9 if boss_room else int(14 * half.y / 11.0)
-		for i in count:
-			_prop(biome.props[_rng.randi() % biome.props.size()])
-	var fields_list: Array = []
-	for _r in maxi(1, int(half.y / 11.0)):
-		fields_list.append_array(biome.fields)
-	for k in fields_list:
-		var p := _free_spot(3.0)
-		if p == Vector3.INF:
+	# The rest of the land: thick with the zone's things, so the level reads
+	# as ground you cross along a way, not an empty field.
+	var count := int(half.x * half.y * 4.0 / 34.0)
+	for i in count:
+		var spot := _free_spot(2.6)
+		if spot == Vector3.INF:
 			continue
-		var f := add_field(p, k, _rng.randf_range(1.6, 3.0), 0.0, null)
-		f.permanent = true
+		var zone_props: Array = biome.zones[zone_at(spot)]
+		_prop(zone_props[_rng.randi() % zone_props.size()], spot)
+	for _r in int(half.y / 9.0):
+		for k in biome.fields:
+			var fp := _free_spot(3.0)
+			if fp == Vector3.INF:
+				continue
+			var f := add_field(fp, k, _rng.randf_range(1.6, 3.0), 0.0, null)
+			f.permanent = true
 	_dust()
 
 
-## Lay out the path, and in a water biome the islands it hops between. The
-## wizards start at the front (start_z), the altars stand at altar_z and the
-## portal at portal_z, so all of those are on the path or on dry land.
+func built() -> bool:
+	return biome.get("layout", "") == "nave"
+
+
+## Which of the three zones [param at] is in, by how far along the path it is.
+func zone_at(at: Vector3) -> int:
+	var k := progress_of(Vector2(at.x, at.z)) / path_run[path_run.size() - 1]
+	return clampi(int(k * 3.0), 0, 2)
+
+
+## Lay out the path, its clearings and the boss arena, and in a water biome
+## the islands it hops between.
 func _plan() -> void:
-	path = PackedVector2Array()
-	cross_path = PackedVector2Array()
+	clearings.clear()
+	clearing_at.clear()
 	isles.clear()
-	if biome.get("layout", "") == "nave":
-		# Built by people: a straight aisle from the door to the gate, and a
-		# crossing where the altars stand.
-		var n := int(half.y / 2.5) + 1
-		for i in n:
-			path.append(Vector2(0, lerpf(half.y + 1.5, -half.y - 1.0, float(i) / (n - 1))))
-		cross_path = PackedVector2Array([Vector2(-8.5, altar_z), Vector2(8.5, altar_z)])
-		return
-	# A trodden way: it swings from side to side every few metres on its way
-	# back, and runs straight into the altars and the gate.
-	var keys := PackedVector2Array([Vector2(0, half.y + 1.5), Vector2(_rng.randf_range(-1.0, 1.0), start_z - 1.5)])
-	var bends: Array[Vector2] = []
+	plazas.clear()
+	nave = Vector2(-1, -1)
+	start = Vector2(_rng.randf_range(-6.0, 6.0), half.y - 7.0)
+	var arena := Vector3(0, -half.y + 24.0, 14.0)
+	portal_at = Vector2(arena.x, arena.y - 6.0)
+	# Bends every 12 to 24 m, mostly swinging to the other side, sometimes
+	# wide and sometimes barely, now and then drifting on along the same
+	# side; two of them are clearings, and in a built biome the way between
+	# those runs straight.
+	var keys := PackedVector2Array([Vector2(start.x, half.y + 1.5), start])
+	var reach := half.x - 9.0
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
-	var z := start_z - 7.0
-	while z > altar_z + 5.0:
-		var b := Vector2(side * _rng.randf_range(2.5, minf(7.0, half.x - 5.0)), z)
-		keys.append(b)
-		bends.append(b)
-		side = -side
-		z -= _rng.randf_range(7.5, 9.5)
-	keys.append(Vector2(0, altar_z + 1.0))
-	keys.append(Vector2(0, portal_z))
+	var z := start.y - 16.0
+	var marks: Array[Vector2] = []
+	var last_x := start.x
+	while z > arena.y + 22.0:
+		var x := side * _rng.randf_range(reach * 0.15, reach)
+		if absf(x - last_x) < 6.0:
+			x = clampf(last_x + side * 8.0, -reach, reach)
+		marks.append(Vector2(x, z))
+		last_x = x
+		if _rng.randf() < 0.75:
+			side = -side
+		z -= _rng.randf_range(12.0, 24.0)
+	var c1 := int(marks.size() * 0.3)
+	var c2 := int(marks.size() * 0.68)
+	for i in marks.size():
+		var m := marks[i]
+		if built() and i > c1 and i < c2:
+			# The nave: straight on from the first clearing.
+			m.x = marks[c1].x
+		keys.append(m)
+		if i == c1 or i == c2:
+			clearings.append(Vector3(m.x, m.y, _rng.randf_range(8.0, 9.5)))
+	if built():
+		marks[c2].x = marks[c1].x
+	keys.append(Vector2(arena.x, arena.y + arena.z + 3.0))
+	keys.append(Vector2(arena.x, arena.y))
+	keys.append(portal_at)
 	keys.append(Vector2(0, -half.y - 1.0))
-	path = _smooth(keys, maxi(2, 60 / (keys.size() - 1)))
+	clearings.append(arena)
+	path = _smooth(keys, 7)
+	if built():
+		for c in clearings:
+			plazas.append(Vector3(c.x, c.y, c.z + 1.0))
 	if not biome.get("isles", false):
 		return
-	# Where you start and where the altars and portal stand are big islands;
-	# the path's bends are small ones, with bridges between.
-	isles.append(Vector4(0, start_z - 1.0, 8.5, 4.4))
-	isles.append(Vector4(0, (altar_z + portal_z) * 0.5 - 0.6, 8.0, 4.6))
-	for b in bends:
-		isles.append(Vector4(b.x, b.y, _rng.randf_range(2.6, 3.4), _rng.randf_range(2.2, 2.8)))
-	# A few islands off the path to fight from.
-	for _i in 12:
-		if isles.size() >= 16:
-			break
-		var c := Vector2(_rng.randf_range(-half.x + 3, half.x - 3), _rng.randf_range(-half.y + 3, half.y - 3))
+	# Where you start, every clearing and every bend is dry land; bridges
+	# cross the water between them.
+	isles.append(Vector4(start.x, start.y, 8.0, 5.0))
+	for c in clearings:
+		isles.append(Vector4(c.x, c.y, c.z + 1.5, c.z + 0.5))
+	for m in marks:
+		isles.append(Vector4(m.x, m.y, _rng.randf_range(3.0, 4.5), _rng.randf_range(2.6, 3.6)))
+	for _i in 30:
+		var c := Vector2(_rng.randf_range(-half.x + 4, half.x - 4), _rng.randf_range(-half.y + 4, half.y - 4))
 		var clear := true
 		for e in isles:
-			if c.distance_to(Vector2(e.x, e.y)) < maxf(e.z, e.w) + 3.0:
+			if c.distance_to(Vector2(e.x, e.y)) < maxf(e.z, e.w) + 4.0:
 				clear = false
-		if clear and path_dist(c) > 3.5:
-			isles.append(Vector4(c.x, c.y, _rng.randf_range(1.8, 3.2), _rng.randf_range(1.6, 2.6)))
+		if clear:
+			isles.append(Vector4(c.x, c.y, _rng.randf_range(2.0, 4.0), _rng.randf_range(1.8, 3.2)))
+
+
+## Distances along the path, where the clearings sit on it, and a coarse
+## map of how far each bit of ground is from it.
+func _index_path() -> void:
+	path_run = PackedFloat32Array()
+	var run := 0.0
+	for i in path.size():
+		if i > 0:
+			run += path[i].distance_to(path[i - 1])
+		path_run.append(run)
+	for c in clearings:
+		clearing_at.append(progress_of(Vector2(c.x, c.y)))
+	if built() and clearing_at.size() >= 2:
+		nave = Vector2(clearing_at[0] + 9.0, clearing_at[1] - 9.0)
+	var x := -half.x
+	while x <= half.x:
+		var z := -half.y
+		while z <= half.y:
+			_near_path[Vector2i(int(floor(x / 2.0)), int(floor(z / 2.0)))] = path_dist(Vector2(x + 1.0, z + 1.0))
+			z += 2.0
+		x += 2.0
 
 
 ## A Catmull-Rom curve through [param keys], [param steps] points per span,
@@ -162,9 +228,9 @@ static func _smooth(keys: PackedVector2Array, steps: int) -> PackedVector2Array:
 	return out
 
 
-## How far [param p] (xz) is from the path (or the crossing).
+## How far [param p] (xz) is from the path.
 func path_dist(p: Vector2) -> float:
-	return minf(_line_dist(path, p), _line_dist(cross_path, p))
+	return _line_dist(path, p)
 
 
 static func _line_dist(line: PackedVector2Array, p: Vector2) -> float:
@@ -178,61 +244,96 @@ static func _line_dist(line: PackedVector2Array, p: Vector2) -> float:
 	return best
 
 
-## Props in a built room stand in order: graves in rows facing the aisle,
-## pillars lining it, coffins side by side. Nothing stands where the wizards
-## come in or on the crossing.
+## How far along the path the point of it nearest [param p] is.
+func progress_of(p: Vector2) -> float:
+	var best := INF
+	var at := 0.0
+	for i in path.size() - 1:
+		var a := path[i]
+		var ab := path[i + 1] - a
+		var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		var d := p.distance_to(a + ab * t)
+		if d < best:
+			best = d
+			at = path_run[i] + t * ab.length()
+	return at
+
+
+## The point [param run] metres along the path.
+func point_at(run: float) -> Vector2:
+	if path.is_empty():
+		return Vector2.ZERO
+	for i in path.size() - 1:
+		if path_run[i + 1] >= run:
+			var span := path_run[i + 1] - path_run[i]
+			return path[i].lerp(path[i + 1], clampf((run - path_run[i]) / maxf(span, 0.001), 0.0, 1.0))
+	return path[path.size() - 1]
+
+
+func length() -> float:
+	return path_run[path_run.size() - 1] if not path_run.is_empty() else 0.0
+
+
+func in_clearing(p: Vector2, pad := 0.0) -> bool:
+	for c in clearings:
+		if p.distance_to(Vector2(c.x, c.y)) < c.z + pad:
+			return true
+	return false
+
+
+## The boss's arena is ringed by the biome's tall things, with a gap where
+## the path comes in and one where it leaves.
+func _arena_ring() -> void:
+	var a: Vector3 = clearings[clearings.size() - 1]
+	var kind: String = {"chapel": "pillar", "catacombs": "pillar", "keep": "pillar", "caves": "stalagmite", "pit": "basalt", "isles": "rock"}.get(biome.id, "rock")
+	var n := 18
+	for i in n:
+		var ang := TAU * i / n
+		var at := Vector2(a.x + cos(ang) * (a.z + 1.2), a.y + sin(ang) * (a.z + 1.2))
+		if path_dist(at) < PATH_W + 1.0:
+			continue
+		_prop(kind, Vector3(at.x, 0, at.y), 0.0)
+
+
+## Props in the nave stand in order along the straight way: graves in rows,
+## pillars lining it, coffins side by side.
 func _nave_props() -> void:
-	# The rows run from just inside the back wall to a little way in from
-	# the door, so the wizards come in on open floor.
-	var back := -half.y + 2.4
-	var front := start_z - 3.5
+	if nave.x < 0.0 or nave.y <= nave.x:
+		return
+	var a := point_at(nave.x)
+	var b := point_at(nave.y)
+	var x0 := a.x
+	var z := minf(a.y, b.y)
+	var z_end := maxf(a.y, b.y)
 	match biome.id:
 		"chapel":
-			for x: float in [4.2, 6.6, 9.0, 11.4, 13.0]:
-				for sgn: float in [-1.0, 1.0]:
-					var z := back
-					while z < half.y - 2.0:
-						var free: bool = absf(z - altar_z) > 2.2 and not (z > front and x < 7.0)
-						if free and _rng.randf() < 0.62:
-							_prop("grave", Vector3(sgn * x + _rng.randf_range(-0.15, 0.15), 0, z), _rng.randf_range(-0.12, 0.12))
-						z += 2.5
-			for c: Vector2 in [Vector2(-2.1, altar_z + 1.9), Vector2(2.1, altar_z + 1.9), Vector2(-2.1, altar_z - 1.9), Vector2(2.1, altar_z - 1.9)]:
-				_prop("candles", Vector3(c.x, 0, c.y), 0.0)
-			for _i in int(half.y / 4.0):
-				_prop("dead_tree")
+			while z < z_end:
+				for x: float in [4.2, 6.6, 9.0, 11.4]:
+					for sgn: float in [-1.0, 1.0]:
+						if _rng.randf() < 0.62:
+							_prop("grave", Vector3(x0 + sgn * x + _rng.randf_range(-0.15, 0.15), 0, z), _rng.randf_range(-0.12, 0.12))
+				z += 2.5
 		"catacombs":
-			var z2 := back
-			while z2 < front:
-				if absf(z2 - altar_z) > 2.0:
-					for sgn: float in [-1.0, 1.0]:
-						_prop("pillar", Vector3(sgn * 2.9, 0, z2), 0.0)
-				z2 += 3.4
-			for x: float in [7.0, 10.0, 13.0]:
+			var zp := z
+			while zp < z_end:
 				for sgn: float in [-1.0, 1.0]:
-					var z := back + 0.4
-					while z < half.y - 2.0:
-						if _rng.randf() < 0.7 and absf(z - altar_z) > 2.0 and not (z > front and x < 8.0):
-							_prop("sarcophagus", Vector3(sgn * x, 0, z), 0.0)
-						z += 3.2
-			for _i in int(half.y / 2.5):
-				_prop("bones")
-			for _i in int(half.y / 3.5):
-				_prop("candles")
-		_:
-			var z3 := back
-			while z3 < front:
-				if absf(z3 - altar_z) > 2.0:
+					_prop("pillar", Vector3(x0 + sgn * 2.9, 0, zp), 0.0)
+				zp += 3.4
+			while z < z_end:
+				for x: float in [7.0, 10.0]:
 					for sgn: float in [-1.0, 1.0]:
-						_prop("pillar", Vector3(sgn * 3.1, 0, z3), 0.0)
-				z3 += 4.0
-			for _i in int(half.y / 2.0):
-				_prop("ice")
-			for _i in int(half.y / 5.0):
-				_prop("rock")
+						if _rng.randf() < 0.7:
+							_prop("sarcophagus", Vector3(x0 + sgn * x, 0, z), 0.0)
+				z += 3.2
+		_:
+			while z < z_end:
+				for sgn: float in [-1.0, 1.0]:
+					_prop("pillar", Vector3(x0 + sgn * 3.1, 0, z), 0.0)
+				z += 4.0
 
 
 ## Signed distance to the nearest island shore, negative on land (without
-## the shader's ragged edge). Very large when the room has no water.
+## the shader's ragged edge). Very large when the level has no water.
 func shore(p: Vector2) -> float:
 	if isles.is_empty():
 		return -INF
@@ -253,15 +354,14 @@ func in_water(at: Vector3) -> bool:
 
 
 ## Posts along the bridges, low stones and lanterns along the path, and an
-## open gate in the back wall where the path leaves the room.
+## open gate in the back wall where the path leaves the level.
 func _path_dressing() -> void:
 	_next_post = 0.0
 	_next_lamp = 3.0
 	var run := 0.0
-	for line in [path, cross_path]:
-		for i in line.size() - 1:
-			_dress_span(line[i], line[i + 1], run)
-			run += line[i].distance_to(line[i + 1])
+	for i in path.size() - 1:
+		_dress_span(path[i], path[i + 1], run)
+		run += path[i].distance_to(path[i + 1])
 	_gate()
 
 
@@ -296,14 +396,14 @@ func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
 					var q2: Vector2 = c + nrm * sgn * (PATH_W * 0.5 + 0.15)
 					if _rng.randf() < 0.55 and path_dist(q2) > PATH_W * 0.5:
 						Art.part(self, Art.box(0.32, 0.12, 0.24), stone, Vector3(q2.x, 0.06, q2.y), Vector3(0, _rng.randf() * 60.0, 0))
-		if inside and at >= _next_lamp and (isles.is_empty() or shore(c) < -0.5) and absf(c.y - altar_z) > 1.5:
+		if inside and at >= _next_lamp and (isles.is_empty() or shore(c) < -0.5) and not in_clearing(c, 1.0):
 			if built:
 				# Lanterns in pairs, both sides of the aisle.
-				_next_lamp = at + 6.0
+				_next_lamp = at + 11.0
 				for sgn: float in [-1.0, 1.0]:
 					_lamp(c + nrm * sgn * (PATH_W * 0.5 + 0.5), -nrm * sgn)
 			else:
-				_next_lamp = at + 9.0
+				_next_lamp = at + 15.0
 				var sgn2 := 1.0 if _rng.randf() < 0.5 else -1.0
 				_lamp(c + nrm * sgn2 * (PATH_W * 0.5 + 0.6), -nrm * sgn2)
 		t += 0.25
@@ -328,7 +428,7 @@ func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 	l.position = Vector3(0.42, 1.5, 0)
 	n.add_child(l)
 	_torches.append(l)
-	_props_at.append(Vector3(at.x, 0, at.y))
+	_mark(Vector3(at.x, 0, at.y))
 
 
 ## An open archway in the back wall where the path leads out.
@@ -351,35 +451,66 @@ func _gate() -> void:
 	Art.part(self, Art.box(2.5, 3.9, 0.2), Fx.solid(Color(0.01, 0.01, 0.015), 1.0), Vector3(0, 1.95, z - 0.5))
 
 
+## How the ground shifts from zone to zone along the level, as tints on
+## the biome's floor colours (a biome can give its own as "tints").
+const ZONE_TINTS := [Color(1.0, 1.0, 1.0), Color(0.82, 0.92, 0.8), Color(1.08, 0.93, 0.88)]
+
+
 func _floor() -> void:
-	var mat := ShaderMaterial.new()
-	mat.shader = preload("res://src/world/floor.gdshader")
-	mat.set_shader_parameter("base_a", biome.floor_a)
-	mat.set_shader_parameter("base_b", biome.floor_b)
-	mat.set_shader_parameter("tiles", biome.tiles)
-	mat.set_shader_parameter("half_size", half)
-	mat.set_shader_parameter("wet", biome.get("wet", 0.0))
-	mat.set_shader_parameter("path_pts", path)
-	mat.set_shader_parameter("path_n", path.size())
-	mat.set_shader_parameter("path_w", PATH_W)
-	mat.set_shader_parameter("has_cross", cross_path.size() == 2)
-	if cross_path.size() == 2:
-		mat.set_shader_parameter("cross_seg", Vector4(cross_path[0].x, cross_path[0].y, cross_path[1].x, cross_path[1].y))
-	mat.set_shader_parameter("path_style", biome.get("path_style", 0))
-	mat.set_shader_parameter("path_a", biome.get("path_a", Color(0.3, 0.25, 0.18)))
-	mat.set_shader_parameter("path_b", biome.get("path_b", Color(0.17, 0.14, 0.1)))
-	var iv := PackedVector4Array()
-	for e in isles:
-		iv.append(e)
-	mat.set_shader_parameter("isles", iv)
-	mat.set_shader_parameter("isle_n", isles.size())
-	# The floor is cut into chunks so each chunk gets its own nearby torches
-	# (the compatibility renderer lights each mesh with a few lights only).
-	var chunk := 6.0
-	var x := -half.x - 4.0
-	while x < half.x + 4.0:
-		var z := -half.y - 4.0
-		while z < half.y + 6.0:
+	var shader := preload("res://src/world/floor.gdshader")
+	var tints: Array = biome.get("tints", ZONE_TINTS)
+	var zone_z := Vector2(point_at(length() / 3.0).y, point_at(length() * 2.0 / 3.0).y)
+	# The floor is cut into chunks: each gets its own nearby torches (the
+	# compatibility renderer lights each mesh with a few lights only), and
+	# only the bits of path, islands and stone floors that cross it, so the
+	# shader stays cheap however long the level is.
+	var chunk := 10.0
+	var reach := PATH_W + 1.0
+	var x := -half.x - 5.0
+	while x < half.x + 5.0:
+		var z := -half.y - 5.0
+		while z < half.y + 8.0:
+			var lo := Vector2(x, z)
+			var hi := lo + Vector2(chunk, chunk)
+			var mat := ShaderMaterial.new()
+			mat.shader = shader
+			mat.set_shader_parameter("base_a", biome.floor_a)
+			mat.set_shader_parameter("base_b", biome.floor_b)
+			mat.set_shader_parameter("tiles", biome.tiles)
+			mat.set_shader_parameter("half_size", half)
+			mat.set_shader_parameter("wet", biome.get("wet", 0.0))
+			mat.set_shader_parameter("path_w", PATH_W)
+			mat.set_shader_parameter("path_style", biome.get("path_style", 0))
+			mat.set_shader_parameter("path_a", biome.get("path_a", Color(0.3, 0.25, 0.18)))
+			mat.set_shader_parameter("path_b", biome.get("path_b", Color(0.17, 0.14, 0.1)))
+			mat.set_shader_parameter("zone_z", zone_z)
+			for k in 3:
+				mat.set_shader_parameter("tint%d" % k, tints[k])
+			var segs := PackedVector4Array()
+			var runs := PackedFloat32Array()
+			for i in path.size() - 1:
+				var a := path[i]
+				var b := path[i + 1]
+				if minf(a.x, b.x) - reach < hi.x and maxf(a.x, b.x) + reach > lo.x and minf(a.y, b.y) - reach < hi.y and maxf(a.y, b.y) + reach > lo.y and segs.size() < 32:
+					segs.append(Vector4(a.x, a.y, b.x, b.y))
+					runs.append(path_run[i])
+			mat.set_shader_parameter("segs", segs)
+			mat.set_shader_parameter("seg_run", runs)
+			mat.set_shader_parameter("seg_n", segs.size())
+			var iv := PackedVector4Array()
+			for e in isles:
+				# Far enough out to see the water deepen away from every shore.
+				if e.x - e.z - 7.0 < hi.x and e.x + e.z + 7.0 > lo.x and e.y - e.w - 7.0 < hi.y and e.y + e.w + 7.0 > lo.y and iv.size() < 16:
+					iv.append(e)
+			mat.set_shader_parameter("isles", iv)
+			mat.set_shader_parameter("isle_n", iv.size())
+			mat.set_shader_parameter("water", not isles.is_empty())
+			var pv := PackedVector3Array()
+			for c in plazas:
+				if c.x - c.z - 1.0 < hi.x and c.x + c.z + 1.0 > lo.x and c.y - c.z - 1.0 < hi.y and c.y + c.z + 1.0 > lo.y and pv.size() < 4:
+					pv.append(c)
+			mat.set_shader_parameter("plazas", pv)
+			mat.set_shader_parameter("plaza_n", pv.size())
 			var m := MeshInstance3D.new()
 			var pm := PlaneMesh.new()
 			pm.size = Vector2(chunk, chunk)
@@ -392,9 +523,9 @@ func _floor() -> void:
 	var ground := StaticBody3D.new()
 	ground.collision_layer = 4
 	var cs := CollisionShape3D.new()
-	var b := BoxShape3D.new()
-	b.size = Vector3(80, 1, 80)
-	cs.shape = b
+	var b2 := BoxShape3D.new()
+	b2.size = Vector3(half.x * 2.0 + 20.0, 1, half.y * 2.0 + 20.0)
+	cs.shape = b2
 	cs.position.y = -0.5
 	ground.add_child(cs)
 	add_child(ground)
@@ -436,7 +567,7 @@ func _walls() -> void:
 			var pos := Vector3(off, bh * 0.5, 0) if along_x else Vector3(0, bh * 0.5, off)
 			Art.part(body, Art.box(size.x, size.y, size.z), mat if i % 3 else dark, pos)
 		if h > 2.0:
-			var tn := int(length / 6.5)
+			var tn := int(length / 14.0)
 			for i in tn:
 				var off2 := -length * 0.5 + (i + 0.5) * length / tn
 				var inward := Vector3(0, 0, -signf(s[0].z) * 0.75) if along_x else Vector3(-signf(s[0].x) * 0.75, 0, 0)
@@ -471,21 +602,48 @@ func _torch(parent: Node3D, at: Vector3) -> void:
 func _free_spot(clear: float) -> Vector3:
 	for _i in 40:
 		var p := Vector3(_rng.randf_range(-half.x + 2, half.x - 2), 0, _rng.randf_range(-half.y + 2, half.y - 2))
-		if p.distance_to(Vector3(0, 0, start_z)) < 5.0:
+		var p2 := Vector2(p.x, p.z)
+		if p2.distance_to(start) < 7.0 or in_clearing(p2, 1.0):
 			continue
-		if path_dist(Vector2(p.x, p.z)) < PATH_W * 0.5 + 1.0:
+		if _off_path(p2) < PATH_W * 0.5 + 1.0:
 			continue
-		if not isles.is_empty() and shore(Vector2(p.x, p.z)) > -0.8:
+		if not isles.is_empty() and shore(p2) > -0.8:
 			continue
-		var ok := true
-		for q in _props_at:
-			if p.distance_to(q) < clear:
-				ok = false
-				break
-		if ok:
-			_props_at.append(p)
-			return p
+		if _crowded(p, clear):
+			continue
+		_mark(p)
+		return p
 	return Vector3.INF
+
+
+## About how far [param p] is from the path: the coarse map when that is
+## clearly far enough, the exact distance near the edge.
+func _off_path(p: Vector2) -> float:
+	var coarse: float = _near_path.get(Vector2i(int(floor(p.x / 2.0)), int(floor(p.y / 2.0))), INF)
+	if coarse > PATH_W + 3.0:
+		return coarse
+	return path_dist(p)
+
+
+func _cell(p: Vector3) -> Vector2i:
+	return Vector2i(int(floor(p.x / 3.0)), int(floor(p.z / 3.0)))
+
+
+func _mark(p: Vector3) -> void:
+	var c := _cell(p)
+	if not _props_at.has(c):
+		_props_at[c] = []
+	_props_at[c].append(p)
+
+
+func _crowded(p: Vector3, clear: float) -> bool:
+	var c := _cell(p)
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			for q: Vector3 in _props_at.get(c + Vector2i(dx, dz), []):
+				if p.distance_to(q) < clear:
+					return true
+	return false
 
 
 ## A prop of [param kind] at a free spot, or at [param at] facing
@@ -495,7 +653,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 	if p == Vector3.INF:
 		return
 	if at != Vector3.INF:
-		_props_at.append(at)
+		_mark(at)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.position = p
@@ -629,31 +787,46 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 	body.add_child(cs)
 
 
+var _dust_p: CPUParticles3D
+
+
+## Motes drifting in the air: one cloud that keeps up with the camera, since
+## the level is far too big to fill.
 func _dust() -> void:
-	var p := Fx.particles(Color(0.8, 0.7, 0.6, 0.25), 60, 8.0, 0.08)
+	var p := Fx.particles(Color(0.8, 0.7, 0.6, 0.25), 90, 8.0, 0.08)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(half.x, 1.5, half.y)
+	p.emission_box_extents = Vector3(20.0, 1.5, 15.0)
 	p.position.y = 1.5
 	p.direction = Vector3(1, 0.2, 0)
 	p.spread = 60.0
 	p.initial_velocity_min = 0.1
 	p.initial_velocity_max = 0.3
 	p.gravity = Vector3.ZERO
-	p.local_coords = true
+	p.local_coords = false
 	if biome.id == "pit":
 		p.color_ramp = Fx.ramp(Color(1.0, 0.45, 0.15, 0.8))
 		p.gravity = Vector3.UP * 0.3
 	elif biome.id == "keep":
 		p.color_ramp = Fx.ramp(Color(0.9, 0.95, 1.0, 0.7))
 		p.gravity = Vector3(0.3, -0.5, 0)
-		p.amount = 160
+		p.amount = 220
 		p.mesh = Fx.particle_mesh(0.12, Color.WHITE)
+	p.position = Vector3(start.x, 1.5, start.y)
 	add_child(p)
 	p.emitting = true
+	_dust_p = p
 
 
 func _process(_dt: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
+	var cam := get_viewport().get_camera_3d()
+	if cam and is_instance_valid(_dust_p):
+		# Where the camera looks at the ground.
+		var fwd := -cam.global_transform.basis.z
+		var at := cam.global_position
+		if fwd.y < -0.1:
+			at += fwd * ((1.5 - at.y) / fwd.y)
+		_dust_p.global_position = Vector3(at.x, 1.5, at.z)
 	for i in _torches.size():
 		var l: OmniLight3D = _torches[i]
 		if is_instance_valid(l):
@@ -732,21 +905,21 @@ func clamp_inside(p: Vector3) -> Vector3:
 
 
 ## Where a monster of an encounter walks in: ahead of the wizards, between
-## [param near] and [param far] metres further into the room than
-## [param lead_z], from the far side or out of the side walls.
-func spawn_ahead(lead_z: float, near: float, far: float, away_from: Array) -> Vector3:
+## [param near] and [param far] metres further along the path than
+## [param lead], off to either side of it, out of the water when it can.
+func spawn_ahead(lead: float, near: float, far: float, away_from: Array) -> Vector3:
 	var best := Vector3.ZERO
-	var best_d := -1.0
-	for _i in 12:
-		var z := clampf(lead_z - _rng.randf_range(near, far), -half.y + 1.5, half.y - 1.5)
-		var x := _rng.randf_range(-half.x + 1.5, half.x - 1.5)
-		if _rng.randf() < 0.35:
-			x = (half.x - 1.2) * (1.0 if _rng.randf() < 0.5 else -1.0)
-		var p := Vector3(x, 0, z)
+	var best_d := -INF
+	for _i in 14:
+		var run := minf(lead + _rng.randf_range(near, far), length())
+		var c := point_at(run)
+		var dir := (point_at(run + 1.0) - point_at(run - 1.0)).normalized()
+		var side := Vector2(-dir.y, dir.x) * _rng.randf_range(-9.0, 9.0)
+		var p := clamp_inside(Vector3(c.x + side.x, 0, c.y + side.y))
 		var d := INF
 		for w in away_from:
 			d = minf(d, p.distance_to(w.global_position))
-		# Out of the water when there is land close by, and never on top of a wizard.
+		# Never on top of a wizard.
 		var score := minf(d, 9.0) - (3.0 if in_water(p) else 0.0) + _rng.randf()
 		if score > best_d:
 			best_d = score

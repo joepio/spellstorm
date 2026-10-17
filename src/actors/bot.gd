@@ -60,15 +60,13 @@ func think(w: Wizard, dt: float) -> void:
 		form = "cast"
 		hold = 2.5
 		_phase = "conjure"
-	if run and run.state == "cleared" and enemy == null:
+	var tome: Variant = run.tome_for(w) if run and enemy == null else null
+	if run and enemy == null and (tome or run.state == "cleared"):
 		_phase = "idle"
 		pad.set_button(Pad.RT, false)
-		var goal := run.portal.global_position if run.portal else Vector3.ZERO
-		if w.get_meta("took", -1) != run.depth():
-			for a in run.altars:
-				if not a.taken:
-					goal = a.node.global_position
-					break
+		var goal := run.portal.global_position if run.portal else w.global_position
+		if tome:
+			goal = tome.node.global_position
 		move = goal - w.global_position
 		pad.move = Vector2(move.x, move.z).normalized() if move.length() > 0.3 else Vector2.ZERO
 		return

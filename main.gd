@@ -8,7 +8,7 @@ extends Node3D
 ##   --die STYLE [--revive]  kill every wizard that way just before the shot
 ##   --demo           bots play every seat (default for --shot)
 ##   --players N      how many wizards in standalone or demo (default 3)
-##   --biome N --room N --seed N --recipe N (bots always cast recipe N)
+##   --biome N --at M (start M metres along the level) --seed N --recipe N (bots always cast recipe N)
 
 static var I: Game
 
@@ -53,7 +53,6 @@ var shot_frames := 240
 var demo := false
 var players := 3
 var start_biome := 0
-var start_room := 0
 var seed_value := 0
 var recipe := -1
 ## What happened this run, for src/run/sim.gd: shots, swings, rolls, deflects,
@@ -77,7 +76,6 @@ func _ready() -> void:
 			"--demo": demo = true
 			"--players": players = int(nxt)
 			"--biome": start_biome = int(nxt)
-			"--room": start_room = int(nxt)
 			"--seed": seed_value = int(nxt)
 			"--recipe": recipe = int(nxt)
 			"--sim": sim_frames = int(nxt); demo = true
@@ -96,8 +94,8 @@ func _ready() -> void:
 	menu = Menu.new()
 	hud.add_child(menu)
 	run.banner.connect(hud.show_banner)
-	run.room_started.connect(func(b, r):
-		hud.room(b, r, run.depth())
+	run.level_started.connect(func(b, l):
+		hud.level(b, l)
 		snap_camera())
 	_load_grimoire()
 	spell_total = Grammar.TOTAL
@@ -190,8 +188,7 @@ func start_at(biome: int) -> void:
 		biome = randi() % Arena.BIOMES.size()
 	if biome > 0:
 		run.biome_index = biome
-		run.room = 0
-		run.enter_room()
+		run.enter_level()
 
 
 var _tracing := OS.get_environment("SPELLSTORM_TRACE") != ""
@@ -220,10 +217,13 @@ func _standalone() -> void:
 	if seed_value == 0:
 		seed_value = randi() % 100000 + 1
 	new_run()
-	if start_biome > 0 or start_room > 0:
+	if start_biome > 0:
 		run.biome_index = start_biome
-		run.room = start_room
-		run.enter_room()
+		run.enter_level()
+	var at_i := OS.get_cmdline_user_args().find("--at")
+	if at_i >= 0:
+		run.skip_to(float(OS.get_cmdline_user_args()[at_i + 1]))
+		snap_camera()
 	Prewarm.run(camera)
 	if shot != "":
 		_take_shot()
@@ -448,8 +448,8 @@ func _process(dt: float) -> void:
 	_update_camera(dt)
 
 
-## Put the camera straight over the wizards, for a new room: gliding there
-## from where the last room ended looks like walking back to its start.
+## Put the camera straight over the wizards, for a new level: gliding there
+## from where the last one ended looks like flying across it.
 func snap_camera() -> void:
 	var c := Vector3.ZERO
 	for w in wizards:
@@ -592,6 +592,16 @@ func _take_shot() -> void:
 		if how != "" and "--revive" in args and f == shot_frames - 25:
 			for w in wizards:
 				w.revive(1.0)
+	if "--overview" in args:
+		# The whole level from high above, for checking its layout.
+		set_process(false)
+		camera.far = 600.0
+		env.environment.fog_enabled = false
+		camera.global_position = Vector3(0, 150, 0)
+		camera.look_at(Vector3.ZERO, Vector3.LEFT)
+		camera.fov = 48.0
+		for i in 3:
+			await RenderingServer.frame_post_draw
 	if "--menu" in OS.get_cmdline_user_args():
 		menu.open(false)
 		await get_tree().process_frame

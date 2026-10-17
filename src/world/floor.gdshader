@@ -2,9 +2,11 @@ shader_type spatial;
 render_mode diffuse_lambert;
 
 // Dungeon floor: two colours mixed by world-space noise, with optional
-// flagstone tiles and cracks, darkening toward the room's edge. On top of
-// that the room's path, from the entrance to the portal, and in the isles
-// biome open water between islands, crossed by plank bridges.
+// flagstone tiles and cracks, tinted zone by zone along the level and
+// darkening toward its edge. On top of that the level's path, laid stone
+// floors where the fights gather, and in the isles biome open water between
+// islands, crossed by plank bridges. Each floor chunk is handed only the
+// bits of path, islands and stone floors that reach it.
 uniform vec3 base_a : source_color = vec3(0.16, 0.17, 0.13);
 uniform vec3 base_b : source_color = vec3(0.10, 0.10, 0.09);
 uniform float tiles = 0.0;
@@ -12,21 +14,31 @@ uniform float tile_size = 1.6;
 uniform vec2 half_size = vec2(17.0, 11.0);
 uniform float wet = 0.0;
 
-// The path: a polyline in world xz. Style 0 trodden earth, 1 flagstones,
-// 2 a worn carpet runner, 3 basalt with glowing seams.
-uniform vec2 path_pts[64];
-uniform int path_n = 0;
+// The zones of the level: tint0 before zone_z.x (going down z), tint1 up
+// to zone_z.y, tint2 after, blended over a few metres.
+uniform vec3 tint0 = vec3(1.0);
+uniform vec3 tint1 = vec3(1.0);
+uniform vec3 tint2 = vec3(1.0);
+uniform vec2 zone_z = vec2(-1e5);
+
+// The path near this chunk: segments a.xy to b.zw, and how far along the
+// whole path each one starts. Style 0 trodden earth, 1 flagstones, 2 a worn
+// carpet runner, 3 basalt with glowing seams.
+uniform vec4 segs[32];
+uniform float seg_run[32];
+uniform int seg_n = 0;
 uniform float path_w = 2.4;
 uniform int path_style = 0;
-// A second straight way crossing the first (a transept), from xy to zw.
-uniform vec4 cross_seg = vec4(0.0);
-uniform bool has_cross = false;
 uniform vec3 path_a : source_color = vec3(0.3, 0.24, 0.17);
 uniform vec3 path_b : source_color = vec3(0.18, 0.14, 0.1);
 
-// Islands as ellipses (x, z, rx, rz); with isle_n > 0 everything else is water.
+// Islands as ellipses (x, z, rx, rz); with water on everything else is water.
 uniform vec4 isles[16];
 uniform int isle_n = 0;
+uniform bool water = false;
+// Laid stone floors (x, z, r).
+uniform vec3 plazas[4];
+uniform int plaza_n = 0;
 uniform vec3 water_a : source_color = vec3(0.015, 0.05, 0.065);
 uniform vec3 water_b : source_color = vec3(0.04, 0.13, 0.14);
 uniform vec3 sand : source_color = vec3(0.2, 0.18, 0.13);
@@ -60,32 +72,17 @@ float fbm(vec2 p) {
 vec4 path_info(vec2 p) {
 	float best = 1e5;
 	float along = 0.0;
-	float run = 0.0;
 	vec2 dir = vec2(0.0, 1.0);
-	for (int i = 0; i < 63; i++) {
-		if (i >= path_n - 1) break;
-		vec2 a = path_pts[i];
-		vec2 b = path_pts[i + 1];
-		vec2 ab = b - a;
-		float len = length(ab);
+	for (int i = 0; i < 32; i++) {
+		if (i >= seg_n) break;
+		vec2 a = segs[i].xy;
+		vec2 ab = segs[i].zw - a;
+		float len = max(length(ab), 0.001);
 		float t = clamp(dot(p - a, ab) / (len * len), 0.0, 1.0);
 		float d = length(p - (a + ab * t));
 		if (d < best) {
 			best = d;
-			along = run + t * len;
-			dir = ab / len;
-		}
-		run += len;
-	}
-	if (has_cross) {
-		vec2 a = cross_seg.xy;
-		vec2 ab = cross_seg.zw - a;
-		float len = length(ab);
-		float t = clamp(dot(p - a, ab) / (len * len), 0.0, 1.0);
-		float d = length(p - (a + ab * t));
-		if (d < best) {
-			best = d;
-			along = t * len;
+			along = seg_run[i] + t * len;
 			dir = ab / len;
 		}
 	}
@@ -166,23 +163,47 @@ void fragment() {
 		col *= mix(0.35, 1.0, grout);
 		col *= 0.8 + 0.4 * hash(id);
 	}
+	// The zone this bit of ground is in.
+	float k1 = smoothstep(zone_z.x + 6.0, zone_z.x - 6.0, p.y);
+	float k2 = smoothstep(zone_z.y + 6.0, zone_z.y - 6.0, p.y);
+	col *= mix(mix(tint0, tint1, k1), tint2, k2);
 	// Hairline cracks, only in laid stone.
 	float crack = smoothstep(0.48, 0.5, fbm(p * 1.1 + 7.0)) * smoothstep(0.52, 0.5, fbm(p * 1.1 + 7.0));
 	col *= 1.0 - crack * 0.35 * tiles;
 
 	// Land and water.
-	float shore = isle_n > 0 ? isle_sdf(p) : -1e5;
-	if (isle_n > 0) {
+	float shore = water ? isle_sdf(p) : -1e5;
+	if (water) {
 		// Sand and moss toward the shore.
 		col = mix(col, sand * (0.8 + 0.4 * fine), smoothstep(-1.2, -0.1, shore));
 	}
 
+	// Laid stone where the fights gather: big worn flags, grass and grit
+	// creeping in at the ragged edge.
+	float pz = 1e5;
+	for (int i = 0; i < 4; i++) {
+		if (i >= plaza_n) break;
+		pz = min(pz, length(p - plazas[i].xy) - plazas[i].z);
+	}
+	pz += (fbm(p * 0.7 + 5.0) - 0.5) * 1.6;
+	if (pz < 0.0 && shore < 0.0) {
+		vec2 t = p / 1.5;
+		t.x += step(1.0, mod(floor(t.y), 2.0)) * 0.5;
+		vec2 f = fract(t);
+		float edge = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+		vec3 flag = mix(path_a, path_b, hash(floor(t))) * (0.8 + 0.35 * fine);
+		flag = mix(flag, vec3(0.2, 0.2, 0.19) * (0.8 + 0.4 * fine), 0.35);
+		flag *= mix(0.4, 1.0, smoothstep(0.0, 0.06, edge));
+		float worn = smoothstep(-1.4, 0.0, pz) * smoothstep(0.35, 0.7, fbm(p * 1.3));
+		col = mix(flag, col, worn);
+	}
+
 	vec4 pi = path_info(p);
 	float half_w = path_w * 0.5 + (fbm(p * 1.7) - 0.5) * 0.5;
-	float on_path = path_n > 1 ? 1.0 - smoothstep(half_w - 0.25, half_w + 0.1, pi.x) : 0.0;
-	bool bridge = isle_n > 0 && shore > -0.2;
+	float on_path = seg_n > 0 ? 1.0 - smoothstep(half_w - 0.25, half_w + 0.1, pi.x) : 0.0;
+	bool bridge = water && shore > -0.2;
 
-	if (isle_n > 0 && shore > 0.0 && !(bridge && pi.x < path_w * 0.5 + 0.1)) {
+	if (water && shore > 0.0 && !(bridge && pi.x < path_w * 0.5 + 0.1)) {
 		// Open water: two tints moving against each other, ripples, a band
 		// of foam along the shore, deeper and darker further out.
 		float w1 = fbm(p * 0.5 + vec2(TIME * 0.05, TIME * 0.03));

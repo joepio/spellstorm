@@ -1,97 +1,121 @@
 class_name Run
 extends Node3D
-## A descent: five biomes of three rooms, the third a boss. A room is a long
-## hall: walk it along the path, and each time the wizards get further in a
-## new encounter comes at them from ahead. Beat them all, take a tome from an
-## altar at the far end, step into the portal together.
+## A descent: five biomes, one big level each. Walk the level along its
+## path; each time the wizards get further in, monsters come at them from
+## ahead. Two clearings on the way are held by a larger pack: beat it and a
+## shrine of tomes rises there (and the fallen get back up). At the end of
+## the level is the boss's arena; beat the boss for the last shrine and the
+## portal on to the next biome.
 
-signal room_started(biome: Dictionary, room: int)
+signal level_started(biome: Dictionary, level: int)
 signal banner(text: String, sub: String, color: Color)
 
-const ROOMS := 3
 const PORTAL_R := 1.7
 ## Everyone stands in the portal's ring this long to go on.
 const PORTAL_TIME := 1.2
+## Metres along the path between the packs that come at you on the way.
+const WAVE_GAP := 30.0
 
 var biome_index := 0
-var room := 0
 var state := "fight"   # fight, cleared, travel, dead, won
-var waves_left := 0
-var wave_t := 0.0
 var spawn_queue: Array = []
 var spawn_t := 0.0
-## How far into the room (z, going down) the front wizard must get to start
-## each encounter still to come, nearest first.
-var encounters: Array[float] = []
-## Where the encounter being spawned started; its monsters come from ahead of it.
-var _wave_z := INF
+## What is still to come, nearest first: {at = metres along the path the
+## front wizard must reach, kind = "wave", "guard" (a clearing, with the
+## shrine it holds) or "boss"}.
+var encounters: Array = []
+## How far along the path the encounter being spawned started; its monsters
+## come from ahead of it.
+var _wave_at := -1.0
+## Clearings whose pack has come; their shrine rises once the field is clear.
+var _pending: Array[int] = []
 var rng := RandomNumberGenerator.new()
 var seed_value := 1
 var kills := 0
+## Every tome on a shrine: {node, relic, taken, hold, fill, shrine}.
 var altars: Array = []
 var portal: Node3D
 var _portal_t := 0.0
 var _end_t := 0.0
+var _quiet_t := 0.0
 var boss: Enemy
 
 
+## How deep in the run this level is (0 is the first).
 func depth() -> int:
-	return biome_index * ROOMS + room
+	return biome_index
 
 
 func start(s: int) -> void:
 	seed_value = s
 	rng.seed = s
 	biome_index = 0
-	room = 0
 	kills = 0
 	for w in Game.I.wizards:
 		w.reset_relics()
+		for m in w.get_meta_list():
+			if String(m).begins_with("took_"):
+				w.remove_meta(m)
 		w.revive(1.0)
 		w.hp = w.max_hp
-	enter_room()
+	enter_level()
 
 
-func enter_room() -> void:
-	_clear_room()
+func enter_level() -> void:
+	_clear_level()
 	state = "fight"
-	Game.I.arena.build(biome_index, room, seed_value * 31 + depth())
-	Game.I.apply_biome(Game.I.arena.biome)
-	var sz: float = Game.I.arena.start_z
-	var starts := [Vector3(-1.5, 0, sz - 1), Vector3(1.5, 0, sz - 1), Vector3(-3.5, 0, sz + 0.5), Vector3(3.5, 0, sz + 0.5), Vector3(0, 0, sz + 1.5), Vector3(-5, 0, sz + 1.5)]
+	var arena: Arena = Game.I.arena
+	arena.build(biome_index, seed_value * 31 + depth())
+	Game.I.apply_biome(arena.biome)
+	var sz := arena.start
+	var starts := [Vector2(-1.5, -1), Vector2(1.5, -1), Vector2(-3.5, 0.5), Vector2(3.5, 0.5), Vector2(0, 1.5), Vector2(-5, 1.5)]
 	var i := 0
 	for w in Game.I.wizards:
 		if not w.alive:
 			w.revive(0.4)
-		w.global_position = starts[i % starts.size()]
+		var at: Vector2 = sz + starts[i % starts.size()]
+		w.global_position = Vector3(at.x, 0, at.y)
 		w.reset_physics_interpolation()
 		w.velocity = Vector3.ZERO
 		w.push = Vector3.ZERO
 		w.aim_dir = Vector3.FORWARD
 		i += 1
-	wave_t = 2.0
-	encounters.clear()
-	_wave_z = INF
-	if room == 2:
-		# The boss room is a short arena: the boss and one wave, at once.
-		var b: String = Game.I.arena.biome.boss
-		spawn_enemy(b, Vector3(0, 0, Game.I.arena.altar_z - 4.0), false)
-		banner.emit(Enemy.KINDS[b].name, Game.I.arena.biome.name, Color(1.0, 0.7, 0.3))
-		encounters.append(INF)
-	else:
-		# Spread along the hall: the first a few steps in, the last guarding
-		# the altars.
-		var n := 3 + int(room == 1)
-		var first: float = Game.I.arena.start_z - 3.0
-		var last: float = Game.I.arena.altar_z + 7.0
-		for k in n:
-			encounters.append(lerpf(first, last, float(k) / (n - 1)))
-	waves_left = encounters.size()
-	# Where you are (biome, room, level) is in the pause menu, not on screen.
-	room_started.emit(Game.I.arena.biome, room)
+	# Packs along the way, every WAVE_GAP metres from a few steps in; the two
+	# clearings' packs where they are; the boss at the arena's edge.
+	var guards: Array = []
+	for k in 2:
+		guards.append({at = arena.clearing_at[k] - arena.clearings[k].z * 0.6, kind = "guard", shrine = k})
+	var boss_at: float = arena.clearing_at[2] - arena.clearings[2].z * 0.8
+	var at_run := 8.0
+	while at_run < boss_at - 12.0:
+		var near_guard := false
+		for g in guards:
+			if absf(g.at - at_run) < 12.0:
+				near_guard = true
+		if not near_guard:
+			encounters.append({at = at_run, kind = "wave"})
+		at_run += WAVE_GAP * rng.randf_range(0.85, 1.15)
+	encounters.append_array(guards)
+	encounters.append({at = boss_at, kind = "boss"})
+	encounters.sort_custom(func(a, b): return a.at < b.at)
+	# Where you are (biome, level) is in the pause menu, not on screen.
+	level_started.emit(arena.biome, depth())
 
 
-func _clear_room() -> void:
+## For testing: put the wizards [param run] metres along the level, as if
+## they had walked there and the packs on the way were never met.
+func skip_to(run: float) -> void:
+	encounters = encounters.filter(func(e): return e.at >= run)
+	var arena: Arena = Game.I.arena
+	var c := arena.point_at(run)
+	var i := 0
+	for w in Game.I.wizards:
+		w.global_position = Vector3(c.x + (i % 3 - 1) * 1.5, 0, c.y + (i / 3) * 1.5)
+		w.reset_physics_interpolation()
+		i += 1
+
+
+func _clear_level() -> void:
 	for e in Game.I.enemies:
 		if is_instance_valid(e):
 			e.queue_free()
@@ -107,30 +131,29 @@ func _clear_room() -> void:
 		portal = null
 	spawn_queue.clear()
 	encounters.clear()
+	_pending.clear()
+	_wave_at = -1.0
 	boss = null
 
 
-func _queue_wave(players: int) -> void:
-	waves_left -= 1
+func _queue_wave(players: int, scale: float) -> void:
 	var mix: Dictionary = Game.I.arena.biome.enemies
 	var pool: Array = []
 	for k in mix:
 		for _i in mix[k]:
 			pool.append(k)
-	var count := int((3 + 2.2 * players) * (1.0 + 0.12 * depth()) * Game.I.monster_count)
+	var count := int((3 + 2.2 * players) * (1.0 + 0.36 * depth()) * Game.I.monster_count * scale)
 	# The first biome is where you learn to shoot and roll: fewer monsters.
 	if biome_index == 0:
 		count = maxi(2, int(count * 0.6))
-	if room == 2:
-		count = int(count * 0.5)
 	for _i in count:
 		spawn_queue.append(pool[rng.randi() % pool.size()])
 
 
 func spawn_enemy(k: String, at: Vector3, telegraph := true) -> void:
 	var players := maxi(1, Game.I.wizards.size())
-	var hp_scale := (1.0 + 0.35 * (players - 1)) * (1.0 + 0.11 * depth()) * Game.I.monster_hp
-	var champ := rng.randf() < 0.06 + 0.01 * depth()
+	var hp_scale := (1.0 + 0.35 * (players - 1)) * (1.0 + 0.33 * depth()) * Game.I.monster_hp
+	var champ := rng.randf() < 0.06 + 0.03 * depth()
 	if telegraph:
 		Game.I.summon_circle(at)
 		await get_tree().create_timer(0.8).timeout
@@ -149,8 +172,10 @@ func _physics_process(dt: float) -> void:
 	match state:
 		"fight":
 			_fight(dt)
+			_shrines(dt)
 		"cleared":
-			_cleared(dt)
+			_shrines(dt)
+			_portal_step(dt)
 		"dead", "won":
 			_end_t -= dt
 			if _end_t <= 0.0:
@@ -162,54 +187,85 @@ func _physics_process(dt: float) -> void:
 		Game.I.run_over(false)
 
 
-## How far into the room the front living wizard is (the lowest z).
-func lead_z() -> float:
-	var z := INF
+## How far along the level's path the front living wizard is.
+func lead_progress() -> float:
+	var best := -1.0
 	for w in Game.I.wizards:
 		if w.alive:
-			z = minf(z, w.global_position.z)
-	return z
+			best = maxf(best, Game.I.arena.progress_of(Vector2(w.global_position.x, w.global_position.z)))
+	return best
+
+
+var _lead := 0.0
+var _lead_t := 0.0
 
 
 func _fight(dt: float) -> void:
-	var lead := lead_z()
-	if not encounters.is_empty() and lead < encounters[0]:
-		encounters.pop_front()
-		_wave_z = lead
-		wave_t = 0.0
-		_queue_wave(maxi(1, Game.I.wizards.size()))
+	# The lead only matters a few times a second.
+	_lead_t -= dt
+	if _lead_t <= 0.0:
+		_lead_t = 0.2
+		_lead = lead_progress()
+	while not encounters.is_empty() and _lead >= encounters[0].at:
+		var enc: Dictionary = encounters.pop_front()
+		_wave_at = _lead
+		var players := maxi(1, Game.I.wizards.size())
+		match enc.kind:
+			"wave":
+				_queue_wave(players, 1.0)
+			"guard":
+				_queue_wave(players, 1.5)
+				_pending.append(enc.shrine)
+			"boss":
+				var arena: Arena = Game.I.arena
+				var c: Vector3 = arena.clearings[2]
+				var b: String = arena.biome.boss
+				spawn_enemy(b, Vector3(c.x, 0, c.y), false)
+				banner.emit(Enemy.KINDS[b].name, arena.biome.name, Color(1.0, 0.7, 0.3))
+				_queue_wave(players, 0.5)
 	spawn_t -= dt
 	if not spawn_queue.is_empty() and spawn_t <= 0.0:
 		spawn_t = 0.35
-		var at: Vector3 = Game.I.arena.spawn_point(Game.I.wizards) if _wave_z == INF \
-			else Game.I.arena.spawn_ahead(_wave_z, 7.0, 13.0, Game.I.wizards)
+		var at: Vector3 = Game.I.arena.spawn_point(Game.I.wizards) if _wave_at < 0.0 \
+			else Game.I.arena.spawn_ahead(_wave_at, 7.0, 15.0, Game.I.wizards)
 		spawn_enemy(spawn_queue.pop_front(), at)
 	var alive_count := Game.I.enemies.filter(func(e): return e.alive).size()
-	if spawn_queue.is_empty():
-		wave_t -= dt
-		if encounters.is_empty() and alive_count == 0 and wave_t < -1.5:
-			_room_cleared()
+	_quiet_t = _quiet_t + dt if spawn_queue.is_empty() and alive_count == 0 else 0.0
+	if _quiet_t < 1.5:
+		return
+	# The field is clear: the shrines of beaten clearings rise.
+	for k in _pending:
+		_raise_shrine(k)
+	_pending.clear()
+	if encounters.is_empty() and (boss == null or not is_instance_valid(boss) or not boss.alive):
+		_level_cleared()
 
 
 ## Where a wizard with nothing to fight walks to: along the path, a few
-## metres further in than the front wizard (bots use it).
+## metres further than the front wizard (bots use it).
 func walk_goal(w: Wizard) -> Vector3:
-	var ahead := minf(lead_z(), w.global_position.z) - 4.0
-	for p in Game.I.arena.path:
-		if p.y < ahead:
-			return Vector3(p.x, 0, p.y)
-	return Vector3(0, 0, Game.I.arena.altar_z)
+	var arena: Arena = Game.I.arena
+	var mine := arena.progress_of(Vector2(w.global_position.x, w.global_position.z))
+	var p := arena.point_at(maxf(_lead, mine) + 5.0)
+	return Vector3(p.x, 0, p.y)
 
 
-func _room_cleared() -> void:
-	if biome_index == Arena.BIOMES.size() - 1 and room == ROOMS - 1:
-		state = "won"
-		_end_t = 12.0
-		banner.emit("The Pit is sealed", "Your names will be sung. %d monsters slain." % kills, Color(1.0, 0.8, 0.35))
-		Game.I.run_over(true)
-		return
-	state = "cleared"
-	banner.emit("Room cleared", "Each wizard may take one tome", Color(0.9, 0.75, 0.4))
+## A tome [param w] may still take, near enough to walk to, or null.
+func tome_for(w: Wizard) -> Variant:
+	for a in altars:
+		if a.taken or w.get_meta("took_" + a.shrine, false):
+			continue
+		if is_instance_valid(a.node) and a.node.global_position.distance_to(w.global_position) < 30.0:
+			return a
+	return null
+
+
+## A shrine of tomes rises at clearing [param k] (2 is the boss's arena):
+## one for each wizard and one spare, and the fallen get back up.
+func _raise_shrine(k: int) -> void:
+	var arena: Arena = Game.I.arena
+	var c: Vector3 = arena.clearings[k]
+	banner.emit("A shrine rises" if k < 2 else "%s is slain" % Enemy.KINDS[arena.biome.boss].name, "Each wizard may take one tome", Color(0.9, 0.75, 0.4))
 	for w in Game.I.wizards:
 		if not w.alive:
 			w.revive(0.3)
@@ -218,16 +274,38 @@ func _room_cleared() -> void:
 	for w in Game.I.wizards:
 		for r in w.relics:
 			taken.append(r.get("name", ""))
+	for a in altars:
+		taken.append(a.relic.get("name", ""))
 	var picks := Relics.pick(n, rng, taken)
+	# Across the path, facing the way on.
+	var along := arena.clearing_at[k]
+	var dir := (arena.point_at(along + 1.0) - arena.point_at(along - 1.0)).normalized()
+	var across := Vector2(-dir.y, dir.x)
+	var mid := Vector2(c.x, c.y) + (dir * -2.0 if k == 2 else Vector2.ZERO)
 	for i in picks.size():
-		var x := (i - (picks.size() - 1) * 0.5) * 3.2
+		var p := mid + across * (i - (picks.size() - 1) * 0.5) * 3.2
 		var node := _altar(picks[i])
-		node.position = Vector3(x, 0, Game.I.arena.altar_z)
-		Game.I.arena.add_child(node)
+		node.position = Vector3(p.x, 0, p.y)
+		arena.add_child(node)
+		node.scale = Vector3(1, 0.01, 1)
+		node.create_tween().tween_property(node, "scale", Vector3.ONE, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		Fx.burst(node.position + Vector3.UP, Color(1.0, 0.8, 0.4), 16, 3.0)
 		altars.append({node = node, relic = picks[i], taken = false, hold = 0.0,
-			fill = node.get_meta("fill")})
+			fill = node.get_meta("fill"), shrine = "%d_%d" % [biome_index, k]})
+
+
+func _level_cleared() -> void:
+	if biome_index == Arena.BIOMES.size() - 1:
+		state = "won"
+		_end_t = 12.0
+		banner.emit("The Pit is sealed", "Your names will be sung. %d monsters slain." % kills, Color(1.0, 0.8, 0.35))
+		Game.I.run_over(true)
+		return
+	state = "cleared"
+	_raise_shrine(2)
 	portal = _portal()
-	portal.position = Vector3(0, 0, Game.I.arena.portal_z)
+	var pa: Vector2 = Game.I.arena.portal_at
+	portal.position = Vector3(pa.x, 0, pa.y)
 	Game.I.arena.add_child(portal)
 	_portal_t = 0.0
 
@@ -237,7 +315,7 @@ const TAKE_TIME := 0.9
 const ALTAR_R := 1.4
 
 
-func _cleared(dt: float) -> void:
+func _shrines(dt: float) -> void:
 	for a in altars:
 		if a.taken:
 			continue
@@ -245,19 +323,21 @@ func _cleared(dt: float) -> void:
 		# tome this level stands in it; full, the tome is theirs.
 		var taker: Wizard = null
 		for w in Game.I.wizards:
-			if not w.alive or w.get_meta("took", -1) == depth():
+			if not w.alive or w.get_meta("took_" + a.shrine, false):
 				continue
 			if Vector2(w.global_position.x - a.node.global_position.x, w.global_position.z - a.node.global_position.z).length() < ALTAR_R:
 				taker = w
 				break
 		a.hold = minf(a.hold + dt, TAKE_TIME) if taker else maxf(a.hold - dt * 2.0, 0.0)
+		if not is_instance_valid(a.node):
+			continue
 		var fill_mat: ShaderMaterial = a.fill.material_override
 		fill_mat.set_shader_parameter("progress", a.hold / TAKE_TIME)
 		if taker:
 			fill_mat.set_shader_parameter("color", taker.robe.lightened(0.35))
 		if taker and a.hold >= TAKE_TIME:
 			a.taken = true
-			taker.set_meta("took", depth())
+			taker.set_meta("took_" + a.shrine, true)
 			taker.give_relic(a.relic)
 			Fx.burst(a.node.global_position + Vector3.UP * 1.3, Color(1.0, 0.8, 0.4), 30, 4.0)
 			Fx.ring(a.node.global_position, taker.robe.lightened(0.35), ALTAR_R + 0.4, 0.4)
@@ -265,6 +345,9 @@ func _cleared(dt: float) -> void:
 			var tw: Tween = a.node.create_tween()
 			tw.tween_property(a.node, "scale", Vector3(1, 0.01, 1), 0.4)
 			tw.tween_callback(a.node.queue_free)
+
+
+func _portal_step(dt: float) -> void:
 	var living := Game.I.wizards.filter(func(w): return w.alive)
 	var inside := living.filter(func(w): return w.global_position.distance_to(portal.global_position) < PORTAL_R)
 	if not living.is_empty() and inside.size() == living.size():
@@ -279,7 +362,7 @@ func _cleared(dt: float) -> void:
 
 
 ## Through the portal: the wizards vanish into it in a flash, the screen
-## goes black, and it opens again on the next room.
+## goes black, and it opens again on the next level.
 func _travel() -> void:
 	state = "travel"
 	var at := portal.global_position
@@ -301,11 +384,8 @@ func _next() -> void:
 			w.revive(1.0)
 		w.hp = w.max_hp
 		w.mana = Wizard.MANA_MAX
-	room += 1
-	if room >= ROOMS:
-		room = 0
-		biome_index += 1
-	enter_room()
+	biome_index += 1
+	enter_level()
 
 
 func _altar(relic: Dictionary) -> Node3D:

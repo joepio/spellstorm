@@ -2,7 +2,7 @@ class_name Hud
 extends CanvasLayer
 ## The TV overlay: one panel per wizard along the bottom showing their
 ## health, their queued elements and what each button would cast right now,
-## the room at the top, the grimoire count, and big banners.
+## the level at the top, the grimoire count, and big banners.
 
 const VIGNETTE := """
 shader_type canvas_item;
@@ -142,10 +142,10 @@ var where := ""
 var grimoire_text := ""
 
 
-func room(biome: Dictionary, r: int, depth: int) -> void:
-	where = "%s   ·   %s   ·   Level %d" % [biome.name, "Lair of the boss" if r == 2 else "Room %d of 3" % (r + 1), depth + 1]
+func level(biome: Dictionary, depth: int) -> void:
+	where = "%s   ·   Level %d of %d" % [biome.name, depth + 1, Arena.BIOMES.size()]
 	_title.text = biome.name
-	_sub.text = ("Lair of the boss" if r == 2 else "Room %d of 3" % (r + 1)) + "   ·   Level %d" % (depth + 1)
+	_sub.text = "Level %d of %d" % [depth + 1, Arena.BIOMES.size()]
 
 
 func set_grimoire(found: int, total: int) -> void:

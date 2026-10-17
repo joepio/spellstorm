@@ -128,7 +128,7 @@ your spells.
 
 ### The loop in numbers
 
-A room of about 600 HP of monsters drops about 90 mana. Spending it all on
+A pack of about 600 HP of monsters drops about 90 mana. Spending it all on
 spells at 5 damage per mana kills about 450 HP. Bolts and the staff have to
 do the rest, so the souls of one fight pay for most, but not all, of the
 spells in the next.
