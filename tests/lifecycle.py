@@ -3,8 +3,9 @@
 
 Checks the session lifecycle and the controller path: the game declares its
 settings, prepares a local seat and a bot seat, reports ready, starts, turns a
-seat's controller frames into a spell (B then RT is a Flamethrower, LB+X then
-RT is Chain Lightning), pauses, resumes and disposes.
+seat's controller frames into play (the right stick shoots bolts, RB swings
+the staff, LT rolls, B then RT is a Flamethrower, LB+X then RT is Chain
+Lightning), pauses, resumes and disposes.
 
     python3 tests/lifecycle.py [--godot path/to/godot] [--pack game.pck]   (needs `websockets`)
 """
@@ -21,11 +22,11 @@ import websockets
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 7941
 
-A, B, X, Y, LB = 0, 1, 2, 3, 4
+A, B, X, Y, LB, RB = 0, 1, 2, 3, 4, 5
 
 
-def frame(buttons=0, rt=False, aim=(0, -32767)):
-    axes = [0, 0, aim[0], aim[1], 0, 32767 if rt else 0]
+def frame(buttons=0, rt=False, aim=(0, -32767), lt=False):
+    axes = [0, 0, aim[0], aim[1], 32767 if lt else 0, 32767 if rt else 0]
     return {"type": "controller_frame", "controllers": [{"controller": "pad1", "axes": axes, "buttons": buttons}]}
 
 
@@ -108,6 +109,16 @@ async def run(godot: str, pack: str = "") -> None:
             print("ok: prepared, ready and started")
 
             await hold(frame(), 0.3)
+            await saw("shoot Joep")
+            print("ok: the right stick shoots")
+            await hold(frame(1 << RB), 0.1)
+            await hold(frame(), 0.4)
+            await saw("melee Joep")
+            print("ok: RB swings the staff")
+            await hold(frame(lt=True), 0.1)
+            await hold(frame(), 0.5)
+            await saw("dodge Joep")
+            print("ok: LT rolls")
             await hold(frame(1 << B), 0.15)
             await hold(frame(), 0.15)
             await hold(frame(0, rt=True), 0.4)

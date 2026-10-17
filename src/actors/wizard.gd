@@ -1,19 +1,42 @@
 class_name Wizard
 extends Actor
-## A player's wizard. Face buttons conjure elements, triggers and RB cast them.
+## A player's wizard. Twin-stick at heart: the left stick walks, the right
+## stick aims and shoots staff bolts of your element. Face buttons conjure
+## elements: the last one you pressed is what your staff shoots, and every
+## press also goes in the queue that RT casts as a spell, for mana.
 ##
 ##   A Life / Void     B Fire / Frost     X Water / Lightning   Y Earth / Air
 ##   (hold LB for the second of each pair, its opposite)
-##   RT  cast ahead (hold for sprays, beams and arcs, release to throw)
-##   LT  burst around you            RB  plant on the ground ahead
-##   RS click or D-pad down  ward yourself
+##   right stick  aim and shoot bolts (free)
+##   RB  staff swing, knocks bullets back (free); hold and let go: burst
+##   LT  dodge roll, monsters cannot touch you while you roll (free)
+##   RT  cast the queue ahead (hold for sprays, beams and arcs, release to throw)
+##   D-pad down  plant the queue on the ground ahead     RS click  ward yourself
 ##   D-pad up  conjure your last spell again
 ##   D-pad left / right  tap to conjure a saved spell, hold to save the queue
-##   LS click  dash
 
 const REVIVE_NEED := 40.0
-const DASH_COOLDOWN := 1.4
 const SAVE_HOLD := 0.6
+
+const MANA_MAX := 100.0
+const MANA_REGEN := 3.0
+const MANA_PER_ELEMENT := 10.0
+const MANA_PER_BOLT := 1.2
+const MANA_PER_SWING := 7.0
+const MANA_PER_DEFLECT := 4.0
+const BOLT_RATE := 6.0
+const SWING_COOLDOWN := 0.34
+const SWING_REACH := 2.3
+const NOVA_HOLD := 0.45
+const ROLL_TIME := 0.32
+const ROLL_SPEED := 14.0
+const ROLL_COOLDOWN := 0.75
+## How hard one staff bolt hits, as a share of a whole element (El.EFFECT),
+## so every element does about the same damage a second and brings its own
+## status: fire burns, frost freezes after a few hits, water soaks and
+## shoves, lightning shocks (double on wet), air pushes, life heals friends.
+const BOLT := {El.LIFE: 0.3, El.VOID: 0.25, El.FIRE: 0.45, El.FROST: 0.6, El.WATER: 0.9,
+	El.LIGHTNING: 0.3, El.EARTH: 0.28, El.AIR: 0.6}
 
 var player_name := "Wizard"
 var robe := Color(0.6, 0.15, 0.15)
@@ -24,12 +47,22 @@ var relics: Array = []
 var saved := {Pad.LEFT: [], Pad.RIGHT: []}
 var last_cast: Array = []
 var bot: Bot
+## The element the staff shoots: the last base element you conjured.
+var bolt_el := El.FIRE
+var mana := MANA_MAX
+## Set briefly when a spell was too dear, so the HUD can flash the orb.
+var no_mana := 0.0
 
 var channel: SpellFx
 var _channel_button := -1
 var _charging := {}
 var _charge_t := 0.0
-var _dash_cd := 0.0
+var _bolt_t := 0.0
+var _roll_t := 0.0
+var _roll_cd := 0.0
+var _roll_dir := Vector3.ZERO
+var _rb_t := -1.0
+var _traced := {}
 var _save_t := {}
 var _revive := 0.0
 var _swing_t := 0.0
@@ -184,9 +217,10 @@ func _physics_process(dt: float) -> void:
 		if pad.source == Pad.Source.KEYBOARD and Game.I and Game.I.camera:
 			pad.mouse_origin = Game.I.camera.unproject_position(global_position + Vector3.UP)
 		pad.poll()
-	_dash_cd = maxf(0.0, _dash_cd - dt)
 	_swing_t = maxf(0.0, _swing_t - dt)
 	_cast_anim = maxf(0.0, _cast_anim - dt)
+	_roll_cd = maxf(0.0, _roll_cd - dt)
+	no_mana = maxf(0.0, no_mana - dt)
 	if not alive:
 		drive(Vector3.ZERO, dt)
 		return
@@ -194,7 +228,13 @@ func _physics_process(dt: float) -> void:
 		drive(Vector3.ZERO, dt)
 		_visuals(dt)
 		return
+	mana = minf(MANA_MAX, mana + MANA_REGEN * dt)
 	_read_input(dt)
+	if _roll_t > 0.0:
+		_roll_t -= dt
+		drive(_roll_dir * ROLL_SPEED, dt)
+		_visuals(dt)
+		return
 	var mv := Vector3(pad.move.x, 0, pad.move.y)
 	var spd := move_speed()
 	if channel and is_instance_valid(channel) and channel.is_physics_processing():
@@ -216,7 +256,13 @@ func _read_input(dt: float) -> void:
 	var flip := pad.down(Pad.LB)
 	for b in [Pad.A, Pad.B, Pad.X, Pad.Y]:
 		if pad.pressed(b):
-			conjure(El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0])
+			var e: int = El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0]
+			bolt_el = e
+			conjure(e)
+	if pad.pressed(Pad.LT):
+		roll()
+	if _roll_t > 0.0:
+		return
 	# Projectiles charge while RT is held and fly on release.
 	if not _charging.is_empty():
 		_charge_t += dt
@@ -224,12 +270,24 @@ func _read_input(dt: float) -> void:
 			_throw()
 	if pad.pressed(Pad.RT):
 		cast("cast", Pad.RT)
-	if pad.pressed(Pad.LT):
-		cast("nova", Pad.LT)
+	# RB: a tap swings the staff, holding it and letting go bursts the queue.
 	if pad.pressed(Pad.RB):
-		cast("plant", Pad.RB)
-	if pad.pressed(Pad.RS) or pad.pressed(Pad.DOWN):
+		melee()
+		_rb_t = 0.0
+	elif pad.down(Pad.RB) and _rb_t >= 0.0:
+		_rb_t += dt
+	if pad.released(Pad.RB):
+		if _rb_t >= NOVA_HOLD:
+			cast("nova", -1)
+		_rb_t = -1.0
+	if pad.pressed(Pad.DOWN):
+		cast("plant", -1)
+	if pad.pressed(Pad.RS):
 		cast("ward", -1)
+	_bolt_t -= dt
+	if pad.fire and _bolt_t <= 0.0 and not busy():
+		_bolt_t = 1.0 / BOLT_RATE
+		shoot()
 	if pad.pressed(Pad.UP) and not last_cast.is_empty():
 		queue.set_slots(last_cast)
 		_conjure_fx()
@@ -244,13 +302,91 @@ func _read_input(dt: float) -> void:
 				queue.set_slots(saved[b])
 				_conjure_fx()
 			_save_t[b] = 0.0
-	if pad.pressed(Pad.LS) and _dash_cd <= 0.0:
-		_dash_cd = DASH_COOLDOWN
-		var d := Vector3(pad.move.x, 0, pad.move.y)
-		if d.length() < 0.2:
-			d = aim_dir
-		push += d.normalized() * 15.0
-		Fx.puff(global_position + Vector3.UP * 0.4, Color(0.6, 0.6, 0.65, 0.5), 0.8)
+
+
+## Channelling a stream or charging a throw keeps the staff busy.
+func busy() -> bool:
+	return (channel != null and is_instance_valid(channel) and channel.is_physics_processing()) or not _charging.is_empty() or _roll_t > 0.0
+
+
+func add_mana(amount: float) -> void:
+	mana = minf(MANA_MAX, mana + amount)
+
+
+## What a spell costs: per element in it, and the whole orb for an overload.
+func cost(s: Dictionary) -> float:
+	if s.shape == "overload":
+		return MANA_MAX
+	if s.shape in ["staff", "stomp", "fizzle"]:
+		return 0.0
+	return MANA_PER_ELEMENT * s.power
+
+
+func _trace_once(what: String) -> void:
+	if not _traced.has(what) and Game.I:
+		_traced[what] = true
+		Game.I._trace("%s %s" % [what, player_name])
+
+
+func shoot() -> void:
+	var dir := aim_dir.rotated(Vector3.UP, randf_range(-0.03, 0.03))
+	var b := BoltFx.new().setup(self, bolt_el, BOLT[bolt_el], dir)
+	Game.I.spawn(b, staff_tip() + dir * 0.3)
+	_cast_anim = maxf(_cast_anim, 0.12)
+	_trace_once("shoot")
+	Game.I.count("shots")
+
+
+## The staff swing: hits monsters in front with your element and knocks
+## their bullets back the way you aim.
+func melee() -> void:
+	if _swing_t > 0.0 or busy():
+		return
+	_swing_t = SWING_COOLDOWN
+	_trace_once("melee")
+	Game.I.count("swings")
+	var bonk := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
+	var touch := {counts = {bolt_el: 1}, payload = [], primary = bolt_el, n = {}}
+	for a in Game.I.enemies:
+		if not is_instance_valid(a) or not a.alive:
+			continue
+		var to: Vector3 = a.global_position - global_position
+		to.y = 0
+		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > 1.2:
+			continue
+		a.hit_spell(bonk, 0.4, self, to.normalized())
+		if bolt_el != El.LIFE or a.undead:
+			a.hit_spell(touch, BOLT[bolt_el] * 2.5, self, to.normalized())
+		add_mana(MANA_PER_SWING)
+	for b in Bullet.all.duplicate():
+		if not is_instance_valid(b) or b.team == team:
+			continue
+		var to2: Vector3 = b.global_position - global_position
+		to2.y = 0
+		if to2.length() < SWING_REACH + 0.3 and absf(aim_dir.signed_angle_to(to2, Vector3.UP)) < 1.4:
+			b.deflect(self, aim_dir)
+			add_mana(MANA_PER_DEFLECT)
+			Game.I.count("deflects")
+	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, El.COLOR[bolt_el].lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
+
+
+## A dodge roll the way you walk, untouchable for its length.
+func roll() -> void:
+	if _roll_cd > 0.0 or _roll_t > 0.0 or not can_act():
+		return
+	var d := Vector3(pad.move.x, 0, pad.move.y)
+	if d.length() < 0.2:
+		d = aim_dir
+	_roll_dir = d.normalized()
+	_roll_t = ROLL_TIME
+	_roll_cd = ROLL_COOLDOWN
+	invuln = ROLL_TIME + 0.06
+	if channel and is_instance_valid(channel):
+		channel = null
+	_charging = {}
+	_trace_once("dodge")
+	Game.I.count("rolls")
+	Fx.puff(global_position + Vector3.UP * 0.4, Color(0.6, 0.6, 0.65, 0.5), 0.8)
 
 
 func conjure(e: int) -> void:
@@ -279,8 +415,16 @@ func cast(form: String, button: int) -> void:
 	if not _charging.is_empty():
 		return
 	var s := preview(form)
-	if s.shape == "fizzle":
+	if s.shape in ["fizzle", "staff"]:
 		return
+	var price := cost(s)
+	if mana < price - 0.01:
+		no_mana = 0.6
+		Fx.text(global_position + Vector3.UP * 3.1, "Not enough mana", Color(0.45, 0.6, 1.0), 32, 0.9)
+		_trace_once("no mana")
+		Game.I.count("no_mana")
+		return
+	mana -= price
 	if not queue.is_empty():
 		last_cast = queue.copy()
 	queue.clear()
@@ -323,7 +467,7 @@ func cast(form: String, button: int) -> void:
 			if s.primary in [El.EARTH, El.LIFE, El.WATER]:
 				at = global_position
 			Game.I.spawn(OverloadFx.new().setup(self, s), Game.I.arena.clamp_inside(at))
-		"staff", "stomp":
+		"stomp":
 			_swing(s)
 
 
@@ -385,23 +529,17 @@ func _ward(s: Dictionary) -> void:
 func _swing(s: Dictionary) -> void:
 	if _swing_t > 0.0:
 		return
-	_swing_t = 0.45
+	_swing_t = SWING_COOLDOWN
 	var bonk := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
 	for a in Game.I.living():
 		if a == self:
 			continue
 		var to: Vector3 = a.global_position - global_position
 		to.y = 0
-		var reach := 1.9 if s.shape == "staff" else 2.6
-		if to.length() > reach + a.radius:
-			continue
-		if s.shape == "staff" and absf(aim_dir.signed_angle_to(to, Vector3.UP)) > 1.1:
+		if to.length() > 2.6 + a.radius:
 			continue
 		a.hit_spell(bonk, 0.55, self, to.normalized(), Game.I.ff)
-	if s.shape == "stomp":
-		Fx.ring(global_position, Color(0.7, 0.6, 0.5), 2.6, 0.3)
-	else:
-		Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, Color(0.9, 0.85, 0.7), 8, 3.0, 0.2)
+	Fx.ring(global_position, Color(0.7, 0.6, 0.5), 2.6, 0.3)
 
 
 func on_dealt(dmg: float, spell: Dictionary) -> void:
@@ -466,7 +604,7 @@ func _visuals(dt: float) -> void:
 	staff.rotation.x = lerpf(staff.rotation.x, -1.1 * lift, 12.0 * dt)
 	staff.position.z = lerpf(staff.position.z, 0.18 + 0.25 * lift, 12.0 * dt)
 	if _swing_t > 0.0:
-		staff.rotation.y = sin(_swing_t / 0.45 * PI) * 1.6
+		staff.rotation.y = sin(_swing_t / SWING_COOLDOWN * PI) * 1.6
 	else:
 		staff.rotation.y = 0.0
 	# Orbs circle the hat, one per queued element.
@@ -484,8 +622,7 @@ func _visuals(dt: float) -> void:
 			o.scale = Vector3.ONE * big
 		else:
 			o.visible = false
-	if not slots.is_empty():
-		gem_color = El.COLOR[slots[0]]
+	gem_color = El.COLOR[bolt_el]
 	model.gem.material_override = Fx.glow(gem_color, 3.0)
 	# Say what RT will do, so every spell is predictable before you cast it.
 	if slots.is_empty():
@@ -498,8 +635,22 @@ func _visuals(dt: float) -> void:
 	if ward_time > 0.0:
 		var pulse := 0.95 + 0.05 * sin(Time.get_ticks_msec() / 150.0)
 		_ward_shell.scale = Vector3(0.95, 1.05, 0.95) * pulse
-	_charge_ring.visible = not _charging.is_empty()
-	if _charge_ring.visible:
+	# The roll: squashed low, spinning on the spot.
+	if _roll_t > 0.0:
+		var k := 1.0 - _roll_t / ROLL_TIME
+		body.scale = Vector3(1.15, 0.62, 1.15)
+		body.rotation.y += k * TAU
+	else:
+		body.scale = body.scale.lerp(Vector3.ONE, 14.0 * dt)
+	var bursting := _rb_t > 0.12 and pad and pad.down(Pad.RB)
+	_charge_ring.visible = not _charging.is_empty() or bursting
+	if bursting:
+		var k2 := clampf(_rb_t / NOVA_HOLD, 0.0, 1.0)
+		var sc2 := 0.6 + k2 * 1.6
+		_charge_ring.scale = Vector3(sc2, 0.05, sc2)
+		var col: Color = El.COLOR[slots[0]] if not slots.is_empty() else Color(0.7, 0.6, 0.5)
+		_charge_ring.material_override = Fx.glow(col, 2.0 if k2 >= 1.0 else 1.0)
+	elif _charge_ring.visible:
 		var c := clampf(_charge_t / float(_charging.n.charge_time), 0.0, 1.0)
 		var sc := 0.6 + c * 1.1
 		_charge_ring.scale = Vector3(sc, 0.05, sc)

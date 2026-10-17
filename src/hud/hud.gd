@@ -70,7 +70,7 @@ func _ready() -> void:
 	_row.anchor_right = 1.0
 	_row.anchor_top = 1.0
 	_row.anchor_bottom = 1.0
-	_row.offset_top = -212
+	_row.offset_top = -230
 	_row.offset_bottom = -14
 
 	_legend = Legend.new()
@@ -78,7 +78,7 @@ func _ready() -> void:
 	add_child(_legend)
 
 	_toasts = VBoxContainer.new()
-	_toasts.position = Vector2(24, 230)
+	_toasts.position = Vector2(24, 262)
 	add_child(_toasts)
 
 
@@ -113,7 +113,7 @@ func bind(wizards: Array) -> void:
 	for w in wizards:
 		var p := WizardPanel.new()
 		p.wizard = w
-		p.custom_minimum_size = Vector2(minf(400.0, 1840.0 / maxf(wizards.size(), 1) - 18.0), 196)
+		p.custom_minimum_size = Vector2(minf(400.0, 1840.0 / maxf(wizards.size(), 1) - 18.0), 214)
 		_row.add_child(p)
 		panels.append(p)
 
@@ -173,7 +173,7 @@ class Legend:
 	func _draw() -> void:
 		var f := Art.body_font()
 		var y := 0.0
-		draw_rect(Rect2(-10, -8, 380, 200), Color(0, 0, 0, 0.45))
+		draw_rect(Rect2(-10, -8, 420, 232), Color(0, 0, 0, 0.45))
 		for key in ["A", "B", "X", "Y"]:
 			var pair: Array = El.PAIRS[key]
 			var bc: Color = {"A": Color(0.3, 0.75, 0.3), "B": Color(0.85, 0.25, 0.2), "X": Color(0.25, 0.45, 0.9), "Y": Color(0.9, 0.75, 0.2)}[key]
@@ -182,7 +182,7 @@ class Legend:
 			draw_string(f, Vector2(36, y + 22), El.NAMES[pair[0]], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, El.COLOR[pair[0]].lightened(0.2))
 			draw_string(f, Vector2(150, y + 22), "LB  " + El.NAMES[pair[1]], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, El.COLOR[pair[1]].lightened(0.2))
 			y += 30
-		var lines := ["RT cast   LT burst   RB plant", "RS ward   ▲ again   L3 dash"]
+		var lines := ["Right stick shoot   RB swing   LT roll", "RT spell   hold RB burst   ▼ plant", "RS ward   ▲ again"]
 		for l in lines:
 			draw_string(f, Vector2(0, y + 26), l, HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(0.78, 0.72, 0.62))
 			y += 28
@@ -220,7 +220,10 @@ class WizardPanel:
 		draw_circle(c + Vector2(-12, -14), 10, Color(1, 1, 1, 0.12))
 		var hp_txt := "%d" % ceili(wizard.hp) if wizard.alive else "✝"
 		draw_string(tf, Vector2(c.x - 40, c.y + 9), hp_txt, HORIZONTAL_ALIGNMENT_CENTER, 80, 24, Color(1, 0.92, 0.85))
-		draw_string(tf, Vector2(110, 32), wizard.player_name, HORIZONTAL_ALIGNMENT_LEFT, w - 120, 26, wizard.robe.lightened(0.45))
+		_orb(Vector2(w - 46, 62), 34.0, wizard.mana / Wizard.MANA_MAX, Color(0.12, 0.25, 0.85),
+			Color(0.5, 0.65, 1.0) if wizard.no_mana > 0.0 else Color(0.3, 0.24, 0.16))
+		draw_string(tf, Vector2(w - 86, 71), "%d" % int(wizard.mana), HORIZONTAL_ALIGNMENT_CENTER, 80, 20, Color(0.85, 0.9, 1.0))
+		draw_string(tf, Vector2(110, 32), wizard.player_name, HORIZONTAL_ALIGNMENT_LEFT, w - 200, 26, wizard.robe.lightened(0.45))
 		# The queue: five sockets, filled in order.
 		var slots := wizard.queue.slots
 		for i in wizard.queue.size:
@@ -233,21 +236,42 @@ class WizardPanel:
 				draw_string(f, oc + Vector2(-15, 7), El.GLYPH[e], HORIZONTAL_ALIGNMENT_CENTER, 30, 18, Color(0.05, 0.03, 0.03))
 				if El.is_fused(e):
 					draw_arc(oc, 19, 0, TAU, 24, Color(1, 0.9, 0.6), 2.0)
-		# What each button casts right now.
 		var y := 112.0
-		var rows := [["RT", "cast"], ["LT", "nova"], ["RB", "plant"], ["RS", "ward"]]
 		if not wizard.alive:
 			draw_string(f, Vector2(110, y + 10), "Fallen. Heal the grave with Life", HORIZONTAL_ALIGNMENT_LEFT, w - 120, 22, Color(0.85, 0.3, 0.25))
 			return
+		# What the staff shoots, then what each button casts right now and its mana.
+		var bc: Color = El.COLOR[wizard.bolt_el]
+		draw_circle(Vector2(26, y + 6), 9, bc)
+		draw_string(f, Vector2(42, y + 13), El.NAMES[wizard.bolt_el] + " bolts", HORIZONTAL_ALIGNMENT_LEFT, w * 0.5 - 50, 21, bc.lightened(0.35))
 		if slots.is_empty():
-			draw_string(f, Vector2(16, y + 12), "Conjure with A B X Y, LB for the opposite", HORIZONTAL_ALIGNMENT_LEFT, w - 24, 20, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(16, y + 50), "A B X Y pick your element and fill the queue", HORIZONTAL_ALIGNMENT_LEFT, w - 24, 19, Color(0.6, 0.55, 0.48))
 			return
+		var rows := [["RT", "cast"], ["RB", "nova"], ["▼", "plant"], ["RS", "ward"]]
 		for i in rows.size():
 			var s := wizard.preview(rows[i][1])
+			var price := wizard.cost(s)
 			var col := Color(0.8, 0.74, 0.62)
 			if s.primary >= 0:
 				col = El.COLOR[s.primary].lightened(0.35)
-			var x := 16.0 + (i % 2) * (w * 0.5)
-			var yy := y + floorf(i / 2.0) * 38.0
+			if price > wizard.mana:
+				col = col.darkened(0.55)
+			var x := 16.0 + (i % 2) * (w * 0.5 - 6.0)
+			var yy := y + 38.0 + floorf(i / 2.0) * 38.0
 			draw_string(f, Vector2(x, yy + 12), rows[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.5, 0.42))
-			draw_string(f, Vector2(x + 34, yy + 12), s.name, HORIZONTAL_ALIGNMENT_LEFT, w * 0.5 - 52, 21, col)
+			draw_string(f, Vector2(x + 34, yy + 12), s.name, HORIZONTAL_ALIGNMENT_LEFT, w * 0.5 - 96, 19, col)
+			draw_string(f, Vector2(x + w * 0.5 - 62, yy + 12), "%d" % int(price), HORIZONTAL_ALIGNMENT_RIGHT, 30, 17, Color(0.45, 0.6, 1.0))
+
+	func _orb(c: Vector2, r: float, frac: float, fill: Color, rim: Color) -> void:
+		draw_circle(c, r + 3, rim)
+		draw_circle(c, r, Color(0.02, 0.02, 0.08))
+		frac = clampf(frac, 0.0, 1.0)
+		if frac > 0.0:
+			var top := c.y + r - 2.0 * r * frac
+			var pts := PackedVector2Array()
+			for i in 33:
+				var ang := PI * 0.5 + (float(i) / 32.0 - 0.5) * TAU
+				var p := c + Vector2(cos(ang), sin(ang)) * r
+				pts.append(Vector2(p.x, maxf(p.y, top)))
+			draw_colored_polygon(pts, fill)
+		draw_circle(c + Vector2(-10, -12), 8, Color(1, 1, 1, 0.12))

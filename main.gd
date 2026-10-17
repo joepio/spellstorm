@@ -50,6 +50,11 @@ var start_biome := 0
 var start_room := 0
 var seed_value := 0
 var recipe := -1
+## What happened this run, for tests/sim.gd: shots, swings, rolls, deflects,
+## bullets, casts, no_mana, kills.
+var stats := {}
+var sim_frames := 0
+var _frame := 0
 
 
 func _enter_tree() -> void:
@@ -69,6 +74,7 @@ func _ready() -> void:
 			"--room": start_room = int(nxt)
 			"--seed": seed_value = int(nxt)
 			"--recipe": recipe = int(nxt)
+			"--sim": sim_frames = int(nxt); demo = true
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_world()
 	arena = Arena.new()
@@ -200,6 +206,7 @@ func _seat(roster: Array) -> void:
 			c = COLORS[i % COLORS.size()]
 		used[c.to_html()] = true
 		w.robe = c
+		w.bolt_el = [El.FIRE, El.WATER, El.LIGHTNING, El.EARTH][i % 4]
 		if r.get("bot", false):
 			w.pad = Pad.new()
 			w.bot = Bot.new()
@@ -254,6 +261,7 @@ func add_enemy(e: Enemy) -> void:
 
 func on_enemy_died(e: Enemy, _src: Actor) -> void:
 	run.kills += 1
+	count("kills")
 	enemies.erase(e)
 	if randf() < (0.5 if e.elite else 0.12):
 		_globe(e.global_position)
@@ -264,6 +272,7 @@ func on_cast(w: Wizard, s: Dictionary) -> void:
 	if key == "" or s.shape in ["staff", "stomp", "fizzle"]:
 		return
 	_trace("cast %s %s" % [w.player_name, s.name])
+	count("casts")
 	Fx.text(w.global_position + Vector3.UP * 3.1, s.name, El.COLOR[s.primary].lightened(0.3) if s.primary >= 0 else Color.WHITE, 36, 1.0)
 	if not grimoire.has(key):
 		grimoire[key] = s.name
@@ -311,7 +320,14 @@ func _globe(at: Vector3) -> void:
 
 # --- Every frame ---------------------------------------------------------
 
+func count(what: String, n := 1) -> void:
+	stats[what] = int(stats.get(what, 0)) + n
+
+
 func _physics_process(dt: float) -> void:
+	_frame += 1
+	if sim_frames > 0 and _frame == sim_frames:
+		get_tree().quit(Sim.report(self))
 	_confluence(dt)
 	for g in _globes.duplicate():
 		if not is_instance_valid(g):

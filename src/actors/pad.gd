@@ -13,6 +13,8 @@ var device := 0
 var move := Vector2.ZERO
 var aim := Vector2.ZERO
 var held := 0
+## Shooting staff bolts: the right stick pushed far enough, or the left mouse button.
+var fire := false
 var _before := 0
 ## Mouse aiming needs the wizard's position on screen.
 var mouse_origin := Vector2.ZERO
@@ -76,6 +78,7 @@ func _read_frame(f: Dictionary) -> void:
 	if GameNight.axis(f, 5) > 0.4:
 		bits |= 1 << RT
 	held = bits
+	fire = aim.length() > 0.5
 
 
 const JOY := [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_X, JOY_BUTTON_Y, JOY_BUTTON_LEFT_SHOULDER,
@@ -96,11 +99,13 @@ func _read_joypad() -> void:
 	if Input.get_joy_axis(device, JOY_AXIS_TRIGGER_RIGHT) > 0.4:
 		bits |= 1 << RT
 	held = bits
+	fire = aim.length() > 0.5
 
 
 ## WASD moves, the mouse aims. 1 2 3 4 (or J K L I) are the four element
-## pairs, Shift flips to the opposite. Left click casts, right click bursts,
-## Space plants, F wards, Q dashes, R recasts.
+## pairs, Shift flips to the opposite. Left click shoots, right click casts,
+## Space swings the staff (hold for a burst), Q dodges, V plants, F wards,
+## R recasts.
 func _read_keyboard() -> void:
 	var m := Vector2(
 		float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
@@ -113,7 +118,7 @@ func _read_keyboard() -> void:
 		aim = d.normalized() if d.length() > 20.0 else Vector2.ZERO
 	var keys := {
 		A: [KEY_1, KEY_J], B: [KEY_2, KEY_K], X: [KEY_3, KEY_L], Y: [KEY_4, KEY_I],
-		LB: [KEY_SHIFT], RB: [KEY_SPACE], RS: [KEY_F], LS: [KEY_Q], UP: [KEY_R],
+		LB: [KEY_SHIFT], RB: [KEY_SPACE], RS: [KEY_F], LT: [KEY_Q], UP: [KEY_R],
 		LEFT: [KEY_Z], RIGHT: [KEY_C], DOWN: [KEY_V],
 	}
 	var bits := 0
@@ -121,11 +126,10 @@ func _read_keyboard() -> void:
 		for k in keys[b]:
 			if Input.is_key_pressed(k):
 				bits |= 1 << b
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		bits |= 1 << RT
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		bits |= 1 << LT
+		bits |= 1 << RT
 	held = bits
+	fire = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and aim != Vector2.ZERO
 
 
 static func _dead(v: Vector2) -> Vector2:

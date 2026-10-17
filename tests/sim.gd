@@ -1,0 +1,24 @@
+class_name Sim
+## A headless run with bots, checked at the end:
+##   godot --headless --fixed-fps 60 --path . -- --sim 3600 [--biome N] [--seed N]
+## Every mechanic must have happened: bolts, swings, rolls, monster bullets,
+## spells for mana, and kills. Prints the counts; exit code 1 on a miss.
+
+
+static func report(g: Game) -> int:
+	var s: Dictionary = g.stats
+	var need := ["shots", "swings", "rolls", "bullets", "casts", "kills"]
+	var bad: Array = []
+	for k in need:
+		if int(s.get(k, 0)) <= 0:
+			bad.append(k)
+	var alive := g.wizards.filter(func(w): return w.alive).size()
+	print("sim: ", s, " wizards standing: ", alive, "/", g.wizards.size(), " room: ", g.run.depth())
+	for w in g.wizards:
+		if w.mana < 0.0 or w.mana > Wizard.MANA_MAX:
+			bad.append("mana of %s is %.1f" % [w.player_name, w.mana])
+	if bad.is_empty():
+		print("sim: ok")
+		return 0
+	printerr("sim: never happened: ", bad)
+	return 1

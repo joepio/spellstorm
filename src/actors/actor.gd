@@ -41,6 +41,8 @@ var ward := {}
 var ward_time := 0.0
 var flash := 0.0
 var haste := 1.0
+## Seconds left of a dodge roll's invulnerability: monsters cannot touch you.
+var invuln := 0.0
 
 var meshes: Array[GeometryInstance3D] = []
 var _overlay: StandardMaterial3D
@@ -84,6 +86,8 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 			revive_progress(El.EFFECT[El.LIFE].heal * spell.counts[El.LIFE] * scale)
 		return 0.0
 	var ally := src != null and src.team == team and src != self
+	if invuln > 0.0 and not ally:
+		return 0.0
 	var dmg := 0.0
 	var heal := 0.0
 	var shove := 0.0
@@ -168,7 +172,7 @@ func _freeze() -> void:
 
 
 func take(dmg: float, src: Actor = null) -> void:
-	if not alive:
+	if not alive or invuln > 0.0:
 		return
 	hp -= dmg
 	if dmg > 2.5:
@@ -230,6 +234,7 @@ func tick_status(delta: float) -> void:
 	slow = maxf(0.0, slow - delta)
 	slick = maxf(0.0, slick - delta)
 	flash = maxf(0.0, flash - delta)
+	invuln = maxf(0.0, invuln - delta)
 	if ward_time > 0.0:
 		ward_time -= delta
 		if ward_time <= 0.0:

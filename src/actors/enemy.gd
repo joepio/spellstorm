@@ -1,26 +1,31 @@
 class_name Enemy
 extends Actor
 ## A monster. Every kind is a row in KINDS; bosses are kinds with a "boss" key.
+## Ranged monsters fire bullet patterns ("shots", taken in turn), slams throw a
+## ring of bullets, and bosses cycle through BOSS_PATTERNS. Bullets are slow
+## and bright: the game is to walk, roll and swing through them.
 
 const KINDS := {
 	ghoul = {name = "Ghoul", hp = 40.0, speed = 4.3, dmg = 9.0, reach = 1.3, el = El.EARTH, size = 0.9, attack = "melee"},
 	skeleton = {name = "Skeleton", hp = 50.0, speed = 3.3, dmg = 10.0, reach = 1.4, el = El.EARTH, size = 1.0, attack = "melee", undead = true, resist = {El.FROST: 0.3, El.EARTH: -0.3, El.VOID: 0.5}},
-	archer = {name = "Skeleton Archer", hp = 34.0, speed = 3.0, dmg = 9.0, reach = 10.0, keep = 8.0, el = El.EARTH, size = 1.0, attack = "ranged", undead = true, resist = {El.FROST: 0.3, El.EARTH: -0.3}},
-	cultist = {name = "Cultist", hp = 42.0, speed = 3.0, dmg = 11.0, reach = 9.0, keep = 7.0, el = El.FIRE, size = 1.0, attack = "ranged", resist = {El.FIRE: 0.6}},
+	archer = {name = "Skeleton Archer", hp = 34.0, speed = 3.0, dmg = 9.0, reach = 10.0, keep = 8.0, el = El.EARTH, size = 1.0, attack = "ranged", shots = ["fan3"], undead = true, resist = {El.FROST: 0.3, El.EARTH: -0.3}},
+	cultist = {name = "Cultist", hp = 42.0, speed = 3.0, dmg = 11.0, reach = 9.0, keep = 7.0, el = El.FIRE, size = 1.0, attack = "ranged", shots = ["fan5", "ring10"], resist = {El.FIRE: 0.6}},
 	bile = {name = "Bile Horror", hp = 95.0, speed = 2.1, dmg = 12.0, reach = 1.5, el = El.WATER, size = 1.25, attack = "melee", mass = 2.0, resist = {El.WATER: 1.0, El.EARTH: 0.2}, burst = true},
-	imp = {name = "Imp", hp = 30.0, speed = 5.2, dmg = 8.0, reach = 7.0, keep = 5.0, el = El.FIRE, size = 0.7, attack = "ranged", heals_from = El.FIRE, resist = {El.FROST: -0.5, El.WATER: -0.5}},
-	brute = {name = "Brute", hp = 240.0, speed = 2.7, dmg = 24.0, reach = 2.2, el = El.EARTH, size = 1.7, attack = "slam", mass = 3.5, resist = {El.EARTH: 0.3}},
-	frost_brute = {name = "Frost Brute", hp = 260.0, speed = 2.5, dmg = 22.0, reach = 2.2, el = El.FROST, size = 1.7, attack = "slam", mass = 3.5, resist = {El.FROST: 0.9, El.FIRE: -0.4}},
-	wraith = {name = "Wraith", hp = 45.0, speed = 3.8, dmg = 10.0, reach = 8.0, keep = 6.0, el = El.FROST, size = 1.0, attack = "ranged", undead = true, resist = {El.FROST: 1.0, El.EARTH: 0.5}},
+	imp = {name = "Imp", hp = 30.0, speed = 5.2, dmg = 8.0, reach = 7.0, keep = 5.0, el = El.FIRE, size = 0.7, attack = "ranged", shots = ["burst3"], heals_from = El.FIRE, resist = {El.FROST: -0.5, El.WATER: -0.5}},
+	brute = {name = "Brute", hp = 240.0, speed = 2.7, dmg = 24.0, reach = 2.2, el = El.EARTH, size = 1.7, attack = "slam", ring = 10, mass = 3.5, resist = {El.EARTH: 0.3}},
+	frost_brute = {name = "Frost Brute", hp = 260.0, speed = 2.5, dmg = 22.0, reach = 2.2, el = El.FROST, size = 1.7, attack = "slam", ring = 10, mass = 3.5, resist = {El.FROST: 0.9, El.FIRE: -0.4}},
+	wraith = {name = "Wraith", hp = 45.0, speed = 3.8, dmg = 10.0, reach = 8.0, keep = 6.0, el = El.FROST, size = 1.0, attack = "ranged", shots = ["wave7"], undead = true, resist = {El.FROST: 1.0, El.EARTH: 0.5}},
 	drowned = {name = "Drowned", hp = 55.0, speed = 3.1, dmg = 11.0, reach = 1.4, el = El.WATER, size = 1.0, attack = "melee", resist = {El.WATER: 1.0, El.FIRE: 0.4}, always_wet = true},
 	demon = {name = "Demon", hp = 130.0, speed = 3.5, dmg = 16.0, reach = 1.7, el = El.FIRE, size = 1.35, attack = "melee", mass = 2.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}},
 	# Bosses: one per biome, the last room of it.
-	gravekeeper = {name = "The Gravekeeper", model = "skeleton", hp = 1100.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.EARTH, size = 2.3, attack = "slam", mass = 8.0, undead = true, resist = {El.VOID: 0.8, El.FROST: 0.3}, boss = true, summon = ["skeleton", "skeleton", "archer"], nova = El.VOID},
-	abbot = {name = "The Bloated Abbot", model = "bile", hp = 1300.0, speed = 2.0, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.4, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0}, boss = true, summon = ["cultist", "ghoul", "ghoul"], nova = El.MUD},
-	drowned_king = {name = "The Drowned King", model = "drowned", hp = 1400.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.3, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0, El.FIRE: 0.5}, boss = true, summon = ["drowned", "drowned", "bile"], nova = El.WATER, always_wet = true},
-	warden = {name = "The Frost Warden", model = "frost_brute", hp = 1600.0, speed = 2.4, dmg = 30.0, reach = 2.8, el = El.FROST, size = 2.4, attack = "slam", mass = 9.0, resist = {El.FROST: 1.0, El.FIRE: -0.3}, boss = true, summon = ["wraith", "wraith", "skeleton"], nova = El.ICE},
-	pit_lord = {name = "The Pit Lord", model = "demon", hp = 2200.0, speed = 2.8, dmg = 34.0, reach = 3.0, el = El.FIRE, size = 2.6, attack = "slam", mass = 10.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}, boss = true, summon = ["imp", "imp", "demon"], nova = El.MAGMA},
+	gravekeeper = {name = "The Gravekeeper", model = "skeleton", hp = 1100.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.EARTH, size = 2.3, attack = "slam", mass = 8.0, undead = true, resist = {El.VOID: 0.8, El.FROST: 0.3}, boss = true, ring = 16, summon = ["skeleton", "skeleton", "archer"], nova = El.VOID},
+	abbot = {name = "The Bloated Abbot", model = "bile", hp = 1300.0, speed = 2.0, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.4, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0}, boss = true, ring = 16, summon = ["cultist", "ghoul", "ghoul"], nova = El.MUD},
+	drowned_king = {name = "The Drowned King", model = "drowned", hp = 1400.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.3, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0, El.FIRE: 0.5}, boss = true, ring = 16, summon = ["drowned", "drowned", "bile"], nova = El.WATER, always_wet = true},
+	warden = {name = "The Frost Warden", model = "frost_brute", hp = 1600.0, speed = 2.4, dmg = 30.0, reach = 2.8, el = El.FROST, size = 2.4, attack = "slam", mass = 9.0, resist = {El.FROST: 1.0, El.FIRE: -0.3}, boss = true, ring = 16, summon = ["wraith", "wraith", "skeleton"], nova = El.ICE},
+	pit_lord = {name = "The Pit Lord", model = "demon", hp = 2200.0, speed = 2.8, dmg = 34.0, reach = 3.0, el = El.FIRE, size = 2.6, attack = "slam", mass = 10.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}, boss = true, ring = 16, summon = ["imp", "imp", "demon"], nova = El.MAGMA},
 }
+
+const BOSS_PATTERNS := ["spiral", "rings", "nova", "fan9"]
 
 const AFFIXES := [
 	{name = "Fire Enchanted", el = El.FIRE, resist = El.FIRE},
@@ -50,6 +55,13 @@ var _walk := 0.0
 var _eyes: Array = []
 var _label: Label3D
 var _hp_bar: MeshInstance3D
+var _shot_i := 0
+var _pattern_i := 0
+## Bullets fired later: [seconds left, Callable].
+var _pending: Array = []
+var _spiral_t := 0.0
+var _spiral_ang := 0.0
+var _spiral_step := 0.0
 
 
 func setup(k: String, hp_scale: float, champion: bool) -> Enemy:
@@ -308,6 +320,9 @@ func _physics_process(dt: float) -> void:
 		rotation.y = lerp_angle(rotation.y, atan2(face.x, face.z), 8.0 * dt)
 	if cfg.get("boss", false):
 		_boss(dt)
+		if _spiral_t > 0.0:
+			want *= 0.25
+	_run_pending(dt)
 	drive(want * move_speed(), dt)
 	_animate(dt)
 
@@ -354,35 +369,112 @@ func _strike() -> void:
 			Fx.burst(global_position + (target.global_position - global_position).normalized() * 1.2, Color(0.5, 0.4, 0.3), 20, 5.0)
 			if Game.I:
 				Game.I.shake(0.3 if not cfg.get("boss", false) else 0.6)
+			if cfg.has("ring"):
+				_ring(cfg.ring, 6.0, el, dmg * 0.6, randf() * TAU)
 			for w in (Game.I.wizards if Game.I else []):
 				var to: Vector3 = w.global_position - global_position
 				to.y = 0
 				if w.alive and to.length() < r + w.radius:
 					w.hit_spell(s, s.scale, self, to.normalized(), 1.0)
 		"ranged":
-			var bolt := ProjectileFx.new()
-			var spell := {counts = {el: 1}, payload = [], primary = el, n = {speed = 11.0, radius = 0.18, rate = s.scale, splash = 0.0, pierce = false}}
-			bolt.setup(self, spell)
-			bolt.hostile_only = true
-			var dir := (target.global_position - global_position)
-			dir.y = 0
-			bolt.launch(dir.normalized(), 0.375)
-			if Game.I:
-				Game.I.spawn(bolt, global_position + Vector3.UP * 1.1 + dir.normalized() * 0.6)
+			var shots: Array = cfg.get("shots", ["fan3"])
+			_volley(shots[_shot_i % shots.size()], el, dmg)
+			_shot_i += 1
+
+
+func _aim() -> Vector3:
+	if target == null or not is_instance_valid(target):
+		return Vector3.FORWARD.rotated(Vector3.UP, rotation.y)
+	var d := target.global_position - global_position
+	d.y = 0
+	return d.normalized() if d.length() > 0.01 else Vector3.FORWARD
+
+
+## One of the small monsters' patterns.
+func _volley(pattern: String, el: int, dmg: float) -> void:
+	match pattern:
+		"fan3":
+			_fan(3, 22.0, 9.0, el, dmg)
+		"fan5":
+			_fan(5, 56.0, 7.0, el, dmg * 0.8)
+		"ring10":
+			_ring(10, 5.0, el, dmg * 0.8, randf() * TAU)
+		"burst3":
+			for i in 3:
+				_later(0.16 * i, func(): _fan(1, 0.0, 9.5, el, dmg * 0.7))
+		"wave7":
+			_fan(7, 84.0, 4.6, el, dmg * 0.7, 0.26)
+
+
+func _fan(count: int, spread_deg: float, speed_m: float, el: int, dmg: float, size := 0.22) -> void:
+	var aim := _aim()
+	for i in count:
+		var k := 0.0 if count == 1 else float(i) / (count - 1) - 0.5
+		var dir := aim.rotated(Vector3.UP, deg_to_rad(spread_deg) * k)
+		Bullet.fire(self, global_position + dir * (radius + 0.3), dir, speed_m, _attack_spell(el, dmg), size)
+
+
+func _ring(count: int, speed_m: float, el: int, dmg: float, offset: float, size := 0.24) -> void:
+	for i in count:
+		var dir := Vector3.FORWARD.rotated(Vector3.UP, offset + TAU * i / count)
+		Bullet.fire(self, global_position + dir * (radius + 0.3), dir, speed_m, _attack_spell(el, dmg), size)
+
+
+func _later(seconds: float, f: Callable) -> void:
+	if seconds <= 0.0:
+		f.call()
+	else:
+		_pending.append([seconds, f])
+
+
+func _run_pending(dt: float) -> void:
+	if _pending.is_empty():
+		return
+	var keep: Array = []
+	for p in _pending:
+		p[0] -= dt
+		if p[0] <= 0.0:
+			if can_act():
+				p[1].call()
+		else:
+			keep.append(p)
+	_pending = keep
 
 
 func _boss(dt: float) -> void:
 	_special -= dt
 	_summon_t -= dt
+	var el: int = cfg.nova
+	var dmg: float = cfg.dmg * 0.5 * (Game.I.monster_damage if Game.I else 1.0)
+	if _spiral_t > 0.0:
+		_spiral_t -= dt
+		_spiral_step -= dt
+		if _spiral_step <= 0.0 and can_act():
+			_spiral_step = 0.1
+			_spiral_ang += 0.33
+			_ring(3, 6.0, el, dmg, _spiral_ang, 0.26)
 	if _special <= 0.0 and can_act():
-		_special = randf_range(5.0, 7.0)
-		var el: int = cfg.nova
-		var s := _attack_spell(el, cfg.dmg * 0.7 * (Game.I.monster_damage if Game.I else 1.0))
-		var nova := NovaFx.new()
-		nova.setup(self, {counts = s.counts, payload = [], primary = el, n = {radius = 7.0, rate = s.scale}})
-		nova.only_team = 0
-		Game.I.spawn(nova, global_position)
-		Game.I.shake(0.5)
+		_special = randf_range(4.5, 6.0)
+		var pattern: String = BOSS_PATTERNS[_pattern_i % BOSS_PATTERNS.size()]
+		_pattern_i += 1
+		match pattern:
+			"spiral":
+				_spiral_t = 3.2
+				_spiral_step = 0.0
+			"rings":
+				for i in 3:
+					var off := (0.5 if i % 2 == 1 else 0.0) * TAU / 20.0
+					_later(0.55 * i, func(): _ring(20, 5.2, el, dmg, off, 0.28))
+			"fan9":
+				for i in 3:
+					_later(0.45 * i, func(): _fan(9, 90.0, 7.5, el, dmg))
+			"nova":
+				var s := _attack_spell(el, cfg.dmg * 0.7 * (Game.I.monster_damage if Game.I else 1.0))
+				var nova := NovaFx.new()
+				nova.setup(self, {counts = s.counts, payload = [], primary = el, n = {radius = 7.0, rate = s.scale}})
+				nova.only_team = 0
+				Game.I.spawn(nova, global_position)
+				Game.I.shake(0.5)
 	if _summon_t <= 0.0:
 		_summon_t = randf_range(10.0, 14.0)
 		for k in cfg.summon:

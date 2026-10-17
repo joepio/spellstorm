@@ -1,6 +1,8 @@
 class_name Bot
 extends RefCounted
-## Plays a wizard for an AI seat by pressing the same buttons a player would.
+## Plays a wizard for an AI seat by pressing the same buttons a player would:
+## it shoots at the nearest monster, swings at what comes close, rolls away
+## from bullets about to hit, and casts a recipe when it has the mana.
 
 const RECIPES := [
 	[[El.FIRE, El.FIRE, El.FIRE], "cast", 2.0],
@@ -37,8 +39,9 @@ var fixed_recipe := -1
 func think(w: Wizard, dt: float) -> void:
 	var pad := w.pad
 	pad.poll()
-	for b in [Pad.A, Pad.B, Pad.X, Pad.Y, Pad.LB, Pad.LT, Pad.RB, Pad.RS, Pad.UP]:
+	for b in [Pad.A, Pad.B, Pad.X, Pad.Y, Pad.LB, Pad.LT, Pad.RB, Pad.RS, Pad.UP, Pad.DOWN]:
 		pad.set_button(b, false)
+	pad.fire = false
 	if not w.alive:
 		pad.move = Vector2.ZERO
 		return
@@ -82,13 +85,26 @@ func think(w: Wizard, dt: float) -> void:
 		move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
 	pad.move = Vector2(move.x, move.z).limit_length(1.0)
 	pad.aim = Vector2(aim.x, aim.z)
+	if downed and plan.has(El.LIFE):
+		pad.fire = w.bolt_el == El.LIFE
+	else:
+		pad.fire = enemy != null and d < 16.0
+	var threat := _bullet_threat(w)
+	if threat != Vector3.ZERO and randf() < 0.12:
+		pad.set_button(Pad.LT, true)
+		pad.move = Vector2(threat.x, threat.z)
+	elif _phase != "hold_rb" and enemy and (d < 2.4 or _bullet_in_reach(w)) and randf() < 0.5:
+		pad.set_button(Pad.RB, true)
 	match _phase:
 		"idle":
 			pad.set_button(Pad.RT, false)
 			if enemy and d < 12.0:
 				_choose(w, d)
-				_phase = "conjure"
-				_press_t = 0.0
+				if w.mana >= _price():
+					_phase = "conjure"
+					_press_t = 0.0
+				else:
+					plan.clear()
 		"conjure":
 			_press_t -= dt
 			if _press_t <= 0.0:
@@ -105,10 +121,11 @@ func think(w: Wizard, dt: float) -> void:
 					_hold_t = hold
 					_phase = "hold"
 				"nova":
-					pad.set_button(Pad.LT, true)
-					_phase = "idle"
-				"plant":
 					pad.set_button(Pad.RB, true)
+					_hold_t = Wizard.NOVA_HOLD + 0.1
+					_phase = "hold_rb"
+				"plant":
+					pad.set_button(Pad.DOWN, true)
 					_phase = "idle"
 				"ward":
 					pad.set_button(Pad.RS, true)
@@ -119,11 +136,44 @@ func think(w: Wizard, dt: float) -> void:
 			if _hold_t <= 0.0:
 				_phase = "rest"
 				_hold_t = randf_range(0.2, 0.6)
+		"hold_rb":
+			_hold_t -= dt
+			pad.set_button(Pad.RB, _hold_t > 0.0)
+			if _hold_t <= 0.0:
+				_phase = "idle"
 		"rest":
 			pad.set_button(Pad.RT, false)
 			_hold_t -= dt
 			if _hold_t <= 0.0:
 				_phase = "idle"
+
+
+## Roughly what the plan will cost; fusions make it a little cheaper.
+func _price() -> float:
+	if plan.size() >= 5 and form == "cast" and plan.count(plan[0]) == plan.size():
+		return Wizard.MANA_MAX
+	return Wizard.MANA_PER_ELEMENT * plan.size()
+
+
+## Which way to roll when a bullet is about to hit, or zero.
+func _bullet_threat(w: Wizard) -> Vector3:
+	for b in Bullet.all:
+		if not is_instance_valid(b) or b.team == w.team:
+			continue
+		var to := w.global_position - b.global_position
+		to.y = 0
+		if to.length() > 2.6 or b.vel.dot(to) <= 0.0:
+			continue
+		var side := b.vel.normalized().cross(Vector3.UP)
+		return side if side.dot(to) > 0.0 else -side
+	return Vector3.ZERO
+
+
+func _bullet_in_reach(w: Wizard) -> bool:
+	for b in Bullet.all:
+		if is_instance_valid(b) and b.team != w.team and b.global_position.distance_to(w.global_position + Vector3.UP) < 2.2:
+			return true
+	return false
 
 
 func _press(pad: Pad, e: int) -> void:
