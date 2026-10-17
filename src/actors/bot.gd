@@ -153,7 +153,7 @@ func _price() -> float:
 	var load := Wizard.MANA_PER_LOAD * plan.size()
 	if plan.size() >= 5 and form == "cast" and plan.count(plan[0]) == plan.size():
 		return load + Wizard.OVERLOAD_COST
-	return load
+	return load + Wizard.MANA_PER_ELEMENT * plan.size()
 
 
 ## Which way to roll when a bullet is about to hit, or zero.

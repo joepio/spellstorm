@@ -226,12 +226,10 @@ class WizardPanel:
 				Icons.draw(self, e, oc, 9.5, Color(0.06, 0.04, 0.04, 0.92))
 				if El.is_fused(e):
 					draw_arc(oc, 19, 0, TAU, 24, Color(1, 0.9, 0.6), 2.0)
-		# Ammo: how many bolts the loaded queue has left.
+		# The front element burns first: a ring round it shows the bolts it has left.
 		if not slots.is_empty():
-			var full := float(Wizard.BOLTS_PER_ELEMENT * slots.size())
-			var bw := wizard.queue.size * 42.0 - 8.0
-			draw_rect(Rect2(108, 90, bw, 6), Color(0.12, 0.09, 0.07))
-			draw_rect(Rect2(108, 90, bw * clampf(wizard.ammo / full, 0.0, 1.0), 6), El.COLOR[slots[0]].lightened(0.2))
+			var k := clampf(float(wizard.ammo) / Wizard.BOLTS_PER_ELEMENT, 0.0, 1.0)
+			draw_arc(Vector2(126, 66), 20, -PI * 0.5, -PI * 0.5 + TAU * k, 32, Color(1.0, 0.88, 0.5), 3.0, true)
 		var y := 112.0
 		if not wizard.alive:
 			draw_string(f, Vector2(110, y + 10), "Fallen. Heal the grave with Life", HORIZONTAL_ALIGNMENT_LEFT, w - 120, 22, Color(0.85, 0.3, 0.25))
@@ -240,8 +238,8 @@ class WizardPanel:
 		# What each button casts right now, and its mana.
 		var x0 := 122.0
 		if slots.is_empty():
-			draw_string(f, Vector2(x0, 140), "Load elements: your bolts carry", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
-			draw_string(f, Vector2(x0, 164), "them, RT spends them as a spell", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(x0, 140), "Load elements: bolts carry them,", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
+			draw_string(f, Vector2(x0, 164), "RT casts what is left for mana", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.6, 0.55, 0.48))
 			draw_string(f, Vector2(x0, 190), "Hold LB for the opposites", HORIZONTAL_ALIGNMENT_LEFT, w - x0 - 12, 19, Color(0.5, 0.46, 0.4))
 			return
 		var rows := [["RT", "cast"], ["RB", "nova"], ["▼", "plant"], ["RS", "ward"]]

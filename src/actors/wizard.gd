@@ -2,9 +2,10 @@ class_name Wizard
 extends Actor
 ## A player's wizard. Twin-stick at heart: the left stick walks, the right
 ## stick aims and shoots staff bolts. Face buttons load elements into the
-## queue for mana, and the queue is ammunition: every bolt carries its mix
-## (water and fire loaded shoot steam bolts) and uses it up a little, and RT
-## spends all of it at once as a spell. An empty queue shoots plain bolts.
+## queue for a little mana, and the queue is ammunition: every bolt carries
+## its mix (water and fire loaded shoot steam bolts), and the oldest element
+## burns out after a few bolts and drops off. RT spends what is left at once
+## as a spell, for mana per element. An empty queue shoots plain bolts.
 ##
 ##   A Life / Void     B Fire / Frost     X Water / Lightning   Y Earth / Air
 ##   (hold LB for the second of each pair, its opposite)
@@ -21,10 +22,12 @@ const SAVE_HOLD := 0.6
 
 const MANA_MAX := 100.0
 const MANA_REGEN := 3.0
-const MANA_PER_LOAD := 6.0
+const MANA_PER_LOAD := 3.0
+const MANA_PER_ELEMENT := 8.0
 const OVERLOAD_COST := 40.0
-## Bolts each loaded element is good for; the queue empties when they run out.
-const BOLTS_PER_ELEMENT := 12
+## Bolts each loaded element is good for. The oldest one burns first and
+## drops out of the queue when it is spent.
+const BOLTS_PER_ELEMENT := 8
 ## Plain bolts when the queue is empty: weak, so loading is worth it.
 const PLAIN_BOLT := 0.2
 const MANA_PER_BOLT := 1.2
@@ -56,7 +59,7 @@ var last_cast: Array = []
 var bot: Bot
 ## The element the staff's bolts look like: the front of the queue, -1 plain.
 var bolt_el := -1
-## Bolts left in the loaded queue.
+## Bolts left in the front element of the queue.
 var ammo := 0
 var mana := MANA_MAX
 ## Set briefly when a spell was too dear, so the HUD can flash the orb.
@@ -321,9 +324,13 @@ func add_mana(amount: float) -> void:
 	mana = minf(MANA_MAX, mana + amount)
 
 
-## What casting costs on top of loading: only the overload asks for more.
+## What a spell costs: per element still in it, an overload a fixed sum.
 func cost(s: Dictionary) -> float:
-	return OVERLOAD_COST if s.shape == "overload" else 0.0
+	if s.shape == "overload":
+		return OVERLOAD_COST
+	if s.shape in ["staff", "stomp", "fizzle"]:
+		return 0.0
+	return MANA_PER_ELEMENT * s.power
 
 
 func _trace_once(what: String) -> void:
@@ -354,8 +361,9 @@ func shoot() -> void:
 	if not queue.is_empty():
 		ammo -= 1
 		if ammo <= 0:
-			queue.clear()
-			Fx.puff(staff_tip(), Color(0.7, 0.65, 0.6, 0.5), 0.5)
+			var gone: int = queue.slots.pop_front()
+			ammo = BOLTS_PER_ELEMENT if not queue.is_empty() else 0
+			Fx.burst(global_position + Vector3.UP * 2.1, El.COLOR[gone], 8, 2.0, 0.2)
 	_cast_anim = maxf(_cast_anim, 0.12)
 	_trace_once("shoot")
 	Game.I.count("shots")
@@ -426,11 +434,13 @@ func conjure(e: int) -> void:
 			_no_mana()
 			return
 		mana -= MANA_PER_LOAD
-		ammo += BOLTS_PER_ELEMENT
+	var front := queue.slots[0] if not queue.is_empty() else -1
 	var what := queue.add(e)
-	ammo = mini(ammo, BOLTS_PER_ELEMENT * queue.slots.size())
+	# A new or changed front element starts with a full charge.
 	if queue.is_empty():
 		ammo = 0
+	elif queue.slots[0] != front:
+		ammo = BOLTS_PER_ELEMENT
 	var c: Color = El.COLOR[e]
 	match what:
 		"cancel":
@@ -448,7 +458,7 @@ func load_slots(slots: Array) -> void:
 		return
 	mana -= price
 	queue.set_slots(slots)
-	ammo = BOLTS_PER_ELEMENT * slots.size()
+	ammo = BOLTS_PER_ELEMENT
 
 
 func _no_mana() -> void:
