@@ -25,7 +25,6 @@ var _banner: Label
 var _banner_sub: Label
 var _banner_t := 0.0
 var _vignette: ColorRect
-var _legend: Control
 var _toasts: VBoxContainer
 
 
@@ -51,6 +50,10 @@ func _ready() -> void:
 	_wide(_grimoire, 22, 56)
 	_grimoire.offset_right = -30
 	_grimoire.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Shown in the menu instead (Start), so the screen stays clear.
+	_title.visible = false
+	_sub.visible = false
+	_grimoire.visible = false
 
 	_banner = _label(Art.title_font(), 96, Color(0.85, 0.15, 0.1))
 	_wide(_banner, 300, 420)
@@ -73,12 +76,9 @@ func _ready() -> void:
 	_row.offset_top = -230
 	_row.offset_bottom = -14
 
-	_legend = Legend.new()
-	_legend.position = Vector2(24, 20)
-	add_child(_legend)
 
 	_toasts = VBoxContainer.new()
-	_toasts.position = Vector2(24, 120)
+	_toasts.position = Vector2(24, 24)
 	add_child(_toasts)
 
 
@@ -118,13 +118,20 @@ func bind(wizards: Array) -> void:
 		panels.append(p)
 
 
+## Where the run is and the grimoire count live in the menu, not on screen.
+var where := ""
+var grimoire_text := ""
+
+
 func room(biome: Dictionary, r: int, depth: int) -> void:
+	where = "%s   ·   %s   ·   Level %d" % [biome.name, "Lair of the boss" if r == 2 else "Room %d of 3" % (r + 1), depth + 1]
 	_title.text = biome.name
 	_sub.text = ("Lair of the boss" if r == 2 else "Room %d of 3" % (r + 1)) + "   ·   Level %d" % (depth + 1)
 
 
 func set_grimoire(found: int, total: int) -> void:
 	_grimoire.text = "Grimoire  %d / %d spells" % [found, total]
+	grimoire_text = "Grimoire: %d of %d spells discovered" % [found, total]
 
 
 func show_banner(text: String, sub: String, c: Color) -> void:
@@ -167,17 +174,6 @@ func _process(dt: float) -> void:
 
 
 ## The buttons, once, small, in the corner.
-class Legend:
-	extends Control
-
-	func _draw() -> void:
-		var f := Art.body_font()
-		draw_rect(Rect2(-10, -8, 400, 98), Color(0, 0, 0, 0.45))
-		var lines := ["Right stick shoot   RB swing   LT roll", "RT spell   hold RB burst   ▼ plant", "RS ward   ▲ again   Start menu"]
-		for i in lines.size():
-			draw_string(f, Vector2(0, 22 + i * 28), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(0.78, 0.72, 0.62))
-
-
 ## One wizard's panel.
 class WizardPanel:
 	extends Control

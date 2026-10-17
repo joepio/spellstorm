@@ -7,6 +7,7 @@ extends Control
 ##   Friendly fire  off / half / full
 ##   Difficulty     easy / normal / hard
 ##   Restart run    start the chosen level again from its first room
+## Next to it, every control drawn as its controller part with what it does.
 
 const FF := ["off", "half", "full"]
 const DIFFICULTY := ["easy", "normal", "hard"]
@@ -148,22 +149,41 @@ func _label(row: String) -> Array:
 	return [row, ""]
 
 
+## Each control: how to draw it, then what it does.
+const CONTROLS := [
+	["lstick", "Walk"],
+	["rstick", "Aim and shoot bolts"],
+	["faces", "Load an element into the queue"],
+	["lb", "Hold: the opposite elements"],
+	["rt", "Cast the queue as a spell"],
+	["rb", "Staff swing, knocks bullets back"],
+	["rb_hold", "Hold and let go: burst around you"],
+	["lt", "Dodge roll"],
+	["rs", "Ward yourself"],
+	["dpad_down", "Plant the spell on the ground"],
+	["dpad_up", "Load your last spell again"],
+	["dpad_side", "Saved spells (hold to save)"],
+	["start", "This menu"],
+]
+
+
 func _draw() -> void:
 	var tf := Art.title_font()
 	var f := Art.body_font()
 	var vs := get_viewport_rect().size
 	var w := vs.x
 	var h := vs.y
-	draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.8 if title_mode else 0.62))
-	var cx := w * 0.5
-	var top := h * 0.2
-	draw_string(tf, Vector2(0, top), "Spellstorm", HORIZONTAL_ALIGNMENT_CENTER, w, 120, Color(0.72, 0.13, 0.08))
+	draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.8 if title_mode else 0.66))
+	var top := h * 0.15
+	draw_string(tf, Vector2(0, top), "Spellstorm", HORIZONTAL_ALIGNMENT_CENTER, w, 110, Color(0.72, 0.13, 0.08))
 	var sub := "A couch co-op roguelite for wizards" if title_mode else "Paused"
-	draw_string(f, Vector2(0, top + 60), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 34, Color(0.75, 0.68, 0.56))
+	draw_string(f, Vector2(0, top + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 32, Color(0.75, 0.68, 0.56))
+	if not title_mode and Game.I.hud:
+		draw_string(f, Vector2(0, top + 96), Game.I.hud.where + "   ·   " + Game.I.hud.grimoire_text, HORIZONTAL_ALIGNMENT_CENTER, w, 25, Color(0.9, 0.78, 0.45))
 	var y := top + 170
-	var pw := 760.0
-	draw_rect(Rect2(cx - pw * 0.5, y - 50, pw, rows.size() * 64 + 40), Color(0.06, 0.04, 0.03, 0.9))
-	draw_rect(Rect2(cx - pw * 0.5, y - 50, pw, rows.size() * 64 + 40), Color(0.45, 0.35, 0.22, 0.9), false, 2.0)
+	var pw := 700.0
+	var cx := w * 0.5 - 380.0
+	_frame(Rect2(cx - pw * 0.5, y - 50, pw, rows.size() * 64 + 40))
 	for i in rows.size():
 		var l := _label(rows[i])
 		var on := i == sel
@@ -172,10 +192,76 @@ func _draw() -> void:
 		if on:
 			draw_rect(Rect2(cx - pw * 0.5 + 10, yy - 38, pw - 20, 54), Color(0.35, 0.08, 0.05, 0.55))
 		if l[1] == "":
-			draw_string(tf, Vector2(cx - pw * 0.5, yy), l[0], HORIZONTAL_ALIGNMENT_CENTER, pw, 38, col)
+			draw_string(tf, Vector2(cx - pw * 0.5, yy), l[0], HORIZONTAL_ALIGNMENT_CENTER, pw, 36, col)
 		else:
-			draw_string(tf, Vector2(cx - pw * 0.5 + 40, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.4, 34, col)
+			draw_string(tf, Vector2(cx - pw * 0.5 + 36, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.42, 32, col)
 			var v: String = ("‹  %s  ›" % l[1]) if on else l[1]
-			draw_string(f, Vector2(cx - 40, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.5, 32, col)
+			draw_string(f, Vector2(cx - 50, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.55, 30, col)
 	var hint := "Up / down choose   ·   left / right change   ·   A confirm" + ("" if title_mode else "   ·   B or Start back")
-	draw_string(f, Vector2(0, y + rows.size() * 64 + 40), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 24, Color(0.55, 0.5, 0.42))
+	draw_string(f, Vector2(cx - pw * 0.5, y + rows.size() * 64 + 30), hint, HORIZONTAL_ALIGNMENT_CENTER, pw, 22, Color(0.55, 0.5, 0.42))
+	# The controls, each next to a drawing of its part of the controller.
+	var kx := w * 0.5 + 40.0
+	var kw := 680.0
+	var ky := y - 50
+	var row_h := 46.0
+	_frame(Rect2(kx, ky, kw, CONTROLS.size() * row_h + 30))
+	for i in CONTROLS.size():
+		var c := Vector2(kx + 58, ky + 38 + i * row_h)
+		_glyph(CONTROLS[i][0], c)
+		draw_string(f, Vector2(kx + 116, c.y + 9), CONTROLS[i][1], HORIZONTAL_ALIGNMENT_LEFT, kw - 130, 25, Color(0.85, 0.79, 0.68))
+
+
+func _frame(r: Rect2) -> void:
+	draw_rect(r, Color(0.06, 0.04, 0.03, 0.92))
+	draw_rect(r, Color(0.45, 0.35, 0.22, 0.9), false, 2.0)
+
+
+const PAD_DARK := Color(0.16, 0.14, 0.13)
+const PAD_EDGE := Color(0.55, 0.5, 0.42)
+const PAD_LIT := Color(1.0, 0.82, 0.4)
+
+
+## One controller part, about 80 by 40 pixels around [param c].
+func _glyph(kind: String, c: Vector2) -> void:
+	var f := Art.title_font()
+	match kind:
+		"lstick", "rstick", "rs":
+			draw_circle(c, 17, PAD_EDGE)
+			draw_circle(c, 15, PAD_DARK)
+			draw_circle(c, 10, PAD_LIT if kind == "rs" else Color(0.32, 0.29, 0.26))
+			draw_string(f, c + Vector2(-10, 6), "L" if kind == "lstick" else "R", HORIZONTAL_ALIGNMENT_CENTER, 20, 15, Color(0.05, 0.04, 0.03) if kind == "rs" else PAD_EDGE)
+			if kind == "rs":
+				draw_arc(c, 21, 0, TAU, 24, PAD_LIT, 2.0, true)
+			else:
+				for a in 4:
+					var d := Vector2.UP.rotated(a * PI * 0.5)
+					var tip := c + d * 27
+					draw_colored_polygon(PackedVector2Array([tip, tip - d * 6 + d.orthogonal() * 4, tip - d * 6 - d.orthogonal() * 4]), PAD_LIT)
+		"faces":
+			var places := {"Y": Vector2(0, -12), "X": Vector2(-12, 0), "B": Vector2(12, 0), "A": Vector2(0, 12)}
+			for key in places:
+				var e: int = El.PAIRS[key][0]
+				draw_circle(c + places[key] * 1.25, 8, El.COLOR[e])
+				Icons.draw(self, e, c + places[key] * 1.25, 5.0, Color(0.06, 0.04, 0.04))
+		"lb", "rb", "rb_hold":
+			var r := Rect2(c.x - 28, c.y - 10, 56, 20)
+			draw_rect(r, PAD_LIT if kind != "rb_hold" else PAD_EDGE)
+			draw_string(f, Vector2(r.position.x, c.y + 7), "LB" if kind == "lb" else "RB", HORIZONTAL_ALIGNMENT_CENTER, 56, 17, Color(0.05, 0.04, 0.03))
+			if kind == "rb_hold":
+				# A little timer: hold it.
+				var t := c + Vector2(40, 0)
+				draw_arc(t, 8, 0, TAU, 16, PAD_EDGE, 2.0, true)
+				draw_arc(t, 8, -PI * 0.5, PI, 16, PAD_LIT, 3.0, true)
+		"lt", "rt":
+			var pts := PackedVector2Array([c + Vector2(-18, 18), c + Vector2(-18, -6), c + Vector2(-10, -18), c + Vector2(18, -18), c + Vector2(18, 18)])
+			draw_colored_polygon(pts, PAD_LIT)
+			draw_string(f, c + Vector2(-18, 8), kind.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 36, 16, Color(0.05, 0.04, 0.03))
+		"dpad_up", "dpad_down", "dpad_side":
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+				var lit: bool = (kind == "dpad_up" and d == Vector2.UP) or (kind == "dpad_down" and d == Vector2.DOWN) or (kind == "dpad_side" and d.y == 0.0)
+				draw_rect(Rect2(c + d * 12 - Vector2(7, 7), Vector2(14, 14)), PAD_LIT if lit else PAD_EDGE)
+			draw_rect(Rect2(c - Vector2(7, 7), Vector2(14, 14)), PAD_EDGE)
+		"start":
+			draw_rect(Rect2(c.x - 18, c.y - 8, 36, 16), PAD_LIT)
+			for k in 3:
+				draw_line(Vector2(c.x - 9, c.y - 4 + k * 4), Vector2(c.x + 9, c.y - 4 + k * 4), Color(0.05, 0.04, 0.03), 2.0)
