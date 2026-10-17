@@ -1,13 +1,15 @@
 class_name Bullet
 extends Node3D
-## A monster's bullet: a slow, bright orb with a white core, easy to read and
-## to dodge. Monsters fire them in patterns (fans, rings, spirals, see Enemy).
-## A wizard's staff swing knocks one back, and then it hurts monsters.
+## A monster's bullet: a small shot made of its element, shaped by it (fire
+## a comet with a tail, frost a shard, water a drop, earth a tumbling rock,
+## lightning a crackling spark), wearing the same element shader as the
+## wizards' spells (bullet.gdshader). Monsters fire them in patterns (fans,
+## rings, spirals, see Enemy). A wizard's staff swing knocks one back, and
+## then it turns gold and hurts monsters.
 
 static var all: Array[Bullet] = []
 static var _meshes := {}
-static var _core_mat: StandardMaterial3D
-static var _gold_mat: StandardMaterial3D
+static var _mats := {}
 
 var vel := Vector3.ZERO
 ## {counts, payload, primary, scale}, as Enemy._attack_spell makes it.
@@ -18,7 +20,6 @@ var radius := 0.22
 var life := 7.0
 var power := 1.0
 var _shell: MeshInstance3D
-var _core: MeshInstance3D
 
 
 static func fire(from: Actor, at: Vector3, dir: Vector3, speed: float, s: Dictionary, size := 0.22) -> Bullet:
@@ -41,44 +42,76 @@ static func _sphere(r: float) -> SphereMesh:
 	return _meshes[k]
 
 
+## The look of one element's bullets, shared by all of them; [param hot]
+## for one a wizard knocked back.
+static func material(e: int, hot := false) -> ShaderMaterial:
+	var key := "%d%s" % [e, "h" if hot else ""]
+	if not _mats.has(key):
+		_mats[key] = Fx.shader("bullet", {element = e, base = El.COLOR[e], hot = 1.0 if hot else 0.0})
+	return _mats[key]
+
+
+static func _mesh(kind: String, r: float) -> Mesh:
+	var key := "%s%.2f" % [kind, r]
+	if not _meshes.has(key):
+		match kind:
+			"shard":
+				_meshes[key] = Art.cyl(0.0, r, r * 3.4, 6)
+			"rock":
+				_meshes[key] = Art.sphere(r, 5)
+			"tail":
+				_meshes[key] = Art.cyl(0.0, r * 0.9, r * 3.0, 8)
+			_:
+				_meshes[key] = Art.sphere(r, 12)
+	return _meshes[key]
+
+
 func _ready() -> void:
 	all.append(self)
-	if _core_mat == null:
-		_core_mat = Fx.glow(Color(1, 0.97, 0.9), 4.0)
-		_gold_mat = Fx.glow(Color(1.0, 0.82, 0.35), 4.0)
-	# A white-hot core in a glowing shell of the element's colour, with a
-	# faint halo: bright enough to read on every floor.
-	var c: Color = El.COLOR[spell.primary]
+	var e: int = spell.primary
+	# Drawn a little smaller than it hits, and a lot smaller than before
+	# (Joep): the rim keeps it readable.
+	var r := radius * 0.72
 	_shell = MeshInstance3D.new()
-	_shell.mesh = _sphere(radius)
-	_shell.material_override = _glass(c, 0.85)
 	_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_shell.material_override = material(e)
 	add_child(_shell)
-	var halo := MeshInstance3D.new()
-	halo.mesh = _sphere(radius * 1.8)
-	halo.material_override = _glass(c, 0.22)
-	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(halo)
-	_core = MeshInstance3D.new()
-	_core.mesh = _sphere(radius * 0.5)
-	_core.material_override = _core_mat
-	_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_core)
+	match e:
+		El.FROST, El.ICE:
+			_shell.mesh = _mesh("shard", r * 0.8)
+			_shell.rotation_degrees.x = -90.0
+		El.EARTH, El.MUD:
+			_shell.mesh = _mesh("rock", r)
+			_spin = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()
+		El.WATER:
+			_shell.mesh = _mesh("ball", r)
+			_shell.scale = Vector3(0.85, 0.85, 1.35)
+		El.LIGHTNING, El.STORM:
+			_shell.mesh = _mesh("ball", r * 0.8)
+			_crackle = true
+		_:
+			_shell.mesh = _mesh("ball", r)
+	if e in [El.FIRE, El.MAGMA, El.VOID, El.STEAM]:
+		# A tail streaming out behind it.
+		var tail := MeshInstance3D.new()
+		tail.mesh = _mesh("tail", r)
+		var tc: Color = El.COLOR[e]
+		tail.material_override = Fx.additive(Color(tc.r, tc.g, tc.b, 0.45), 0.9)
+		tail.rotation_degrees.x = 90.0
+		tail.position.z = r * 1.6
+		tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(tail)
+	_face()
 
 
-static var _glass_mats := {}
+var _spin := Vector3.ZERO
+var _crackle := false
 
 
-static func _glass(c: Color, alpha: float) -> StandardMaterial3D:
-	var key := "%s%.2f" % [c.to_html(), alpha]
-	if not _glass_mats.has(key):
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(minf(c.r * 1.4, 1.0), minf(c.g * 1.4, 1.0), minf(c.b * 1.4, 1.0), alpha)
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_glass_mats[key] = m
-	return _glass_mats[key]
+## Point along the flight: -z is forward, so shards and tails line up.
+func _face() -> void:
+	if vel.length() > 0.01:
+		basis = Basis.looking_at(vel.normalized(), Vector3.UP)
 
 
 func _exit_tree() -> void:
@@ -93,7 +126,8 @@ func deflect(by: Actor, dir: Vector3) -> void:
 	vel = dir.normalized() * maxf(vel.length() * 1.6, 12.0)
 	power = 2.0
 	life = 2.0
-	_core.material_override = _gold_mat
+	_shell.material_override = material(spell.primary, true)
+	_face()
 	Fx.burst(global_position, Color(1.0, 0.85, 0.4), 8, 3.0, 0.2)
 
 
@@ -110,6 +144,10 @@ func _physics_process(dt: float) -> void:
 		_pop(true)
 		return
 	global_position = to
+	if _spin != Vector3.ZERO:
+		_shell.rotate(_spin, dt * 9.0)
+	elif _crackle:
+		_shell.scale = Vector3.ONE * randf_range(0.7, 1.25)
 	for a in (Game.I.living() if Game.I else []):
 		if not a.alive or a.team == team or a.invuln > 0.0:
 			continue

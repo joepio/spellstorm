@@ -224,6 +224,7 @@ func _standalone() -> void:
 		run.biome_index = start_biome
 		run.room = start_room
 		run.enter_room()
+	Prewarm.run(camera)
 	if shot != "":
 		_take_shot()
 	elif not demo:
