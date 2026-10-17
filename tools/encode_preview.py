@@ -10,13 +10,13 @@ is 30 frames, so five cuts make the 150.
 import hashlib, os, subprocess, sys, tempfile, shutil
 
 CUTS = [
-    ("chapel", 40, "three wizards cut through skeletons and a necromancer in the chapel graves"),
-    ("isles", 40, "storm sprites and bog toads on the bridges of the Sunken Isles"),
-    ("pit", 40, "a pack of hellhounds and imps in the Infernal Pit, fire everywhere"),
-    ("keep", 40, "four wizards against shieldbearers and a frost brute in the Frozen Keep"),
-    ("boss", 70, "the boss of the Catacombs in its arena"),
+    ("chapel", 56, "three wizards cut through skeletons and a necromancer in the chapel graves"),
+    ("isles", 20, "storm sprites and bog toads on the bridges of the Sunken Isles"),
+    ("pit", 22, "a pack of hellhounds and imps in the Infernal Pit, fire everywhere"),
+    ("keep", 48, "four wizards against shieldbearers and a frost brute in the Frozen Keep"),
+    ("boss", 99, "four wizards burn down the Catacombs boss in its arena"),
 ]
-POSTER = ("chapel", 55)
+POSTER = ("pit", 30)
 LEN = 30
 
 
