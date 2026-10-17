@@ -76,14 +76,11 @@ func _plan() -> void:
 	path = PackedVector2Array()
 	isles.clear()
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
-	var mid_a := Vector2(side * _rng.randf_range(4.5, 9.0), 3.0)
-	var mid_b := Vector2(-side * _rng.randf_range(2.5, 6.5), -1.0)
-	path.append(Vector2(0, HALF.y + 1.5))
-	path.append(Vector2(_rng.randf_range(-1.5, 1.5), 7.5))
-	path.append(mid_a)
-	path.append(mid_b)
-	path.append(Vector2(0, -7.5))
-	path.append(Vector2(0, -HALF.y - 1.0))
+	var mid_a := Vector2(side * _rng.randf_range(3.5, 7.0), 3.0)
+	var mid_b := Vector2(-side * _rng.randf_range(2.0, 4.5), -2.0)
+	var keys := PackedVector2Array([Vector2(0, HALF.y + 1.5), Vector2(_rng.randf_range(-1.0, 1.0), 7.5),
+		mid_a, mid_b, Vector2(0, -7.5), Vector2(0, -HALF.y - 1.0)])
+	path = _smooth(keys, 7)
 	if not biome.get("isles", false):
 		return
 	# Where you start and where the altars and portal stand are big islands;
@@ -100,6 +97,24 @@ func _plan() -> void:
 				clear = false
 		if clear and path_dist(c) > 3.5:
 			isles.append(Vector4(c.x, c.y, _rng.randf_range(1.8, 3.2), _rng.randf_range(1.6, 2.6)))
+
+
+## A Catmull-Rom curve through [param keys], [param steps] points per span,
+## so the path bends like a trodden way instead of in straight lengths.
+static func _smooth(keys: PackedVector2Array, steps: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in keys.size() - 1:
+		var p0 := keys[maxi(i - 1, 0)]
+		var p1 := keys[i]
+		var p2 := keys[i + 1]
+		var p3 := keys[mini(i + 2, keys.size() - 1)]
+		for k in steps:
+			var t := float(k) / steps
+			var t2 := t * t
+			var t3 := t2 * t
+			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+	out.append(keys[keys.size() - 1])
+	return out
 
 
 ## How far [param p] (xz) is from the path.

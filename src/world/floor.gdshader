@@ -14,7 +14,7 @@ uniform float wet = 0.0;
 
 // The path: a polyline in world xz. Style 0 trodden earth, 1 flagstones,
 // 2 a worn carpet runner, 3 basalt with glowing seams.
-uniform vec2 path_pts[12];
+uniform vec2 path_pts[48];
 uniform int path_n = 0;
 uniform float path_w = 2.4;
 uniform int path_style = 0;
@@ -59,7 +59,7 @@ vec4 path_info(vec2 p) {
 	float along = 0.0;
 	float run = 0.0;
 	vec2 dir = vec2(0.0, 1.0);
-	for (int i = 0; i < 11; i++) {
+	for (int i = 0; i < 47; i++) {
 		if (i >= path_n - 1) break;
 		vec2 a = path_pts[i];
 		vec2 b = path_pts[i + 1];
