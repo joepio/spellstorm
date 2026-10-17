@@ -165,7 +165,7 @@ func _physics_process(dt: float) -> void:
 			Fx.burst(p, El.COLOR[El.LIGHTNING], 5, 3.0, 0.2)
 		_mat.emission_enabled = true
 		_mat.emission = El.COLOR[El.LIGHTNING]
-		_mat.emission_energy_multiplier = 0.6 + randf() * 0.8
+		_mat.emission_energy_multiplier = 0.2 + randf() * 0.3
 	elif kind == El.WATER:
 		_mat.emission_enabled = false
 	if not Game.I:

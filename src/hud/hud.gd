@@ -261,7 +261,7 @@ class WizardPanel:
 		draw_rect(mbar, Color(0.5, 0.65, 1.0) if wizard.no_mana > 0.0 else Color(0.3, 0.24, 0.16), false, 1.5)
 		draw_string(f, Vector2(mbar.position.x, mbar.end.y + 16), "%d" % int(wizard.mana), HORIZONTAL_ALIGNMENT_RIGHT if mirrored else HORIZONTAL_ALIGNMENT_LEFT, mbar.size.x, 15, Color(0.7, 0.8, 1.0))
 		if not wizard.alive:
-			draw_string(f, Vector2(_x(262) - 50, h * 0.5 + 6), "Heal the grave", HORIZONTAL_ALIGNMENT_CENTER, 100, 15, Color(0.85, 0.3, 0.25))
+			draw_string(f, Vector2(_x(282) - 45, h * 0.5 + 6), "Heal the grave", HORIZONTAL_ALIGNMENT_CENTER, 90, 14, Color(0.85, 0.3, 0.25))
 			return
 		_buttons(Vector2(_x(282), h * 0.5))
 
