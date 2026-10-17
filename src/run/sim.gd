@@ -1,4 +1,5 @@
 class_name Sim
+## Lives in src/ (not tests/) because main.gd calls it and exports leave tests/ out.
 ## A headless run with bots, checked at the end:
 ##   godot --headless --fixed-fps 60 --path . -- --sim 3600 [--biome N] [--seed N]
 ## Every mechanic must have happened: bolts, swings, rolls, monster bullets,

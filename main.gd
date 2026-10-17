@@ -50,7 +50,7 @@ var start_biome := 0
 var start_room := 0
 var seed_value := 0
 var recipe := -1
-## What happened this run, for tests/sim.gd: shots, swings, rolls, deflects,
+## What happened this run, for src/run/sim.gd: shots, swings, rolls, deflects,
 ## bullets, casts, no_mana, kills.
 var stats := {}
 var sim_frames := 0
