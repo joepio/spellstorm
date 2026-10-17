@@ -59,6 +59,8 @@ var recipe := -1
 ## bullets, casts, no_mana, kills.
 var stats := {}
 var sim_frames := 0
+## --zoom K brings the camera K times as high (closer under 1), for captures.
+var cam_zoom := 1.0
 var _frame := 0
 
 
@@ -79,6 +81,7 @@ func _ready() -> void:
 			"--seed": seed_value = int(nxt)
 			"--recipe": recipe = int(nxt)
 			"--sim": sim_frames = int(nxt); demo = true
+			"--zoom": cam_zoom = float(nxt)
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_world()
 	arena = Arena.new()
@@ -456,7 +459,7 @@ func snap_camera() -> void:
 		c += w.global_position
 	if not wizards.is_empty():
 		_cam_center = c / wizards.size()
-	_cam_height = 18.5
+	_cam_height = 18.5 * cam_zoom
 
 
 func _update_camera(dt: float) -> void:
@@ -482,7 +485,7 @@ func _update_camera(dt: float) -> void:
 	if not pts.is_empty():
 		center /= pts.size()
 	var spread := maxf((hi.x - lo.x) * 0.56, hi.y - lo.y) if not pts.is_empty() else 0.0
-	var want_h := clampf(13.5 + spread * 0.85, 16.5, 30.0)
+	var want_h := clampf(13.5 + spread * 0.85, 16.5, 30.0) * cam_zoom
 	var k := 1.0 - exp(-3.0 * dt)
 	_cam_center = _cam_center.lerp(center, k)
 	_cam_height = lerpf(_cam_height, want_h, k)

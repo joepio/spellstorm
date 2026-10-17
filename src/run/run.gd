@@ -103,8 +103,11 @@ func enter_level() -> void:
 
 
 ## For testing: put the wizards [param run] metres along the level, as if
-## they had walked there and the packs on the way were never met.
+## they had walked there and the packs on the way were never met. Below 0:
+## just short of the boss's arena.
 func skip_to(run: float) -> void:
+	if run < 0.0:
+		run = Game.I.arena.clearing_at[2] - Game.I.arena.clearings[2].z - 3.0
 	encounters = encounters.filter(func(e): return e.at >= run)
 	var arena: Arena = Game.I.arena
 	var c := arena.point_at(run)
