@@ -235,6 +235,8 @@ func move_speed() -> float:
 	m *= 1.0 - minf(chill * 0.18, 0.6)
 	if slow > 0.0:
 		m *= 0.5
+	if _wading:
+		m *= 0.72
 	return m
 
 
@@ -254,7 +256,19 @@ func drive(desired: Vector3, delta: float) -> void:
 	push *= exp(-5.0 * delta)
 
 
+var _wading := false
+var _ripple_t := 0.0
+
+
 func tick_status(delta: float) -> void:
+	# Open water between islands: slow going, and you come out soaked.
+	_wading = Game.I != null and Game.I.arena != null and Game.I.arena.in_water(global_position)
+	if _wading and alive:
+		wet = maxf(wet, 1.5)
+		_ripple_t -= delta
+		if _ripple_t <= 0.0:
+			_ripple_t = 0.45 if velocity.length() > 0.5 else 1.2
+			Fx.ring(global_position + Vector3.UP * 0.03, Color(0.035, 0.07, 0.075), radius + 0.3, 0.7)
 	if burn > 0.0:
 		burn -= delta
 		take(BURN_DPS * delta * (1.0 - resistance(El.FIRE)) * armor)
