@@ -35,15 +35,15 @@ const COLOR := [
 const PAIRS := {
 	"A": [POISON, VOID],
 	"B": [FIRE, FROST],
-	"X": [WATER, LIGHTNING],
-	"Y": [EARTH, AIR],
+	"X": [WATER, AIR],
+	"Y": [LIGHTNING, EARTH],
 }
 
 const OPPOSITE := {
 	POISON: VOID, VOID: POISON,
 	FIRE: FROST, FROST: FIRE,
-	WATER: LIGHTNING, LIGHTNING: WATER,
-	EARTH: AIR, AIR: EARTH,
+	WATER: AIR, AIR: WATER,
+	LIGHTNING: EARTH, EARTH: LIGHTNING,
 }
 
 ## Two base elements that melt together into one slot.

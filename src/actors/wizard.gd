@@ -7,7 +7,7 @@ extends Actor
 ## burns out after a few bolts and drops off. RT spends what is left at once
 ## as a spell, for mana per element. An empty queue shoots plain bolts.
 ##
-##   A Poison / Void   B Fire / Frost     X Water / Lightning   Y Earth / Air
+##   A Poison / Void   B Fire / Frost     X Water / Air         Y Lightning / Earth
 ##   (hold LB for the second of each pair, its opposite)
 ##   right stick  aim and shoot bolts (free)
 ##   RB  staff swing, knocks bullets back (free); hold and let go: burst
