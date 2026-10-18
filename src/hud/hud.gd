@@ -212,7 +212,7 @@ class WizardPanel:
 	## What each cast button would make of the queue, kept until it changes.
 	var _names: Array = []
 	var _names_for := "-"
-	const FORMS := [["RT", "cast"], ["RB", "nova"], ["LS", "plant"], ["RS", "ward"]]
+	const FORMS := [["RT", "cast"], ["RB", "nova"], ["LS", "plant"], ["RS", "enchant"]]
 
 	func _ball(list: Array[ElementBall]) -> ElementBall:
 		var b := ElementBall.new()
@@ -240,10 +240,10 @@ class WizardPanel:
 		var frac := clampf(wizard.hp / wizard.max_hp, 0.0, 1.0) if wizard.alive else 0.0
 		var hc := Vector2(_x(32), 36)
 		_orb(hc, 22.0, frac, Color(0.62, 0.04, 0.04), Color(0.3, 0.24, 0.16), Color(0.08, 0.02, 0.02))
-		# A ward's shield: a bright band round the orb that wears down.
-		if wizard.shield > 0.0:
-			var sk := wizard.shield / maxf(wizard.shield_max, 1.0)
-			var wc: Color = El.COLOR[wizard.ward.primary] if wizard.ward.has("primary") else Color.WHITE
+		# An enchantment: a band in its element round the orb that runs down.
+		if wizard.enchant_time > 0.0:
+			var sk := wizard.enchant_time / maxf(wizard.enchant.n.duration, 0.1)
+			var wc: Color = El.COLOR[wizard.enchant.primary]
 			draw_arc(hc, 27.0, -PI * 0.5, -PI * 0.5 + TAU * sk, 40, wc.lightened(0.4), 3.0, true)
 		var hp_txt := "%d" % ceili(wizard.hp) if wizard.alive else "✝"
 		draw_string(tf, Vector2(hc.x - 30, hc.y + 6), hp_txt, HORIZONTAL_ALIGNMENT_CENTER, 60, 15, Color(1, 0.92, 0.85))

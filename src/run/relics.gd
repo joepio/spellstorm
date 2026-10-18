@@ -2,7 +2,7 @@ class_name Relics
 ## Tomes found on shrines along each level. Each changes numbers in a way you
 ## can say in one sentence; none changes what a spell is.
 ## Keys: el_<element> multiplies that element, dmg, heal, spray_range, charge
-## and ward_time multiply, hp, hops and slots add, speed multiplies
+## and enchant_time multiply, hp, hops and slots add, speed multiplies
 ## move speed, echo and firewalker switch something on.
 
 const ALL := [
@@ -18,7 +18,7 @@ const ALL := [
 	{"name": "Long Nozzle", "text": "Sprays reach 35% further", "spray_range": 1.35},
 	{"name": "Quick Hands", "text": "Thrown spells charge twice as fast", "charge": 0.5},
 	{"name": "Echo Stone", "text": "Bursts around you go off twice", "echo": true},
-	{"name": "Warded Robes", "text": "Wards last twice as long", "ward_time": 2.0},
+	{"name": "Runed Staff", "text": "Enchantments last twice as long", "enchant_time": 2.0},
 	{"name": "Thick Hide", "text": "+40 health", "hp": 40},
 	{"name": "Firewalker Boots", "text": "Burning ground no longer hurts you", "firewalker": true},
 	{"name": "Conductor's Ring", "text": "Lightning on wet targets +50% more", "wet_shock": 1.5},

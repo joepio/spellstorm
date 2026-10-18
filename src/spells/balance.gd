@@ -157,10 +157,10 @@ static func target(s: Dictionary) -> float:
 	return 1.0 + BONUS_PER_SLOT * (s.slots.size() - 1) + BONUS_PER_KIND * (s.counts.size() - 1)
 
 
-## Spells held to the budget. Wards are protection; the overloads are
+## Spells held to the budget. Enchantments feed the free attacks; the overloads are
 ## hand-made showpieces (OverloadFx), so both are only listed. Bolts and the staff are the free attacks, see bolt_dps.
 static func measured(s: Dictionary) -> bool:
-	return not s.shape in ["staff", "stomp", "fizzle", "ward", "overload"]
+	return not s.shape in ["staff", "stomp", "fizzle", "enchant", "overload"]
 
 
 ## The factor on the spell's rate that puts it on its target. Worth grows

@@ -17,7 +17,8 @@ extends Actor
 ##       will go; a tap fires it as soon as it is ready, holding RT keeps it
 ##       while you aim and fires on release
 ##   LS click  plant the queue at your feet: a trap, or a sentry when full
-##   RS click  ward yourself
+##   RS click  enchant yourself: for a while every bolt carries the queue's
+##             elements and the staff swings with them (a fire sword)
 ##   D-pad up  conjure your last spell again
 ##   D-pad left / right  tap to conjure a saved spell, hold to save the queue
 
@@ -48,9 +49,14 @@ const SWING_REACH := 2.3
 ## the bullets it knocks back.
 const SWING_ARC := 1.3
 const NOVA_HOLD := 0.45
-const ROLL_TIME := 0.32
-const ROLL_SPEED := 14.0
-const ROLL_COOLDOWN := 0.75
+## The roll is a commitment, not a dash: it pushes off hard, then slows to
+## a stop, and you are only untouchable for its first part. Afterwards you
+## stumble for a moment, so rolling all the time is slower than walking.
+const ROLL_TIME := 0.55
+const ROLL_SPEED := 11.0
+const ROLL_IFRAMES := 0.3
+const ROLL_RECOVER := 0.3
+const ROLL_COOLDOWN := 0.95
 const BOLT := Balance.BOLT
 
 var player_name := "Wizard"
@@ -87,6 +93,7 @@ var _bolt_t := 0.0
 var _roll_t := 0.0
 var _roll_cd := 0.0
 var _roll_dir := Vector3.ZERO
+var _roll_recover := 0.0
 var _rb_t := -1.0
 var _traced := {}
 var _save_t := {}
@@ -101,7 +108,6 @@ var model: Dictionary
 var _orbs: Array[MeshInstance3D] = []
 var _name_label: Label3D
 var _light: OmniLight3D
-var _ward_shell: MeshInstance3D
 var _tomb: Node3D
 var _remains: Remains
 var _charge_ring: MeshInstance3D
@@ -160,12 +166,6 @@ func _ready() -> void:
 	_name_label.position = Vector3(0, -0.35, 0.6)
 	_name_label.text = player_name
 	add_child(_name_label)
-	_ward_shell = MeshInstance3D.new()
-	_ward_shell.mesh = Art.sphere(1.0, 16)
-	_ward_shell.position = Vector3.UP * 0.9
-	_ward_shell.visible = false
-	_ward_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_ward_shell)
 	_zone = MeshInstance3D.new()
 	_zone.mesh = _arc_mesh(0.55, SWING_REACH + 0.3, SWING_ARC)
 	_zone_mat = ShaderMaterial.new()
@@ -271,42 +271,30 @@ func _physics_process(dt: float) -> void:
 		_visuals(dt)
 		return
 	mana = minf(MANA_MAX, mana + MANA_REGEN * dt)
-	bolt_el = queue.slots[0] if not queue.is_empty() else -1
+	if enchant_time > 0.0:
+		enchant_time -= dt
+		if enchant_time <= 0.0:
+			_enchant_end()
+	bolt_el = queue.slots[0] if not queue.is_empty() else int(enchant.get("primary", -1))
 	_read_input(dt)
 	if _roll_t > 0.0:
 		_roll_t -= dt
-		drive(_roll_dir * ROLL_SPEED, dt)
+		drive(_roll_dir * ROLL_SPEED * roll_speed(1.0 - _roll_t / ROLL_TIME), dt)
+		if _roll_t <= 0.0:
+			_roll_recover = ROLL_RECOVER
 		_visuals(dt)
 		return
+	_roll_recover = maxf(0.0, _roll_recover - dt)
 	var mv := Vector3(pad.move.x, 0, pad.move.y)
 	var spd := move_speed()
 	if channel and is_instance_valid(channel) and channel.is_physics_processing():
 		spd *= 0.55
 	elif not _charging.is_empty():
 		spd *= 0.6
+	if _roll_recover > 0.0:
+		spd *= 0.35
 	drive(_leash(mv) * spd, dt)
 	_visuals(dt)
-
-
-func on_shield_hit(amount: float) -> void:
-	_shield_flash = 1.0
-	if amount > 1.0 and ward.has("primary"):
-		Fx.burst(global_position + Vector3.UP, El.COLOR[ward.primary], 6, 2.5, 0.2)
-
-
-## The shield breaks with a burst of its elements round you.
-func shield_broke() -> void:
-	var s := ward
-	super.shield_broke()
-	if s.is_empty() or not Game.I:
-		return
-	var nova := NovaFx.new()
-	nova.setup(self, {counts = s.counts, payload = s.get("payload", []), primary = s.primary, key = "", name = "", n = {radius = 3.2, rate = 0.5 * s.slots.size()}})
-	Game.I.spawn(nova, global_position)
-	Game.I.shake(0.2)
-
-
-var _shield_flash := 0.0
 
 
 ## A frozen wizard can do nothing, so it never lasts long and never chains:
@@ -373,7 +361,7 @@ func _read_input(dt: float) -> void:
 	if pad.pressed(Pad.LS):
 		cast("plant", -1)
 	if pad.pressed(Pad.RS):
-		cast("ward", -1)
+		cast("enchant", -1)
 	_bolt_t -= dt
 	# Swinging the staff stops the bolts for a moment: your hands are busy.
 	if pad.fire and _bolt_t <= 0.0 and not busy() and _swing_t <= 0.0:
@@ -424,16 +412,19 @@ func _trace_once(what: String) -> void:
 ## What one bolt carries: every loaded element, a little stronger for each
 ## copy, split across the mix so a mixed bolt is not simply stronger.
 func bolt_spell() -> Dictionary:
-	if queue.is_empty():
+	if queue.is_empty() and enchant.is_empty():
 		return {counts = {}, payload = [], primary = -1, n = {}, scales = {}}
 	var counts := {}
 	for e in queue.slots:
 		counts[e] = int(counts.get(e, 0)) + 1
+	# The enchantment rides on every bolt.
+	for e in enchant.get("counts", {}):
+		counts[e] = int(counts.get(e, 0)) + int(enchant.counts[e])
 	var scales := {}
 	var split := 1.0 / sqrt(float(counts.size()))
 	for e in counts:
 		scales[e] = BOLT[e] * (0.6 + 0.4 * counts[e]) * split
-	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = scales}
+	return {counts = counts, payload = [], primary = queue.slots[0] if not queue.is_empty() else enchant.primary, n = {}, scales = scales}
 
 
 func shoot() -> void:
@@ -470,7 +461,7 @@ func melee() -> void:
 		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > SWING_ARC + atan2(a.radius, maxf(to.length(), 0.1)):
 			continue
 		a.hit_spell(bonk, 0.4, self, to.normalized())
-		BoltFx.strike(a, touch, 2.5, self, to.normalized())
+		BoltFx.strike(a, touch, 2.5 * (ENCHANT_SWING if enchant_time > 0.0 else 1.0), self, to.normalized())
 		add_mana(MANA_PER_SWING)
 	# The staff smashes what stands in the arc too.
 	for p in Game.I.arena.props.duplicate():
@@ -483,7 +474,7 @@ func melee() -> void:
 	_swing_dir = aim_dir
 	_deflect_sweep()
 	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
-	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10, 3.5, 0.22)
+	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10 if enchant.is_empty() else 22, 3.5, 0.22, int(enchant.get("primary", -1)))
 	_zone_mat.set_shader_parameter("color", sc.lerp(Color(1.0, 0.9, 0.6), 0.5))
 
 
@@ -544,7 +535,15 @@ static func _arc_mesh(r0: float, r1: float, half: float) -> ArrayMesh:
 	return st.commit()
 
 
-## A dodge roll the way you walk, untouchable for its length.
+## How fast the roll goes at [param k] of the way through it, 0 to 1: a quick
+## push off, then a long ease to a stop.
+static func roll_speed(k: float) -> float:
+	if k < 0.15:
+		return 0.4 + 0.6 * k / 0.15
+	return pow(clampf(1.0 - (k - 0.15) / 0.85, 0.0, 1.0), 1.6)
+
+
+## A dodge roll the way you walk, untouchable at its start.
 func roll() -> void:
 	if _roll_cd > 0.0 or _roll_t > 0.0 or not can_act():
 		return
@@ -554,7 +553,7 @@ func roll() -> void:
 	_roll_dir = d.normalized()
 	_roll_t = ROLL_TIME
 	_roll_cd = ROLL_COOLDOWN
-	invuln = ROLL_TIME + 0.06
+	invuln = ROLL_IFRAMES
 	if channel and is_instance_valid(channel):
 		channel = null
 	_trace_once("dodge")
@@ -661,8 +660,8 @@ func cast(form: String, button: int) -> void:
 			_plant(TrapFx.new().setup(self, s), _traps, MAX_TRAPS)
 		"sentry":
 			_plant(SentryFx.new().setup(self, s), _sentries, 1)
-		"ward":
-			_ward(s)
+		"enchant":
+			_enchant(s)
 		"stomp":
 			_swing(s)
 
@@ -794,40 +793,45 @@ func _throw(s: Dictionary) -> void:
 	_cast_anim = 0.3
 
 
-## A ward is a shield round you: it soaks SHIELD_PER_ELEMENT damage of any
-## kind for each element in it, and when it breaks it bursts outward with
-## its elements. Earth also hardens you, Air speeds you up, and matching
-## elements are resisted on top. Nothing heals you.
-const SHIELD_PER_ELEMENT := 18.0
+## An enchantment (RS) lays the queue on your staff for a while: every bolt
+## carries its elements on top of whatever is loaded, so even plain bolts
+## burn or freeze, and the staff swing strikes with them, a fire sword. The
+## staff shows it: the element pours off the shaft. Nothing heals you.
+var enchant := {}
+var enchant_time := 0.0
+var _enchant_parts: CPUParticles3D
+## A swing hits this much harder with an enchantment on the staff.
+const ENCHANT_SWING := 1.6
 
 
-func _ward(s: Dictionary) -> void:
-	ward = s
-	ward_time = s.n.duration
-	shield_max = SHIELD_PER_ELEMENT * s.slots.size()
-	shield = shield_max
-	armor = 1.0
-	haste = 1.0
-	for e in s.counts:
-		var k: int = s.counts[e]
-		if El.contains(e, El.EARTH):
-			armor *= pow(0.75, k)
-		if El.contains(e, El.AIR):
-			haste += 0.15 * k
-	var m := StandardMaterial3D.new()
-	var mixed: Color = El.COLOR[s.primary]
-	for e in s.payload:
-		mixed = mixed.lerp(El.COLOR[e], 0.35)
-	m.albedo_color = Color(mixed.r, mixed.g, mixed.b, 0.18)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.emission_enabled = true
-	m.emission = mixed
-	m.emission_energy_multiplier = 0.6
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_ward_shell.material_override = m
-	Fx.ring(global_position, mixed, 1.6, 0.4)
+func _enchant(s: Dictionary) -> void:
+	_enchant_end()
+	enchant = s
+	enchant_time = s.n.duration
+	var c: Color = El.COLOR[s.primary]
+	_enchant_parts = Fx.particles(c, 36, 0.5, 0.22)
+	_enchant_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_enchant_parts.emission_box_extents = Vector3(0.04, 0.5, 0.04)
+	_enchant_parts.position = Vector3(0, 0.65, 0)
+	_enchant_parts.direction = Vector3.UP
+	_enchant_parts.spread = 30.0
+	_enchant_parts.initial_velocity_min = 0.2
+	_enchant_parts.initial_velocity_max = 0.8
+	Parts.style(_enchant_parts, s.primary)
+	model.staff.add_child(_enchant_parts)
+	_enchant_parts.emitting = true
+	Fx.burst(staff_tip(), c, 20, 4.0, 0.2, s.primary)
+	Fx.ring(global_position, c, 1.6, 0.4)
+
+
+func _enchant_end() -> void:
+	enchant = {}
+	enchant_time = 0.0
+	if _enchant_parts:
+		_enchant_parts.emitting = false
+		var p := _enchant_parts
+		get_tree().create_timer(0.8).timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+		_enchant_parts = null
 
 
 func _swing(s: Dictionary) -> void:
@@ -851,6 +855,7 @@ func die(src: Actor) -> void:
 	super.die(src)
 	_charging = {}
 	_charge_stop()
+	_enchant_end()
 	channel = null
 	queue.clear()
 	burn = 0.0
@@ -974,17 +979,6 @@ func _visuals(dt: float) -> void:
 		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else 1.3)
 	else:
 		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
-	_ward_shell.visible = ward_time > 0.0
-	_shield_flash = maxf(0.0, _shield_flash - dt * 4.0)
-	if ward_time > 0.0:
-		var pulse := 0.95 + 0.05 * sin(Time.get_ticks_msec() / 150.0)
-		_ward_shell.scale = Vector3(0.95, 1.05, 0.95) * pulse * (1.0 + 0.08 * _shield_flash)
-		# Bright when full, thin as it wears down, a flash on every hit.
-		var m := _ward_shell.material_override as StandardMaterial3D
-		if m:
-			var k := shield / maxf(shield_max, 1.0)
-			m.emission_energy_multiplier = 0.25 + 0.6 * k + 1.5 * _shield_flash
-			m.albedo_color.a = 0.06 + 0.16 * k + 0.2 * _shield_flash
 	# The roll: squashed low, spinning on the spot.
 	if _roll_t > 0.0:
 		var k := 1.0 - _roll_t / ROLL_TIME

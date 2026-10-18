@@ -52,10 +52,9 @@ func _init() -> void:
 	check(spell([El.EARTH, El.EARTH], "plant").shape == "trap", "planting under five is a trap")
 	check(spell([El.EARTH, El.EARTH, El.EARTH, El.EARTH, El.EARTH], "plant").shape == "sentry", "a full queue plants a sentry")
 	check(spell([El.EARTH, El.EARTH, El.EARTH, El.EARTH, El.EARTH], "plant").name == "Stone Sentry", "a stone sentry")
-	check(spell([El.POISON], "ward").name == "Poison Ward", "poison on yourself is a ward")
-	check(spell([El.FIRE, El.FIRE], "ward").name == "Fire Ward", "fire ward")
+	check(spell([El.POISON], "enchant").name == "Poison Enchantment", "poison on yourself is an enchantment")
+	check(spell([El.FIRE, El.FIRE], "enchant").name == "Fire Enchantment", "fire enchantment")
 	check(spell([], "cast").shape == "staff", "an empty cast swings the staff")
-	check(Grammar.ward_resist(spell([El.STEAM], "ward"), El.FIRE) == 0.5, "a steam ward half resists fire")
 
 	# Every reachable queue: breadth first over button presses.
 	var seen := {[]: true}

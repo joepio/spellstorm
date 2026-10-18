@@ -55,11 +55,6 @@ var push := Vector3.ZERO
 ## Damage and healing since the last floating number (Game shows them),
 ## and whether a hit in that time found a weakness or a resistance.
 var shown := {dmg = 0.0, heal = 0.0, weak = false, resist = false}
-var ward := {}
-var ward_time := 0.0
-## A ward's shield: damage of any kind goes into it before health.
-var shield := 0.0
-var shield_max := 0.0
 var flash := 0.0
 var haste := 1.0
 ## Seconds left of a dodge roll's invulnerability: monsters cannot touch you.
@@ -99,7 +94,7 @@ func setup_status_fx() -> void:
 	add_child(_bubbles)
 
 
-## Resistance to one element, fused ones average their parts. Wards add theirs.
+## Resistance to one element, fused ones average their parts.
 func resistance(e: int) -> float:
 	var parts := El.parts(e)
 	var r := 0.0
@@ -107,8 +102,6 @@ func resistance(e: int) -> float:
 		var x := float(resist.get(b, 0.0))
 		if undead and b == El.POISON:
 			x += 0.4
-		if ward_time > 0.0:
-			x += Grammar.ward_resist(ward, b)
 		r += x
 	return clampf(r / parts.size(), -1.0, 1.0)
 
@@ -228,15 +221,6 @@ func healed(amount: float) -> void:
 func take(dmg: float, src: Actor = null) -> void:
 	if not alive or invuln > 0.0:
 		return
-	if shield > 0.0 and dmg > 0.0:
-		var soak := minf(shield, dmg)
-		shield -= soak
-		dmg -= soak
-		on_shield_hit(soak)
-		if shield <= 0.0:
-			shield_broke()
-		if dmg <= 0.0:
-			return
 	shown.dmg += minf(dmg, hp)
 	hp -= dmg
 	if dmg > 2.5:
@@ -273,20 +257,6 @@ func revive_progress(_amount: float) -> void:
 
 func mods() -> Dictionary:
 	return {}
-
-
-## The shield took [param _amount]; Wizard shows it.
-func on_shield_hit(_amount: float) -> void:
-	pass
-
-
-## The shield is used up: the ward ends (Wizard bursts it).
-func shield_broke() -> void:
-	shield = 0.0
-	ward_time = 0.0
-	ward = {}
-	armor = 1.0
-	haste = 1.0
 
 
 ## How long a freeze holds, and how long after it frost cannot freeze again.
@@ -362,13 +332,6 @@ func tick_status(delta: float) -> void:
 	slick = maxf(0.0, slick - delta)
 	flash = maxf(0.0, flash - delta)
 	invuln = maxf(0.0, invuln - delta)
-	if ward_time > 0.0:
-		ward_time -= delta
-		if ward_time <= 0.0:
-			ward = {}
-			armor = 1.0
-			haste = 1.0
-			shield = 0.0
 	if _overlay:
 		var c := Color(1, 1, 1, 0)
 		if frozen > 0.0:

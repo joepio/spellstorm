@@ -104,7 +104,7 @@ func _read_joypad() -> void:
 
 ## WASD moves, the mouse aims. 1 2 3 4 (or J K L I) are the four element
 ## pairs, Shift flips to the opposite. Left click shoots, right click casts,
-## Space swings the staff (hold for a burst), Q dodges, V plants, F wards,
+## Space swings the staff (hold for a burst), Q dodges, V plants, F enchants,
 ## R recasts, Esc opens the menu (arrows and Enter in it).
 func _read_keyboard() -> void:
 	var m := Vector2(

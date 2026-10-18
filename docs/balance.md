@@ -91,7 +91,7 @@ into hit, burn, poison, freeze, utility.
 
 ### Not fitted
 
-- **Wards** protect. They are not damage and are judged in play.
+- **Enchantments** put their elements on your bolts and staff swing for a while. They are judged in play.
 - **Overloads** (five of a kind: Meteor, Black Hole and the rest) are
   hand-made showpieces in `OverloadFx` at a fixed 40 mana plus loading.
   They may be stronger than the budget, because they empty your queue.

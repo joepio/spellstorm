@@ -4,7 +4,7 @@ class_name Grammar
 ##
 ## The rules, in the order the player learns them:
 ##   * The form is the button: RT casts ahead, RB (hold) bursts around you,
-##     LS (click) plants it at your feet, RS (click) wards yourself.
+##     LS (click) plants it at your feet, RS (click) enchants your bolts and staff.
 ##   * The heaviest element decides the shape of a cast:
 ##       solid (Earth, Ice, Mud, Magma)  throw it
 ##       energy (Lightning, Storm)       arc to targets
@@ -62,7 +62,7 @@ const ADJ := {
 	El.STEAM: "Scalding", El.ICE: "Glacial", El.MUD: "Muddy", El.MAGMA: "Molten",
 	El.STORM: "Thundering",
 }
-const WARD_ADJ := {
+const ENCHANT_ADJ := {
 	El.POISON: "Poison", El.VOID: "Void", El.FIRE: "Fire", El.FROST: "Frost",
 	El.WATER: "Water", El.LIGHTNING: "Lightning", El.EARTH: "Stone", El.AIR: "Wind",
 	El.STEAM: "Steam", El.ICE: "Ice", El.MUD: "Mud", El.MAGMA: "Magma", El.STORM: "Storm",
@@ -70,7 +70,7 @@ const WARD_ADJ := {
 
 const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "arc", El.Kind.SPIRIT: "beam", El.Kind.FLOW: "spray"}
 
-const FORMS := ["cast", "nova", "plant", "ward"]
+const FORMS := ["cast", "nova", "plant", "enchant"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
 ## by trying every sequence of button presses and fails if this drifts.
 const TOTAL := 3985
@@ -95,7 +95,7 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 		return spell
 
 	var primary: int
-	if form == "nova" or form == "ward":
+	if form == "nova" or form == "enchant":
 		primary = _most(slots, counts, slots)
 	else:
 		var best_kind := 99
@@ -131,13 +131,13 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 			spell.name = _adjectives(payload) + NOVA_NOUN[primary]
 		"plant":
 			spell.name = _adjectives(payload) + (SENTRY_NOUN if spell.shape == "sentry" else PLANT_NOUN)[primary]
-		"ward":
-			spell.shape = "ward"
+		"enchant":
+			spell.shape = "enchant"
 			var words: Array = []
 			for e in [primary] + payload:
 				if words.size() < 2:
-					words.append(WARD_ADJ[e])
-			spell.name = " ".join(words) + " Ward"
+					words.append(ENCHANT_ADJ[e])
+			spell.name = " ".join(words) + " Enchantment"
 	var sorted_payload := payload.duplicate()
 	sorted_payload.sort()
 	spell.key = "%s|%s|%d|%s" % [form, spell.shape, primary, ",".join(sorted_payload.map(func(e): return str(e)))]
@@ -229,8 +229,8 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 				stun = 0.8 + 0.25 * lead, duration = 30.0, rate = 1.6}
 		"sentry":
 			n = {range = 9.0, interval = 0.3, duration = 14.0, rate = 0.5}
-		"ward":
-			n = {duration = 14.0 * float(mods.get("ward_time", 1.0)), resist = 0.5}
+		"enchant":
+			n = {duration = 12.0 * float(mods.get("enchant_time", 1.0))}
 		"overload":
 			n = {radius = 5.0, rate = 4.0}
 		"staff":
@@ -240,10 +240,4 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 	spell.n = n
 
 
-## Resistance a ward gives against one base element: half per matching slot.
-static func ward_resist(spell: Dictionary, base: int) -> float:
-	var r := 0.0
-	for e in spell.counts:
-		if El.contains(e, base):
-			r += 0.5 * spell.counts[e]
-	return minf(r, 1.0)
+

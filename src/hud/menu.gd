@@ -187,7 +187,7 @@ const CONTROLS := [
 	["rb", "Staff swing, knocks bullets back"],
 	["rb_hold", "Hold and let go: burst around you"],
 	["lt", "Dodge roll"],
-	["rs", "Ward yourself"],
+	["rs", "Enchant your bolts and staff"],
 	["ls", "Plant the spell on the ground"],
 	["dpad_up", "Load your last spell again"],
 	["dpad_side", "Saved spells (hold to save)"],

@@ -145,7 +145,7 @@ func think(w: Wizard, dt: float) -> void:
 				"plant":
 					pad.set_button(Pad.LS, true)
 					_phase = "idle"
-				"ward":
+				"enchant":
 					pad.set_button(Pad.RS, true)
 					_phase = "idle"
 		"hold":
@@ -212,9 +212,9 @@ func _choose(w: Wizard, d: float) -> void:
 		form = r[1]
 		hold = maxf(r[2], 0.3)
 		return
-	if w.hp < w.max_hp * 0.4 and randf() < 0.5:
-		plan = [El.EARTH, El.EARTH, El.EARTH]
-		form = "ward"
+	if w.enchant_time <= 0.0 and randf() < 0.15:
+		plan = [[El.FIRE, El.FIRE], [El.LIGHTNING, El.LIGHTNING], [El.FROST, El.POISON]].pick_random().duplicate()
+		form = "enchant"
 		return
 	if d < 3.0 and randf() < 0.6:
 		plan = CLOSE.pick_random().duplicate()
