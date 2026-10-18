@@ -72,7 +72,7 @@ func _cone(cs: Array, life: float) -> void:
 	m.rotation.x = PI / 2
 	m.position = Vector3(0, 0, -n.range * 0.5)
 	add_child(m)
-	var full := 0.22 if style == 3 else 1.0
+	var full := 0.35 if style == 3 else 1.0
 	create_tween().tween_property(_cone_mat, "shader_parameter/strength", full, 0.12)
 
 

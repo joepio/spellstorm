@@ -179,7 +179,7 @@ func _ready() -> void:
 			aura.emitting = true
 	_hp_bar = MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(1.0 + cfg.size * 0.3, 0.13)
+	q.size = Vector2(0.55 + cfg.size * 0.2, 0.05)
 	_hp_bar.mesh = q
 	_hp_mat = ShaderMaterial.new()
 	_hp_mat.shader = HP_SHADER

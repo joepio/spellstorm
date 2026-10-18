@@ -2,7 +2,7 @@ shader_type spatial;
 // A spray's cone: a body of flame, frost, water or steam rushing out of the
 // staff. Noise scrolls along the cone so it boils; the view angle softens the
 // sides so it reads as a volume, not a shell. `style`: 0 flame, 1 frost
-// (glittering), 2 water (streaks), 3 vapour (soft and slow).
+// (glittering), 2 water (streaks), 3 vapour (twisting ribbons).
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
 
 #include "res://src/fx/noise.gdshaderinc"
@@ -31,8 +31,10 @@ void fragment() {
 		body = 0.3 + 0.9 * smoothstep(0.35, 0.8, streak) * (0.5 + n);
 		c = mix(edge.rgb, core.rgb, smoothstep(0.5, 0.9, streak));
 	} else if (style == 3) {
-		body = smoothstep(0.25, 0.75, n);
-		c = mix(edge.rgb, core.rgb, n * 0.6);
+		// Ribbons of dust and haze twisting out along the gust.
+		float rib = sn_fbm(vec3(UV.x * 14.0 + along * 3.0, along * 1.6 * reach - TIME * speed * 0.5, n * 1.5));
+		body = smoothstep(0.5, 0.75, rib) * 1.6 + smoothstep(0.3, 0.8, n) * 0.35;
+		c = mix(edge.rgb, core.rgb, smoothstep(0.5, 0.8, rib));
 	} else {
 		// Hot near the staff and in the folds, cooling to smoke at the tip.
 		float heat = n * (1.25 - along * 0.9);

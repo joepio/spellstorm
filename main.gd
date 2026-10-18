@@ -591,6 +591,16 @@ func _take_shot() -> void:
 		for i in kinds.size():
 			var ang := TAU * i / kinds.size()
 			run.spawn_enemy(kinds[i], c + Vector3(cos(ang), 0, sin(ang)) * 6.0, false)
+	# --fields fire,air,magma lays those fields in a ring round the wizards.
+	var fl_i := args.find("--fields")
+	if fl_i >= 0 and fl_i + 1 < args.size():
+		var names: PackedStringArray = args[fl_i + 1].split(",")
+		var c: Vector3 = wizards[0].global_position
+		for i in names.size():
+			var ang := TAU * i / names.size()
+			var k: int = {"fire": El.FIRE, "magma": El.MAGMA, "air": El.AIR, "water": El.WATER, "frost": El.FROST,
+				"steam": El.STEAM, "mud": El.MUD}.get(names[i], El.FIRE)
+			arena.add_field(c + Vector3(cos(ang), 0, sin(ang)) * 5.0, k, 2.6, 999.0, null)
 	for f in shot_frames:
 		await get_tree().physics_frame
 		if how != "" and f == shot_frames - 70:
