@@ -652,6 +652,11 @@ func _take_shot() -> void:
 			m.global_position = wizards[0].global_position + Vector3(4, 0, 1) * Vector3(1, 0, 1)
 			m.global_position.y = 0.0
 			m.set_charge(0.8)
+		# --swing N: every wizard swings its sword N frames before the shot.
+		if "--swing" in args and f == shot_frames - int(args[args.find("--swing") + 1]):
+			for w in wizards:
+				w._swing_cd = 0.0
+				w.melee()
 		# --roll N: the first wizard dodges N frames before the shot.
 		if "--roll" in args and f == shot_frames - int(args[args.find("--roll") + 1]):
 			wizards[0].roll()

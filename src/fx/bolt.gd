@@ -164,7 +164,7 @@ func _ready() -> void:
 	trail.initial_velocity_max = 0.8
 	trail.gravity = Vector3(0, _look.rise, 0)
 	if el >= 0:
-		Parts.style(trail, el)
+		Parts.style(trail, el, false)
 	add_child(trail)
 	trail.emitting = true
 	look_at(global_position + vel, Vector3.UP)

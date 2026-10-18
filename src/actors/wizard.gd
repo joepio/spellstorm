@@ -44,7 +44,7 @@ const SWING_COOLDOWN := 0.34
 ## knocking bullets back is a timed choice, not a shield. The gem goes dark
 ## while it recovers and flashes when it is ready.
 const SWING_RECOVER := 0.7
-const SWING_REACH := 2.3
+const SWING_REACH := 2.0
 ## Half the angle of the swing, each side of where you aim: what it hits and
 ## the bullets it knocks back.
 const SWING_ARC := 1.3
@@ -131,6 +131,7 @@ func _ready() -> void:
 	shape.position = Vector3.UP * 0.8
 	add_child(shape)
 	model = Art.wizard(robe)
+	_size_sword()
 	add_child(model.root)
 	_remains = Remains.new().setup(self, model)
 	add_child(_remains)
@@ -453,7 +454,7 @@ func shoot() -> void:
 	Game.I.count("shots")
 
 
-## The staff swing: hits monsters in front with your element and knocks
+## The sword swing: hits monsters in front with your element and knocks
 ## their bullets back the way you aim.
 func melee() -> void:
 	if _swing_t > 0.0 or _swing_cd > 0.0 or busy():
@@ -477,13 +478,14 @@ func melee() -> void:
 		if enchant_time <= 0.0:
 			BoltFx.strike(a, touch, 2.5, self, to.normalized())
 		add_mana(MANA_PER_SWING)
-	# The staff smashes what stands in the arc too.
+	# The sword smashes what stands in the arc too.
+	var cut := enchant_reach() if enchant_time > 0.0 else SWING_REACH
 	for p in Game.I.arena.props.duplicate():
 		if not is_instance_valid(p):
 			continue
 		var tp: Vector3 = p.global_position - global_position
 		tp.y = 0
-		if tp.length() < SWING_REACH + 0.6 and absf(aim_dir.signed_angle_to(tp, Vector3.UP)) < SWING_ARC + 0.3:
+		if tp.length() < cut + 0.6 and absf(aim_dir.signed_angle_to(tp, Vector3.UP)) < SWING_ARC + 0.3:
 			p.damage(4.0, aim_dir)
 	_swing_dir = aim_dir
 	_deflect_sweep()
@@ -536,21 +538,14 @@ func _limbs(dt: float, moving: bool, lift: float) -> void:
 	var tuck := sin((1.0 - _roll_t / ROLL_TIME) * PI) if _roll_t > 0.0 else 0.0
 	leg_l.rotation.x -= tuck * 1.2
 	leg_r.rotation.x -= tuck * 1.2
-	var arm_l: Node3D = model.arm_l
-	var want := Vector3(-step * 0.5 - 0.1, 0.0, -0.12)
-	if lift > 0.0:
-		# The free hand thrown out ahead, palm to the spell.
-		want = Vector3(-1.35, 0.25, -0.15)
-	if _swing_t > 0.0:
-		want = Vector3(-0.4, 0.0, -0.9)
-	if tuck > 0.0:
-		want = Vector3(-1.6 * tuck, 0.0, -0.2)
-	arm_l.rotation = arm_l.rotation.lerp(want, 1.0 - exp(-14.0 * dt))
-	var arm_r: Node3D = model.arm_r
-	var staff: Node3D = model.staff
-	var to_hand := staff.position - arm_r.position
-	if to_hand.length() > 0.01:
-		arm_r.basis = Basis(Quaternion(Vector3.DOWN, to_hand.normalized()))
+	# Each arm reaches for what its hand holds: the staff and the sword.
+	for pair in [[model.arm_r, model.staff], [model.arm_l, model.sword]]:
+		var arm: Node3D = pair[0]
+		var held: Node3D = pair[1]
+		var to_hand := held.position - arm.position
+		if to_hand.length() > 0.01:
+			arm.basis = Basis(Quaternion(Vector3.DOWN, to_hand.normalized()))
+
 
 
 ## 1 when an enemy bullet is right on you, fading to 0 at six metres.
@@ -915,27 +910,25 @@ func _throw(s: Dictionary) -> void:
 	_cast_anim = 0.3
 
 
-## An enchantment (RS) lays the queue on your staff for a while and turns
+## An enchantment (RS) lays the queue on your sword for a while and turns
 ## the swing (RB) into an element weapon, close up and risky but strong:
-## it reaches further, hits with the enchantment's elements, throws a slash
-## of them ahead, and each element adds its own trick (_enchanted_swing).
-## The bolts change too (_enchanted_shot). The staff shows it: the element pours off the
-## shaft. Nothing heals you.
+## the sword grows (up to SWORD_MAX with five elements) and turns to the
+## element, hits with it, and each element adds its own trick
+## (_enchanted_swing). The bolts change too (_enchanted_shot). Nothing
+## heals you.
 var enchant := {}
 var enchant_time := 0.0
 var _enchant_parts: CPUParticles3D
 ## How hard an enchanted swing hits with its elements, per element.
-const ENCHANT_SWING := 3.0
-const ENCHANT_REACH := 0.7
-## Each element beyond the first makes the blade this much longer.
-const BLADE_PER_ELEMENT := 0.4
-## Where the gem sits from the wizard's middle when the staff swings flat;
-## the blade starts there.
-const GEM_REACH := 1.6
+const ENCHANT_SWING := 2.0
+## How far a full enchantment (five elements) makes the sword reach.
+const SWORD_MAX := 4.6
+## Where the sword's hilt is from the wizard's middle when it swings flat.
+const SWORD_HAND := 0.62
 
 
 ## How much harder an enchanted staff's bolts hit than loaded ones.
-const ENCHANT_BOLT := 1.5
+const ENCHANT_BOLT := 1.2
 
 
 ## An enchanted staff shoots its element's own way (BoltFx.charmed): fire
@@ -966,7 +959,15 @@ func enchant_reach() -> float:
 	var n := 0
 	for e in enchant.counts:
 		n += int(enchant.counts[e])
-	return SWING_REACH + ENCHANT_REACH + BLADE_PER_ELEMENT * (n - 1)
+	if n <= 0:
+		return SWING_REACH
+	return SWING_REACH + (SWORD_MAX - SWING_REACH) * minf(n, SpellQueue.SIZE) / SpellQueue.SIZE
+
+
+## The sword's blade as long as the swing reaches now.
+func _size_sword() -> void:
+	if model.has("blade"):
+		(model.blade as Node3D).scale = Vector3(1.0, enchant_reach() - SWORD_HAND - 0.1, 1.0)
 
 
 ## The enchanted swing: the staff's blade of elements lands on everything
@@ -1032,33 +1033,58 @@ func _enchant(s: Dictionary) -> void:
 	var n := 0
 	for e in s.counts:
 		n += int(s.counts[e])
-	# The blade: out of the gem, as long as the swing now reaches.
-	var gem_y: float = model.gem.position.y
-	var length := enchant_reach() - GEM_REACH
-	var w := 0.06 + 0.014 * n
+	# The sword takes the enchantment: it grows, its blade turns to the
+	# element and burns, sparks or drips with it along its whole length.
+	_size_sword()
+	var length := enchant_reach() - SWORD_HAND - 0.1
+	var sword: Node3D = model.sword
 	_blade = Node3D.new()
-	_blade.position = Vector3(0, gem_y, 0)
-	model.staff.add_child(_blade)
-	Art.part(_blade, Art.cyl(0.0, w, length, 8), Fx.element(s.primary, 1.15), Vector3(0, length * 0.5, 0))
-	# A faint glow round it; pale elements need less to stay coloured.
+	_blade.position.y = 0.04
+	sword.add_child(_blade)
+	var wide := 1.0 + 0.12 * n
+	# A blade of the element's own colour, glowing, with a hotter edge
+	# down its middle.
+	var hot := Fx.glow(c, 1.3)
+	var core := Art.part(_blade, Art.box(0.1 * wide, length, 0.035), hot, Vector3(0, length * 0.5, 0))
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ridge := Art.part(_blade, Art.box(0.025 * wide, length * 0.96, 0.045), Fx.glow(c.lerp(Color.WHITE, 0.6), 2.0), Vector3(0, length * 0.49, 0))
+	ridge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tipm := Art.part(_blade, Art.cyl(0.0, 0.07 * wide, 0.16 * wide, 4), hot, Vector3(0, length + 0.08 * wide, 0), Vector3(0, 45, 0), Vector3(1, 1, 0.4))
+	tipm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# A soft edge of light round the blade, flat like the blade itself.
 	var bright := (c.r + c.g + c.b) / 3.0
-	var shell := Art.part(_blade, Art.cyl(w * 0.5, w * 1.9, length * 1.04, 10), Fx.additive(c, lerpf(0.3, 0.12, bright)), Vector3(0, length * 0.5, 0))
-	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tip := Fx.halo(c, 0.6 + 0.12 * n, 0.8)
+	var edge := Art.part(_blade, Art.box(0.24 * wide, length + 0.2, 0.08), Fx.additive(c, lerpf(0.2, 0.08, bright)), Vector3(0, length * 0.5, 0))
+	edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tip := Fx.halo(c, 0.5 + 0.1 * n, 0.7)
 	tip.position.y = length
 	_blade.add_child(tip)
-	_enchant_parts = Fx.particles(c, 16 + 10 * n, 0.45, 0.18 + 0.02 * n)
+	if s.primary in [El.FIRE, El.MAGMA]:
+		# Tongues of fire licking up off the blade, more on a bigger sword.
+		var flame := Fx.shader("flame")
+		var q := QuadMesh.new()
+		for i in 3 + n * 2:
+			var f := MeshInstance3D.new()
+			f.mesh = q
+			f.material_override = flame
+			var h := randf_range(0.35, 0.6) * (0.8 + 0.1 * n)
+			f.scale = Vector3(h * 0.6, h, 1.0)
+			f.position = Vector3(0, length * (float(i) + 0.5) / (3 + n * 2), 0)
+			f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_blade.add_child(f)
+	_enchant_parts = Fx.particles(c, 14 + 8 * n, 0.45, 0.16 + 0.02 * n)
 	_enchant_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_enchant_parts.emission_box_extents = Vector3(w, length * 0.5, w)
-	_enchant_parts.position = Vector3(0, gem_y + length * 0.5, 0)
+	_enchant_parts.emission_box_extents = Vector3(0.06 * wide, length * 0.5, 0.03)
+	_enchant_parts.position = Vector3(0, 0.04 + length * 0.5, 0)
 	_enchant_parts.direction = Vector3.UP
 	_enchant_parts.spread = 40.0
 	_enchant_parts.initial_velocity_min = 0.2
 	_enchant_parts.initial_velocity_max = 0.6 + 0.15 * n
 	Parts.style(_enchant_parts, s.primary)
-	model.staff.add_child(_enchant_parts)
+	sword.add_child(_enchant_parts)
 	_enchant_parts.emitting = true
-	Fx.burst(staff_tip(), c, 20, 4.0, 0.2, s.primary)
+	# The steel shows again when it ends; under the element it is hidden.
+	(model.blade as Node3D).visible = false
+	Fx.burst(sword.global_position + Vector3.UP * 0.5, c, 20, 4.0, 0.2, s.primary)
 	Fx.ring(global_position, c, 1.6, 0.4)
 
 
@@ -1071,6 +1097,9 @@ func _enchant_end() -> void:
 	if _blade:
 		_blade.queue_free()
 		_blade = null
+	if model and model.has("blade"):
+		(model.blade as Node3D).visible = true
+		_size_sword()
 	if _enchant_parts:
 		_enchant_parts.emitting = false
 		var id := _enchant_parts.get_instance_id()
@@ -1190,20 +1219,27 @@ func _visuals(dt: float) -> void:
 	# The swing: the staff sweeps flat from one side to the other, the body
 	# twists with it, and the arc on the ground opens behind the staff.
 	var sweep := 1.0 - _swing_t / SWING_COOLDOWN if _swing_t > 0.0 else -1.0
+	var sword: Node3D = model.sword
 	if sweep >= 0.0:
 		var e := 1.0 - pow(1.0 - minf(sweep * 1.6, 1.0), 3.0)
-		staff.rotation.y = lerpf(1.9, -1.9, e)
-		staff.rotation.x = lerpf(staff.rotation.x, 1.35, 30.0 * dt)
+		# The sword arm thrown out, the blade flat, cutting from left to right.
+		sword.position = sword.position.lerp(Vector3(-0.15, 0.95, 0.5), 1.0 - exp(-30.0 * dt))
+		sword.rotation = Vector3(PI * 0.5, lerpf(1.9, -1.9, e), 0.0)
 		body.rotation.y = target_yaw + lerpf(0.6, -0.6, e)
 		_zone.visible = true
 		# An enchanted blade sweeps a wider arc on the floor too.
 		var zs := (enchant_reach() + 0.3) / (SWING_REACH + 0.3) if enchant_time > 0.0 else 1.0
 		_zone.scale = Vector3(zs, 1.0, zs)
 		_zone_mat.set_shader_parameter("progress", e)
-		_zone_mat.set_shader_parameter("strength", 1.0 - smoothstep(0.55, 1.0, sweep))
+		_zone_mat.set_shader_parameter("strength", (1.0 - smoothstep(0.55, 1.0, sweep)) * (0.45 if enchant_time > 0.0 else 1.0))
 		_place_zone(_swing_dir)
 	else:
 		staff.rotation.y = 0.0
+		# At rest the sword is held up and forward, its length plain to see.
+		# Walking swings it a little against the step.
+		var rest := Vector3(-0.36, 0.78, 0.24 - sin(_walk) * _stride * 0.08)
+		sword.position = sword.position.lerp(rest, 1.0 - exp(-12.0 * dt))
+		sword.rotation = sword.rotation.lerp(Vector3(0.85, 0.0, 0.3), 1.0 - exp(-12.0 * dt))
 		_zone.scale = Vector3.ONE
 		var near := _bullet_near() if _swing_cd <= 0.0 else 0.0
 		_zone.visible = near > 0.0 and alive

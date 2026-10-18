@@ -119,8 +119,26 @@ static func wizard(robe: Color) -> Dictionary:
 	meshes.append(part(staff, cyl(0.03, 0.04, 1.7, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.1, 0)))
 	meshes.append(part(staff, cyl(0.09, 0.03, 0.18, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.97, 0)))
 	var gem := part(staff, sphere(0.11, 12), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.12, 0))
+	# A sword in the other hand, for the swing. The blade is a metre long
+	# under `blade`, so scaling that sets how far it reaches.
+	var sword := Node3D.new()
+	sword.position = Vector3(-0.36, 0.78, 0.24)
+	body.add_child(sword)
+	var steel := Fx.solid(Color(0.72, 0.74, 0.78), 0.25)
+	steel.metallic = 0.8
+	var blade := Node3D.new()
+	blade.position.y = 0.04
+	sword.add_child(blade)
+	meshes.append(part(blade, box(0.085, 1.0, 0.022), steel, Vector3(0, 0.5, 0)))
+	# A ridge down the middle catches the light.
+	part(blade, box(0.018, 0.96, 0.03), Fx.solid(Color(0.9, 0.92, 0.95), 0.15), Vector3(0, 0.49, 0))
+	meshes.append(part(blade, cyl(0.0, 0.06, 0.12, 4), steel, Vector3(0, 1.06, 0), Vector3(0, 45, 0), Vector3(1, 1, 0.37)))
+	var hilt := Fx.solid(Color(0.75, 0.6, 0.3), 0.4)
+	meshes.append(part(sword, box(0.3, 0.045, 0.07), hilt, Vector3(0, 0.02, 0)))
+	meshes.append(part(sword, cyl(0.024, 0.024, 0.2, 6), Fx.solid(Color(0.25, 0.14, 0.08), 0.8), Vector3(0, -0.1, 0)))
+	meshes.append(part(sword, sphere(0.04, 6), hilt, Vector3(0, -0.22, 0)))
 	return {root = root, body = body, staff = staff, gem = gem, hat = hat, meshes = meshes,
-		arm_r = arms[0], arm_l = arms[1], leg_r = legs[0], leg_l = legs[1]}
+		arm_r = arms[0], arm_l = arms[1], leg_r = legs[0], leg_l = legs[1], sword = sword, blade = blade}
 
 
 static func tombstone() -> Node3D:

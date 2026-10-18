@@ -22,8 +22,10 @@ static var _mats := {}
 
 
 ## Give [param p] element [param e]'s look. Its size, colour ramp, gravity
-## and spin change; its emission shape, direction and speed stay.
-static func style(p: CPUParticles3D, e: int) -> void:
+## and spin change; its emission shape, direction and speed stay. Without
+## [param smoke] fire leaves none (a trail on something fast would draw a
+## dark blot on it).
+static func style(p: CPUParticles3D, e: int, smoke := true) -> void:
 	if not LOOK.has(e):
 		return
 	var look: int = LOOK[e]
@@ -41,13 +43,15 @@ static func style(p: CPUParticles3D, e: int) -> void:
 			p.scale_amount_curve = _curve([1.0, 0.8, 0.2])
 			p.angle_min = -15.0
 			p.angle_max = 15.0
-			_smoke(p, size)
+			if smoke:
+				_smoke(p, size)
 		Look.EMBER:
 			p.mesh = _quad(size * 0.4, "drop", true)
 			p.color_ramp = _ramp([Color(1.0, 0.9, 0.5, 1.0), Color(1.0, 0.4, 0.05, 1.0), Color(0.5, 0.08, 0.02, 0.0)], [0.0, 0.5, 1.0])
 			p.gravity = Vector3.DOWN * 6.0
 			p.scale_amount_curve = _curve([1.0, 0.7])
-			_smoke(p, size)
+			if smoke:
+				_smoke(p, size)
 		Look.DROP:
 			p.mesh = _quad(size * 0.38, "drop", false)
 			var light := c.lerp(Color.WHITE, 0.55)
