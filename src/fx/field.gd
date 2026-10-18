@@ -257,12 +257,14 @@ func _physics_process(dt: float) -> void:
 	if not Game.I:
 		return
 	var ff: float = Game.I.ff
+	# Whoever left it may be dead and gone by now.
+	var src: Actor = owner_actor if is_instance_valid(owner_actor) else null
 	for a in Game.I.living():
 		var d: Vector3 = a.global_position - global_position
 		d.y = 0
 		if d.length() > radius:
 			continue
-		if friendly and owner_actor and a.team == owner_actor.team:
+		if friendly and src and a.team == src.team:
 			continue
 		match kind:
 			El.FROST, El.ICE:
@@ -273,9 +275,9 @@ func _physics_process(dt: float) -> void:
 		var scale := dt * rate
 		if kind in [El.FIRE, El.MAGMA] and a.has_method("mods") and a.mods().get("firewalker", false):
 			continue
-		a.hit_spell(spell, scale, owner_actor, d.normalized() if d.length() > 0.1 else Vector3.ZERO, ff * 0.6)
+		a.hit_spell(spell, scale, src, d.normalized() if d.length() > 0.1 else Vector3.ZERO, ff * 0.6)
 		if electrified > 0.0:
-			a.hit_spell(Field.simple(El.LIGHTNING), dt * 0.7, owner_actor, Vector3.ZERO, ff * 0.6)
+			a.hit_spell(Field.simple(El.LIGHTNING), dt * 0.7, src, Vector3.ZERO, ff * 0.6)
 
 
 func fade() -> void:

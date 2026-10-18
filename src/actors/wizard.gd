@@ -12,9 +12,10 @@ extends Actor
 ##   right stick  aim and shoot bolts (free)
 ##   RB  staff swing, knocks bullets back (free); hold and let go: burst
 ##   LT  dodge roll, monsters cannot touch you while you roll (free)
-##   RT  cast the queue ahead: it winds up first, with a line on the ground
-##       showing everyone where it will go; a tap fires it as soon as it is
-##       ready, holding RT keeps it while you aim and fires on release
+##   RT  cast the queue ahead: it winds up first, the staff held out at the
+##       aim and its gem swelling with the element, so everyone sees where it
+##       will go; a tap fires it as soon as it is ready, holding RT keeps it
+##       while you aim and fires on release
 ##   LS click  plant the queue at your feet: a trap, or a sentry when full
 ##   RS click  ward yourself
 ##   D-pad up  conjure your last spell again
@@ -77,11 +78,11 @@ var _charging := {}
 var _charge_t := 0.0
 var _charge_need := 0.5
 const WINDUP := {spray = 0.4, beam = 0.55, arc = 0.45, projectile = 0.65, overload = 1.0}
-## The line on the ground ahead of a winding-up spell: a dim track for its
-## reach, filling bright as it gets ready.
-var _aim_line: Node3D
-var _aim_track: MeshInstance3D
-var _aim_fill: MeshInstance3D
+## A winding-up spell shows on the staff alone: the gem swells and glows,
+## the element pours off it, and it crackles once the spell is ready.
+var _charge_halo: MeshInstance3D
+var _charge_parts: CPUParticles3D
+var _crackle_t := 0.0
 var _bolt_t := 0.0
 var _roll_t := 0.0
 var _roll_cd := 0.0
@@ -175,18 +176,6 @@ func _ready() -> void:
 	_zone.top_level = true
 	_zone.visible = false
 	add_child(_zone)
-	_aim_line = Node3D.new()
-	_aim_line.top_level = true
-	_aim_line.visible = false
-	add_child(_aim_line)
-	_aim_track = MeshInstance3D.new()
-	_aim_track.mesh = Art.box(1.0, 0.02, 1.0)
-	_aim_track.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_aim_line.add_child(_aim_track)
-	_aim_fill = MeshInstance3D.new()
-	_aim_fill.mesh = Art.box(1.0, 0.02, 1.0)
-	_aim_fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_aim_line.add_child(_aim_fill)
 	_charge_ring = MeshInstance3D.new()
 	_charge_ring.mesh = tor
 	_charge_ring.position.y = 0.06
@@ -662,10 +651,7 @@ func cast(form: String, button: int) -> void:
 			_charging = s
 			_charge_t = 0.0
 			_charge_need = WINDUP[s.shape] * float(_mod("charge", 1.0))
-			_charge_ring.material_override = Fx.glow(El.COLOR[s.primary], 2.0)
-			var c: Color = El.COLOR[s.primary]
-			_aim_track.material_override = Fx.additive(Color(c.r, c.g, c.b, 0.25), 0.8)
-			_aim_fill.material_override = Fx.additive(Color(c.r, c.g, c.b, 0.6), 1.4)
+			_charge_start(s.primary)
 		"nova":
 			Game.I.spawn(NovaFx.new().setup(self, s), global_position)
 			if _mod("echo", false):
@@ -708,9 +694,10 @@ func _channel(fx: SpellFx, button: int, at: Vector3) -> void:
 func _release() -> void:
 	var s := _charging
 	_charging = {}
-	_charge_ring.visible = false
-	_aim_line.visible = false
+	_charge_stop()
 	_cast_anim = 0.3
+	# The spell leaves the staff with a flash.
+	Fx.burst(staff_tip(), El.COLOR[s.primary], 14, 4.0, 0.14)
 	match s.shape:
 		"spray":
 			_channel(SprayFx.new().setup(self, s), Pad.RT, staff_tip())
@@ -734,14 +721,63 @@ func _overload_here(s: Dictionary) -> bool:
 	return s.primary in [El.EARTH, El.WATER]
 
 
-## How far ahead the wound-up spell reaches, for the line on the ground.
-func _reach(s: Dictionary) -> float:
-	match s.shape:
-		"overload":
-			return 0.0 if _overload_here(s) else OVERLOAD_REACH
-		"projectile":
-			return 10.0
-	return float(s.n.get("range", 8.0))
+## The gem lights up in the spell's element: a glow round it and the
+## element streaming off it (fire licks up, frost and water drip, lightning
+## and storm spit sparks).
+func _charge_start(e: int) -> void:
+	_charge_stop()
+	var c: Color = El.COLOR[e]
+	_charge_halo = Fx.halo(c, 0.4, 1.4, 1.0)
+	model.staff.add_child(_charge_halo)
+	_charge_halo.position = model.gem.position
+	var energy: bool = El.KIND[e] == El.Kind.ENERGY
+	_charge_parts = Fx.particles(c, 40, 0.35 if energy else 0.5, 0.13)
+	_charge_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_charge_parts.emission_sphere_radius = 0.12
+	_charge_parts.direction = Vector3.UP
+	_charge_parts.spread = 180.0 if energy else 35.0
+	var rise := 2.5
+	if e in [El.FROST, El.WATER, El.ICE, El.MUD, El.EARTH, El.POISON]:
+		rise = -2.0
+	_charge_parts.gravity = Vector3.UP * rise
+	_charge_parts.initial_velocity_min = 0.3
+	_charge_parts.initial_velocity_max = 2.5 if energy else 0.9
+	model.staff.add_child(_charge_parts)
+	_charge_parts.position = model.gem.position
+	_charge_parts.emitting = true
+
+
+func _charge_stop() -> void:
+	if _charge_halo:
+		_charge_halo.queue_free()
+		_charge_halo = null
+	if _charge_parts:
+		_charge_parts.emitting = false
+		_charge_parts.reparent(Fx.root if Fx.root else self)
+		get_tree().create_timer(0.6).timeout.connect(_charge_parts.queue_free)
+		_charge_parts = null
+	if model:
+		model.gem.scale = Vector3.ONE
+
+
+## While a spell winds up the gem swells and burns brighter; once ready it
+## throbs and crackles until you let go.
+func _charge_look(dt: float) -> void:
+	if _charging.is_empty() or not _charge_halo:
+		return
+	var k := clampf(_charge_t / _charge_need, 0.0, 1.0)
+	var full := k >= 1.0
+	var beat := 0.12 * sin(Time.get_ticks_msec() / 55.0) if full else 0.0
+	model.gem.scale = Vector3.ONE * (1.0 + 0.9 * k + beat)
+	model.gem.material_override = Fx.element(_charging.primary, 1.3 + 3.0 * k)
+	_charge_halo.scale = Vector3.ONE * (0.35 + 1.1 * k + beat * 2.0)
+	_charge_parts.speed_scale = 0.6 + 0.8 * k
+	_charge_parts.emission_sphere_radius = 0.1 + 0.12 * k
+	if full:
+		_crackle_t -= dt
+		if _crackle_t <= 0.0:
+			_crackle_t = randf_range(0.08, 0.16)
+			Fx.burst(staff_tip(), El.COLOR[_charging.primary].lerp(Color.WHITE, 0.4), 5, 3.5, 0.08)
 
 
 func _throw(s: Dictionary) -> void:
@@ -813,6 +849,7 @@ func die(src: Actor) -> void:
 	var how := Remains.style_for(self, overkill)
 	super.die(src)
 	_charging = {}
+	_charge_stop()
 	channel = null
 	queue.clear()
 	burn = 0.0
@@ -892,7 +929,9 @@ func _visuals(dt: float) -> void:
 	if _cast_anim > 0.0 or (channel and is_instance_valid(channel)) or not _charging.is_empty():
 		lift = 1.0
 	# Casting points the staff ahead (positive x tips the gem forward).
-	staff.rotation.x = lerpf(staff.rotation.x, 0.95 * lift, 12.0 * dt)
+	# Winding up holds it out level, the gem pointing where the spell goes.
+	var point := 1.45 if not _charging.is_empty() else 0.95
+	staff.rotation.x = lerpf(staff.rotation.x, point * lift, 12.0 * dt)
 	staff.position.z = lerpf(staff.position.z, 0.18 + 0.25 * lift, 12.0 * dt)
 	# The swing: the staff sweeps flat from one side to the other, the body
 	# twists with it, and the arc on the ground opens behind the staff.
@@ -953,27 +992,11 @@ func _visuals(dt: float) -> void:
 	else:
 		body.scale = body.scale.lerp(Vector3.ONE, 14.0 * dt)
 	var bursting := _rb_t > 0.12 and pad and pad.down(Pad.RB)
-	_charge_ring.visible = not _charging.is_empty() or bursting
+	_charge_ring.visible = bursting
 	if bursting:
 		var k2 := clampf(_rb_t / NOVA_HOLD, 0.0, 1.0)
 		var sc2 := 0.6 + k2 * 1.6
 		_charge_ring.scale = Vector3(sc2, 0.05, sc2)
 		var col: Color = El.COLOR[slots[0]] if not slots.is_empty() else Color(0.7, 0.6, 0.5)
 		_charge_ring.material_override = Fx.glow(col, 2.0 if k2 >= 1.0 else 1.0)
-	elif _charge_ring.visible:
-		var c := clampf(_charge_t / _charge_need, 0.0, 1.0)
-		var sc := 0.6 + c * 1.1
-		_charge_ring.scale = Vector3(sc, 0.05, sc)
-	_aim_line.visible = not _charging.is_empty() and _reach(_charging) > 0.0
-	if _aim_line.visible:
-		var k := clampf(_charge_t / _charge_need, 0.0, 1.0)
-		var reach := _reach(_charging)
-		var w := 0.7 if _charging.shape == "spray" else 0.32
-		var start := 0.7
-		_aim_line.global_transform = Transform3D(Basis(Vector3.UP, atan2(aim_dir.x, aim_dir.z)), global_position + Vector3.UP * 0.05)
-		_aim_track.scale = Vector3(w, 1.0, reach)
-		_aim_track.position = Vector3(0, 0, start + reach * 0.5)
-		# Ready: the line is full and throbs while you hold it.
-		var beat := 1.0 + (0.25 * sin(Time.get_ticks_msec() / 60.0) if k >= 1.0 else 0.0)
-		_aim_fill.scale = Vector3(w * 0.7 * beat, 1.0, maxf(reach * k, 0.01))
-		_aim_fill.position = Vector3(0, 0.01, start + reach * k * 0.5)
+	_charge_look(dt)
