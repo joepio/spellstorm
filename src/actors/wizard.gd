@@ -966,8 +966,8 @@ func enchant_reach() -> float:
 
 ## The sword's blade as long as the swing reaches now.
 func _size_sword() -> void:
-	if model.has("blade"):
-		(model.blade as Node3D).scale = Vector3(1.0, enchant_reach() - SWORD_HAND - 0.1, 1.0)
+	if model.has("steel"):
+		(model.steel as MeshInstance3D).mesh = Art.blade_mesh(enchant_reach() - SWORD_HAND - Art.BLADE_AT)
 
 
 ## The enchanted swing: the staff's blade of elements lands on everything
@@ -1033,57 +1033,48 @@ func _enchant(s: Dictionary) -> void:
 	var n := 0
 	for e in s.counts:
 		n += int(s.counts[e])
-	# The sword takes the enchantment: it grows, its blade turns to the
-	# element and burns, sparks or drips with it along its whole length.
+	# The sword takes the enchantment: it grows, the element runs along its
+	# edges and up its ridge (sword.gdshader), the stone in its guard lights
+	# and the element burns, sparks or drips off it along its whole length.
 	_size_sword()
-	var length := enchant_reach() - SWORD_HAND - 0.1
+	var length := enchant_reach() - SWORD_HAND - Art.BLADE_AT
+	var power := minf(n, SpellQueue.SIZE) / float(SpellQueue.SIZE)
 	var sword: Node3D = model.sword
+	(model.steel as MeshInstance3D).material_override = Fx.shader("sword", {
+		element = s.primary, base = c, power = power, energy = 0.85})
+	(model.stone as MeshInstance3D).material_override = Fx.glow(c, 3.0)
 	_blade = Node3D.new()
-	_blade.position.y = 0.04
+	_blade.position.y = Art.BLADE_AT
 	sword.add_child(_blade)
-	var wide := 1.0 + 0.12 * n
-	# A blade of the element's own colour, glowing, with a hotter edge
-	# down its middle.
-	var hot := Fx.glow(c, 1.3)
-	var core := Art.part(_blade, Art.box(0.1 * wide, length, 0.035), hot, Vector3(0, length * 0.5, 0))
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ridge := Art.part(_blade, Art.box(0.025 * wide, length * 0.96, 0.045), Fx.glow(c.lerp(Color.WHITE, 0.6), 2.0), Vector3(0, length * 0.49, 0))
-	ridge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tipm := Art.part(_blade, Art.cyl(0.0, 0.07 * wide, 0.16 * wide, 4), hot, Vector3(0, length + 0.08 * wide, 0), Vector3(0, 45, 0), Vector3(1, 1, 0.4))
-	tipm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# A soft edge of light round the blade, flat like the blade itself.
-	var bright := (c.r + c.g + c.b) / 3.0
-	var edge := Art.part(_blade, Art.box(0.24 * wide, length + 0.2, 0.08), Fx.additive(c, lerpf(0.2, 0.08, bright)), Vector3(0, length * 0.5, 0))
-	edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tip := Fx.halo(c, 0.5 + 0.1 * n, 0.7)
+	var tip := Fx.halo(c, 0.3 + 0.08 * n, 0.55)
 	tip.position.y = length
 	_blade.add_child(tip)
 	if s.primary in [El.FIRE, El.MAGMA]:
-		# Tongues of fire licking up off the blade, more on a bigger sword.
+		# Tongues of fire licking up off both edges, more on a bigger sword.
 		var flame := Fx.shader("flame")
 		var q := QuadMesh.new()
-		for i in 3 + n * 2:
+		var count := 4 + n * 3
+		for i in count:
 			var f := MeshInstance3D.new()
 			f.mesh = q
 			f.material_override = flame
-			var h := randf_range(0.35, 0.6) * (0.8 + 0.1 * n)
-			f.scale = Vector3(h * 0.6, h, 1.0)
-			f.position = Vector3(0, length * (float(i) + 0.5) / (3 + n * 2), 0)
+			var h := randf_range(0.3, 0.5) * (0.85 + 0.08 * n)
+			f.scale = Vector3(h * 0.55, h, 1.0)
+			var side := 1.0 if i % 2 == 0 else -1.0
+			f.position = Vector3(side * 0.05, length * (0.15 + 0.85 * (float(i) + 0.5) / count), 0)
 			f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_blade.add_child(f)
-	_enchant_parts = Fx.particles(c, 14 + 8 * n, 0.45, 0.16 + 0.02 * n)
+	_enchant_parts = Fx.particles(c, 10 + 6 * n, 0.4, 0.07 + 0.012 * n)
 	_enchant_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_enchant_parts.emission_box_extents = Vector3(0.06 * wide, length * 0.5, 0.03)
-	_enchant_parts.position = Vector3(0, 0.04 + length * 0.5, 0)
+	_enchant_parts.emission_box_extents = Vector3(0.05, length * 0.45, 0.02)
+	_enchant_parts.position = Vector3(0, Art.BLADE_AT + length * 0.55, 0)
 	_enchant_parts.direction = Vector3.UP
 	_enchant_parts.spread = 40.0
 	_enchant_parts.initial_velocity_min = 0.2
-	_enchant_parts.initial_velocity_max = 0.6 + 0.15 * n
-	Parts.style(_enchant_parts, s.primary)
+	_enchant_parts.initial_velocity_max = 0.5 + 0.12 * n
+	Parts.style(_enchant_parts, s.primary, false)
 	sword.add_child(_enchant_parts)
 	_enchant_parts.emitting = true
-	# The steel shows again when it ends; under the element it is hidden.
-	(model.blade as Node3D).visible = false
 	Fx.burst(sword.global_position + Vector3.UP * 0.5, c, 20, 4.0, 0.2, s.primary)
 	Fx.ring(global_position, c, 1.6, 0.4)
 
@@ -1097,8 +1088,9 @@ func _enchant_end() -> void:
 	if _blade:
 		_blade.queue_free()
 		_blade = null
-	if model and model.has("blade"):
-		(model.blade as Node3D).visible = true
+	if model and model.has("steel"):
+		(model.steel as MeshInstance3D).material_override = Art.steel()
+		(model.stone as MeshInstance3D).material_override = Fx.solid(Color(0.2, 0.22, 0.3), 0.2)
 		_size_sword()
 	if _enchant_parts:
 		_enchant_parts.emitting = false
@@ -1235,11 +1227,14 @@ func _visuals(dt: float) -> void:
 		_place_zone(_swing_dir)
 	else:
 		staff.rotation.y = 0.0
-		# At rest the sword is held up and forward, its length plain to see.
-		# Walking swings it a little against the step.
-		var rest := Vector3(-0.36, 0.78, 0.24 - sin(_walk) * _stride * 0.08)
+		# At rest the sword is carried low at the side, the point forward and
+		# down, held just off the floor: a longer blade is held flatter, so
+		# its whole length shows from above. Walking swings it with the step.
+		var rest := Vector3(-0.4, 0.74, 0.12 - sin(_walk) * _stride * 0.08)
+		var length := enchant_reach() - SWORD_HAND + 0.05
+		var dip := asin(clampf((rest.y - 0.12) / length, 0.0, 1.0)) * 0.9
 		sword.position = sword.position.lerp(rest, 1.0 - exp(-12.0 * dt))
-		sword.rotation = sword.rotation.lerp(Vector3(0.85, 0.0, 0.3), 1.0 - exp(-12.0 * dt))
+		sword.rotation = sword.rotation.lerp(Vector3(PI * 0.5 + dip, 0.0, 0.32 + sin(_walk) * _stride * 0.05), 1.0 - exp(-12.0 * dt))
 		_zone.scale = Vector3.ONE
 		var near := _bullet_near() if _swing_cd <= 0.0 else 0.0
 		_zone.visible = near > 0.0 and alive
