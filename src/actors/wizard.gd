@@ -105,7 +105,6 @@ var _name_label: Label3D
 var _light: OmniLight3D
 var _tomb: Node3D
 var _remains: Remains
-var _charge_ring: MeshInstance3D
 ## The swing's arc on the ground: sweeps open on a swing, and shows faintly
 ## while a bullet is close so you can see what you would knock back.
 var _zone: MeshInstance3D
@@ -144,11 +143,6 @@ func _ready() -> void:
 	_light.position = Vector3(0, 2.6, 0)
 	_light.shadow_enabled = false
 	add_child(_light)
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.55
-	tor.outer_radius = 0.66
-	tor.rings = 28
-	tor.ring_segments = 4
 	# The queued elements ride on the staff, small balls circling its gem.
 	for i in SpellQueue.SIZE:
 		var o := Art.part(model.staff, Art.sphere(0.065, 10), Fx.element(El.FIRE, 1.3))
@@ -183,11 +177,6 @@ func _ready() -> void:
 	_zone.top_level = true
 	_zone.visible = false
 	add_child(_zone)
-	_charge_ring = MeshInstance3D.new()
-	_charge_ring.mesh = tor
-	_charge_ring.position.y = 0.06
-	_charge_ring.visible = false
-	add_child(_charge_ring)
 
 
 func _mod(key: String, default: Variant = 1.0) -> Variant:
@@ -1326,15 +1315,21 @@ func _visuals(dt: float) -> void:
 	var slots := queue.slots
 	var gem_color := Color(0.9, 0.85, 0.7)
 	var gem_at: Vector3 = model.gem.position
+	# Holding RB to burst the queue: the balls spin faster and swing wider,
+	# and the gem swells, so the windup shows on the staff.
+	var nova_k := 0.0
+	if _rb_t > 0.12 and pad and pad.down(Pad.RB) and not slots.is_empty():
+		nova_k = clampf(_rb_t / NOVA_HOLD, 0.0, 1.0)
 	for i in _orbs.size():
 		var o := _orbs[i]
 		if i < slots.size():
 			o.visible = true
 			o.material_override = Fx.element(slots[i], 1.5)
-			var ang := Time.get_ticks_msec() / 1000.0 * 3.0 + i * TAU / maxf(slots.size(), 1)
-			o.position = gem_at + Vector3(cos(ang) * 0.24, sin(ang * 2.0) * 0.03 - 0.02, sin(ang) * 0.24)
+			var ang := Time.get_ticks_msec() / 1000.0 * (3.0 + 9.0 * nova_k) + i * TAU / maxf(slots.size(), 1)
+			var r := 0.24 + 0.14 * nova_k
+			o.position = gem_at + Vector3(cos(ang) * r, sin(ang * 2.0) * 0.03 - 0.02, sin(ang) * r)
 			var big := 1.3 if El.is_fused(slots[i]) else 1.0
-			o.scale = Vector3.ONE * big
+			o.scale = Vector3.ONE * big * (1.0 + 0.4 * nova_k)
 		else:
 			o.visible = false
 	# The gem wears the element its bolts will be, dark while the swing recovers.
@@ -1343,7 +1338,7 @@ func _visuals(dt: float) -> void:
 		var glow := snappedf(1.3 + 1.2 * _bloom, 0.2)
 		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else glow)
 		if _charging.is_empty():
-			model.gem.scale = Vector3.ONE * (1.0 + 0.3 * _bloom)
+			model.gem.scale = Vector3.ONE * (1.0 + 0.3 * _bloom + 0.6 * nova_k)
 	else:
 		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
 	# The roll: one tucked somersault forward the way you roll, turning
@@ -1363,12 +1358,4 @@ func _visuals(dt: float) -> void:
 		body.position.x = 0.0
 		body.position.z = 0.0
 		body.scale = body.scale.lerp(Vector3.ONE, 14.0 * dt)
-	var bursting := _rb_t > 0.12 and pad and pad.down(Pad.RB)
-	_charge_ring.visible = bursting
-	if bursting:
-		var k2 := clampf(_rb_t / NOVA_HOLD, 0.0, 1.0)
-		var sc2 := 0.6 + k2 * 1.6
-		_charge_ring.scale = Vector3(sc2, 0.05, sc2)
-		var col: Color = El.COLOR[slots[0]] if not slots.is_empty() else Color(0.7, 0.6, 0.5)
-		_charge_ring.material_override = Fx.glow(col, 2.0 if k2 >= 1.0 else 1.0)
 	_charge_look(dt)

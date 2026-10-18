@@ -26,7 +26,7 @@ const BIOMES := [
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 1, bile = 1, wraith = 1, toad = 3, sprite = 3}, boss = "drowned_king", fields = [],
 		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true},
 	{id = "caves", zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
-		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.15, 0.3, 0.32), moon = Color(0.3, 0.6, 0.6), moon_energy = 0.15,
+		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.2, 0.34, 0.38), moon = Color(0.35, 0.62, 0.66), moon_energy = 0.3,
 		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 2, bile = 2, ghoul = 2, lurker = 3, toad = 1, sprite = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
 		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16)},
 	{id = "keep", zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
