@@ -590,6 +590,14 @@ func _take_shot() -> void:
 			var i := El.NAMES.find(nm.capitalize())
 			if i >= 0:
 				bolt_els.append(i)
+	# --enchant fire,frost,... enchants each wizard in turn with that element.
+	var en_i := args.find("--enchant")
+	if en_i >= 0 and en_i + 1 < args.size():
+		var names: PackedStringArray = args[en_i + 1].split(",")
+		for i in wizards.size():
+			var e := El.NAMES.find(names[i % names.size()].capitalize())
+			if e >= 0:
+				wizards[i]._enchant(Grammar.compose([e, e], "enchant"))
 	var bolt_at: Vector3 = wizards[0].global_position
 	for f in shot_frames:
 		await get_tree().physics_frame
