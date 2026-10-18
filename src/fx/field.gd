@@ -183,7 +183,7 @@ func _fire(lava: bool) -> void:
 	var flame := Fx.shader("flame")
 	var q := QuadMesh.new()
 	q.size = Vector2(1.0, 1.0)
-	for i in clampi(int(radius * radius * 1.4), 4, 18):
+	for i in clampi(int(radius * radius * 2.2), 6, 26):
 		var m := MeshInstance3D.new()
 		m.mesh = q
 		m.material_override = flame

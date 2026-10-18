@@ -183,7 +183,7 @@ const CONTROLS := [
 	["rstick", "Aim and shoot bolts"],
 	["faces", "Load an element into the queue"],
 	["lb", "Hold: the opposite elements"],
-	["rt", "Cast the queue as a spell"],
+	["rt", "Cast the queue as a spell: it winds up, hold to aim"],
 	["rb", "Staff swing, knocks bullets back"],
 	["rb_hold", "Hold and let go: burst around you"],
 	["lt", "Dodge roll"],

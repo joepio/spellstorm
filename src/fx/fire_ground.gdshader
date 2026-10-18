@@ -1,7 +1,7 @@
 shader_type spatial;
-// Burning ground: charred earth with glowing seams that crawl and flicker.
-// The edge is ragged noise, not a circle. Lava (`lava` = 1) is brighter,
-// slower and crusted. `fade` takes it away.
+// Burning ground (`lava` = 0): scorched earth with embers, the flames stand
+// on it (flame.gdshader). Lava (`lava` = 1): molten seams that crawl and
+// glow. The edge is ragged noise, not a circle. `fade` takes it away.
 render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
 
 #include "res://src/fx/noise.gdshaderinc"
@@ -25,16 +25,27 @@ void fragment() {
 	if (mask <= 0.0) {
 		discard;
 	}
-	vec3 q = vec3(wpos.x, t * 0.7, wpos.z) * mix(2.2, 0.8, lava);
-	float n = sn_fbm(q + vec3(0.0, 0.0, -t * 0.5));
-	float seams = 1.0 - abs(n * 2.0 - 1.0);
-	seams = pow(seams, mix(9.0, 2.5, lava));
-	float flick = 0.75 + 0.25 * sn_noise(vec3(wpos.xz * 2.0, t * 4.0).xzy);
-	float heat = clamp(seams * flick * (0.4 + 0.8 * mask) * mix(0.75, 1.0, lava), 0.0, 1.0);
 	vec3 char = mix(vec3(0.05, 0.02, 0.015), vec3(0.3, 0.06, 0.0), lava);
-	vec3 c = mix(char, vec3(0.9, 0.18, 0.02), smoothstep(0.05, 0.45, heat));
-	c = mix(c, vec3(1.0, 0.7, 0.25), smoothstep(0.45, 0.85, heat));
-	c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.85, 1.0, heat) * (0.5 + 0.5 * lava));
-	ALBEDO = c * (0.8 + heat * 0.7);
-	ALPHA = clamp(mask * (mix(0.45, 0.95, lava) + heat), 0.0, 1.0) * fade;
+	if (lava < 0.5) {
+		// Burning ground: scorched dark earth, a warm glow under the flames
+		// and a scatter of embers winking on and off. No molten seams.
+		float warm = sn_fbm(vec3(wpos.x * 0.9, t * 0.5, wpos.z * 0.9));
+		float ember = smoothstep(0.72, 0.9, sn_noise(vec3(wpos.x * 5.0, wpos.z * 5.0, t * 2.0)));
+		vec3 c = mix(char, vec3(0.45, 0.1, 0.02), smoothstep(0.4, 0.75, warm) * mask * 0.8);
+		c += vec3(1.0, 0.55, 0.15) * ember * mask * 1.2;
+		ALBEDO = c;
+		ALPHA = clamp(mask * 0.6 + ember * mask, 0.0, 1.0) * fade;
+	} else {
+		vec3 q = vec3(wpos.x, t * 0.7, wpos.z) * 0.8;
+		float n = sn_fbm(q + vec3(0.0, 0.0, -t * 0.5));
+		float seams = 1.0 - abs(n * 2.0 - 1.0);
+		seams = pow(seams, 2.5);
+		float flick = 0.75 + 0.25 * sn_noise(vec3(wpos.xz * 2.0, t * 4.0).xzy);
+		float heat = clamp(seams * flick * (0.4 + 0.8 * mask), 0.0, 1.0);
+		vec3 c = mix(char, vec3(0.9, 0.18, 0.02), smoothstep(0.05, 0.45, heat));
+		c = mix(c, vec3(1.0, 0.7, 0.25), smoothstep(0.45, 0.85, heat));
+		c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.85, 1.0, heat));
+		ALBEDO = c * (0.8 + heat * 0.7);
+		ALPHA = clamp(mask * 0.95 + heat, 0.0, 1.0) * fade;
+	}
 }

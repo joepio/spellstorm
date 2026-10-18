@@ -84,7 +84,6 @@ var _model: Node3D
 var _hurt_t := 0.0
 var _walk := 0.0
 var _eyes: Array = []
-var _label: Label3D
 var _hp_bar: MeshInstance3D
 var _hp_mat: ShaderMaterial
 var _shot_i := 0
@@ -156,18 +155,8 @@ func _ready() -> void:
 	_model.scale = Vector3.ONE * (cfg.size if cfg.has("model") else 1.0)
 	setup_status_fx()
 	if elite or cfg.get("boss", false):
-		_label = Label3D.new()
-		_label.text = cfg.name if cfg.get("boss", false) else elite_name
-		_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_label.no_depth_test = true
-		_label.font = Art.title_font()
-		_label.font_size = 40 if cfg.get("boss", false) else 30
-		_label.outline_size = 10
-		_label.outline_modulate = Color(0, 0, 0, 0.9)
-		_label.modulate = Color(1.0, 0.75, 0.3) if cfg.get("boss", false) else Color(0.45, 0.6, 1.0)
-		_label.pixel_size = 0.006
-		_label.position = Vector3(0, 2.2 * cfg.size + 0.5, 0)
-		add_child(_label)
+		# No name over its head (no text over characters): the aura and its
+		# size tell you it is special.
 		if elite.has("el"):
 			var aura := Fx.particles(El.COLOR[elite.el], 20, 0.8, 0.3)
 			aura.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -1143,6 +1132,4 @@ func die(src: Actor) -> void:
 		nova2.only_team = 0
 		Game.I.spawn(nova2, global_position)
 	_death()
-	if _label:
-		_label.queue_free()
 	_hp_bar.visible = false

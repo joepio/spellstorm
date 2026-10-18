@@ -8,7 +8,9 @@ class_name Sim
 
 static func report(g: Game) -> int:
 	var s: Dictionary = g.stats
-	var need := ["shots", "swings", "rolls", "bullets", "casts", "kills", "souls", "props_broken"]
+	var need := ["shots", "swings", "rolls", "bullets", "casts", "kills", "souls"]
+	if g.arena.corridor:
+		need.append("props_broken")
 	var bad: Array = []
 	for k in need:
 		if int(s.get(k, 0)) <= 0:

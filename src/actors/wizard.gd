@@ -7,12 +7,14 @@ extends Actor
 ## burns out after a few bolts and drops off. RT spends what is left at once
 ## as a spell, for mana per element. An empty queue shoots plain bolts.
 ##
-##   A Life / Void     B Fire / Frost     X Water / Lightning   Y Earth / Air
+##   A Poison / Void   B Fire / Frost     X Water / Lightning   Y Earth / Air
 ##   (hold LB for the second of each pair, its opposite)
 ##   right stick  aim and shoot bolts (free)
 ##   RB  staff swing, knocks bullets back (free); hold and let go: burst
 ##   LT  dodge roll, monsters cannot touch you while you roll (free)
-##   RT  cast the queue ahead (hold for sprays, beams and arcs, release to throw)
+##   RT  cast the queue ahead: it winds up first, with a line on the ground
+##       showing everyone where it will go; a tap fires it as soon as it is
+##       ready, holding RT keeps it while you aim and fires on release
 ##   LS click  plant the queue at your feet: a trap, or a sentry when full
 ##   RS click  ward yourself
 ##   D-pad up  conjure your last spell again
@@ -69,8 +71,17 @@ var no_mana := 0.0
 
 var channel: SpellFx
 var _channel_button := -1
+## The spell winding up on RT, how long it has wound up and how long it needs.
+## Winding up never makes a spell stronger: it is the warning before it goes.
 var _charging := {}
 var _charge_t := 0.0
+var _charge_need := 0.5
+const WINDUP := {spray = 0.4, beam = 0.55, arc = 0.45, projectile = 0.65, overload = 1.0}
+## The line on the ground ahead of a winding-up spell: a dim track for its
+## reach, filling bright as it gets ready.
+var _aim_line: Node3D
+var _aim_track: MeshInstance3D
+var _aim_fill: MeshInstance3D
 var _bolt_t := 0.0
 var _roll_t := 0.0
 var _roll_cd := 0.0
@@ -164,6 +175,18 @@ func _ready() -> void:
 	_zone.top_level = true
 	_zone.visible = false
 	add_child(_zone)
+	_aim_line = Node3D.new()
+	_aim_line.top_level = true
+	_aim_line.visible = false
+	add_child(_aim_line)
+	_aim_track = MeshInstance3D.new()
+	_aim_track.mesh = Art.box(1.0, 0.02, 1.0)
+	_aim_track.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_aim_line.add_child(_aim_track)
+	_aim_fill = MeshInstance3D.new()
+	_aim_fill.mesh = Art.box(1.0, 0.02, 1.0)
+	_aim_fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_aim_line.add_child(_aim_fill)
 	_charge_ring = MeshInstance3D.new()
 	_charge_ring.mesh = tor
 	_charge_ring.position.y = 0.06
@@ -332,7 +355,6 @@ func _read_input(dt: float) -> void:
 	elif pad.move.length() > 0.3 and (channel == null or not is_instance_valid(channel)) and _charging.is_empty():
 		aim_dir = Vector3(pad.move.x, 0, pad.move.y).normalized()
 	if not can_act():
-		_charging = {}
 		return
 	var flip := pad.down(Pad.LB)
 	for b in [Pad.A, Pad.B, Pad.X, Pad.Y]:
@@ -342,11 +364,11 @@ func _read_input(dt: float) -> void:
 		roll()
 	if _roll_t > 0.0:
 		return
-	# Projectiles charge while RT is held and fly on release.
+	# A spell winds up, then goes as soon as it is ready and RT is let go.
 	if not _charging.is_empty():
 		_charge_t += dt
-		if pad.released(Pad.RT):
-			_throw()
+		if _charge_t >= _charge_need and not pad.down(Pad.RT):
+			_release()
 	if pad.pressed(Pad.RT):
 		cast("cast", Pad.RT)
 	# RB: a tap swings the staff, holding it and letting go bursts the queue.
@@ -546,7 +568,6 @@ func roll() -> void:
 	invuln = ROLL_TIME + 0.06
 	if channel and is_instance_valid(channel):
 		channel = null
-	_charging = {}
 	_trace_once("dodge")
 	Game.I.count("rolls")
 	Fx.puff(global_position + Vector3.UP * 0.4, Color(0.6, 0.6, 0.65, 0.5), 0.8)
@@ -636,19 +657,15 @@ func cast(form: String, button: int) -> void:
 	_cast_anim = 0.3
 	if Game.I:
 		Game.I.on_cast(self, s)
-	var tip := staff_tip()
-	var ahead := global_position + aim_dir * 2.2
 	match s.shape:
-		"spray":
-			_channel(SprayFx.new().setup(self, s), button, tip)
-		"beam":
-			_channel(BeamFx.new().setup(self, s), button, tip)
-		"arc":
-			_channel(ArcFx.new().setup(self, s), button, tip)
-		"projectile":
+		"spray", "beam", "arc", "projectile", "overload":
 			_charging = s
 			_charge_t = 0.0
+			_charge_need = WINDUP[s.shape] * float(_mod("charge", 1.0))
 			_charge_ring.material_override = Fx.glow(El.COLOR[s.primary], 2.0)
+			var c: Color = El.COLOR[s.primary]
+			_aim_track.material_override = Fx.additive(Color(c.r, c.g, c.b, 0.25), 0.8)
+			_aim_fill.material_override = Fx.additive(Color(c.r, c.g, c.b, 0.6), 1.4)
 		"nova":
 			Game.I.spawn(NovaFx.new().setup(self, s), global_position)
 			if _mod("echo", false):
@@ -660,11 +677,6 @@ func cast(form: String, button: int) -> void:
 			_plant(SentryFx.new().setup(self, s), _sentries, 1)
 		"ward":
 			_ward(s)
-		"overload":
-			var at := global_position + aim_dir * 7.0
-			if s.primary in [El.EARTH, El.WATER]:
-				at = global_position
-			Game.I.spawn(OverloadFx.new().setup(self, s), Game.I.arena.clamp_inside(at))
 		"stomp":
 			_swing(s)
 
@@ -692,11 +704,49 @@ func _channel(fx: SpellFx, button: int, at: Vector3) -> void:
 	Game.I.spawn(fx, at)
 
 
-func _throw() -> void:
+## The wound-up spell goes, the way you aim now.
+func _release() -> void:
 	var s := _charging
 	_charging = {}
 	_charge_ring.visible = false
-	var charge := clampf(_charge_t / float(s.n.charge_time), 0.0, 1.0)
+	_aim_line.visible = false
+	_cast_anim = 0.3
+	match s.shape:
+		"spray":
+			_channel(SprayFx.new().setup(self, s), Pad.RT, staff_tip())
+		"beam":
+			_channel(BeamFx.new().setup(self, s), Pad.RT, staff_tip())
+		"arc":
+			_channel(ArcFx.new().setup(self, s), Pad.RT, staff_tip())
+		"projectile":
+			_throw(s)
+		"overload":
+			var at := global_position + aim_dir * OVERLOAD_REACH
+			if _overload_here(s):
+				at = global_position
+			Game.I.spawn(OverloadFx.new().setup(self, s), Game.I.arena.clamp_inside(at))
+
+
+const OVERLOAD_REACH := 7.0
+
+
+func _overload_here(s: Dictionary) -> bool:
+	return s.primary in [El.EARTH, El.WATER]
+
+
+## How far ahead the wound-up spell reaches, for the line on the ground.
+func _reach(s: Dictionary) -> float:
+	match s.shape:
+		"overload":
+			return 0.0 if _overload_here(s) else OVERLOAD_REACH
+		"projectile":
+			return 10.0
+	return float(s.n.get("range", 8.0))
+
+
+func _throw(s: Dictionary) -> void:
+	# Always a full throw: winding up is the warning, not extra strength.
+	var charge := 1.0
 	var count: int = s.n.pieces
 	for i in count:
 		var spread: float = 0.0 if count == 1 else deg_to_rad(s.n.spread) * ((float(i) / (count - 1)) - 0.5)
@@ -911,6 +961,19 @@ func _visuals(dt: float) -> void:
 		var col: Color = El.COLOR[slots[0]] if not slots.is_empty() else Color(0.7, 0.6, 0.5)
 		_charge_ring.material_override = Fx.glow(col, 2.0 if k2 >= 1.0 else 1.0)
 	elif _charge_ring.visible:
-		var c := clampf(_charge_t / float(_charging.n.charge_time), 0.0, 1.0)
+		var c := clampf(_charge_t / _charge_need, 0.0, 1.0)
 		var sc := 0.6 + c * 1.1
 		_charge_ring.scale = Vector3(sc, 0.05, sc)
+	_aim_line.visible = not _charging.is_empty() and _reach(_charging) > 0.0
+	if _aim_line.visible:
+		var k := clampf(_charge_t / _charge_need, 0.0, 1.0)
+		var reach := _reach(_charging)
+		var w := 0.7 if _charging.shape == "spray" else 0.32
+		var start := 0.7
+		_aim_line.global_transform = Transform3D(Basis(Vector3.UP, atan2(aim_dir.x, aim_dir.z)), global_position + Vector3.UP * 0.05)
+		_aim_track.scale = Vector3(w, 1.0, reach)
+		_aim_track.position = Vector3(0, 0, start + reach * 0.5)
+		# Ready: the line is full and throbs while you hold it.
+		var beat := 1.0 + (0.25 * sin(Time.get_ticks_msec() / 60.0) if k >= 1.0 else 0.0)
+		_aim_fill.scale = Vector3(w * 0.7 * beat, 1.0, maxf(reach * k, 0.01))
+		_aim_fill.position = Vector3(0, 0.01, start + reach * k * 0.5)
