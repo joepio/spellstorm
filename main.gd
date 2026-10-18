@@ -591,8 +591,10 @@ func _take_shot() -> void:
 			var ang := TAU * i / kinds2.size() + 0.3
 			arena._prop(kinds2[i], c2 + Vector3(cos(ang), 0, sin(ang)) * 3.2)
 	if "--blood" in args:
+		# The first wizard is hurt, so the blood runs to them.
+		wizards[0].hp = wizards[0].max_hp * 0.4
 		for i in int(args[args.find("--blood") + 1]):
-			Globe.drop(wizards[0].global_position + Vector3(-2.5 + i * 1.2, 0, 2.5))
+			Globe.drop(wizards[0].global_position + Vector3(-1.2 + i * 1.2, 0, 1.6))
 	# --bolts fire,water,... streams full bolts of each element across the
 	# view, one row each, for comparing how the elements look in flight.
 	var bo_i := args.find("--bolts")
@@ -632,9 +634,12 @@ func _take_shot() -> void:
 				var to := w.global_position + w.aim_dir * Wizard.OVERLOAD_REACH
 				Game.I.spawn(OverloadFx.new().setup(w, cs), arena.clamp_inside(w.global_position if w._overload_here(cs) else to))
 				print("cataclysm ", cs.name)
-		if not bolt_els.is_empty() and f % 5 == 0:
+		if not bolt_els.is_empty():
 			for i in bolt_els.size():
 				var e: int = bolt_els[i]
+				# Each row fires at its element's own rate.
+				if f % maxi(1, int(60.0 / Balance.flight(e).rate)) != 0:
+					continue
 				var s := {counts = {e: 3}, payload = [], primary = e, n = {}, scales = {e: 0.0}}
 				var b := BoltFx.new().setup(wizards[0], s, Vector3.RIGHT)
 				# --charmed: the bolts an enchanted staff fires instead.

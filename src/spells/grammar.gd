@@ -272,7 +272,7 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 		"sentry":
 			n = {range = 9.0, interval = 0.3, duration = 14.0, rate = 0.5}
 		"enchant":
-			n = {duration = 12.0 * float(mods.get("enchant_time", 1.0))}
+			n = {duration = Balance.ENCHANT_TIME * float(mods.get("enchant_time", 1.0))}
 		"overload":
 			n = {radius = 5.0, rate = 4.0}
 		"staff":

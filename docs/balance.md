@@ -55,18 +55,43 @@ everything it is likely to hit:
 
 ### How many monsters a shape hits
 
-| Shape | Targets | Lasting? |
-|---|---|---|
-| projectile (boulder, lava bomb) | 1, 1.9 with splash, 1.5 for piercing ice | no |
-| beam | 1 (it stops at the first) | yes |
-| spray | 2 | yes |
-| arc (chain lightning) | 1 + hops, at most 3 | yes |
-| nova | 3 | no |
-| trap | 2.5 | no |
-| sentry | 1, a monster in range 60% of the time | yes |
+The expected number of monsters follows from the area a spell covers: one,
+plus **0.04 monsters per square metre** of it (`DENSITY`), at most 6. A
+bigger nova or a wider cone counts on more.
 
-These are the assumptions to change when playtests show a shape hits more
-or less than this.
+| Shape | Area | Expected |
+|---|---|---|
+| nova | the circle | 2.2 to 5.0 |
+| trap | the blast circle | 1.8 to 2.6 |
+| spray | the cone (angle × range² / 2) | 1.2 to 1.7 |
+| projectile | 1, plus 0.6 of the splash circle | 1.0 to 2.1 |
+| arc (chain lightning) | 1 + hops, at most 3 | 3 |
+| beam | stops at the first | 1 |
+| sentry | picks one, in range 60% of the time | 1 |
+
+### A crowd counts for half
+
+Nothing is scaled while you play: every monster in the flames takes the
+same damage, however many there are. But in the sum that sets a spell's
+strength, **the first monster counts fully and every one after it for half**
+(`CROWD`). A flamethrower expected to hit 2 counts as 1.5. So on one monster
+alone an area spell is never stronger than a single-target spell of the same
+mana, and on a crowd it is worth more.
+
+### Time you cannot shoot is a cost
+
+Bolts are free, so a spell has to beat what you would have done instead.
+Every RT spell winds up first (`WINDUP`), and while you hold a flamethrower,
+beam or chain lightning you cannot shoot at all. A spell's gain is its worth
+**less 12 damage a second (`BOLT_DPS`) for every second the staff is busy**.
+A flamethrower does a lot a second, but you also stop shooting for its whole
+length, and the sum knows it.
+
+### Hard spells earn a little more
+
+`EASE` multiplies a shape's target: an aimed boulder that is slow to land
+gets 15% more, a sentry that aims itself 15% less, chain lightning (it finds
+its own targets) 10% less, a spray 5% less.
 
 ## How it stays balanced: fitting
 
@@ -91,24 +116,55 @@ into hit, burn, poison, freeze, utility.
 
 ### Not fitted
 
-- **Enchantments** put their elements on your bolts and staff swing for a while. They are judged in play.
 - **Cataclysms** (any full queue cast ahead: Meteor, Tempest, Black Hole and the rest) are
   hand-made showpieces in `OverloadFx` at a fixed 40 mana plus loading.
   They may be stronger than the budget, because they empty your queue.
+
+## Enchantments: a store you shoot up
+
+An enchantment (RS) is priced like a spell: loading plus 8 mana an element.
+It turns that into a **store of damage** of price × 9 × its target
+(`enchant_store`). Every enchanted bolt and every enchanted swing spends what
+it is worth from the store (`enchant_shot`, `enchant_swing`), counted the
+same way as everything else. When the store is spent the sword is steel
+again; it also ends after 20 seconds. So it is a short, strong buff: an
+enchanted bolt hits 2.5 times as hard as a loaded one (`ENCHANT_BOLT`), and
+the harder you shoot, the faster it is gone. As it runs low, the element
+draws back to the sword's edges.
+
+`tests/balance_test.gd` prints how long a few enchantments last while you
+only shoot, and how many swings they are, and fails when one lasts under 2
+seconds or past the time limit.
 
 **Sentries** (planting a full queue of five) are fitted like the rest, but
 cost a fixed 50 mana plus loading (`SENTRY_COST`), so they are the big plant.
 
 ## Bolts: the free attack
 
-A bolt costs nothing to fire. Loading an element (3 mana) gives 8 bolts.
-Every element's bolt stream is worth about **20 damage a second**
-(`BOLT_DPS`, 12), counting status and utility the same way as spells. A water
-bolt does little damage but soaks and shoves; a fire bolt does less on
-impact and burns. The `BOLT` table sets the per-element strength, and the
-test checks each one against the band.
+A bolt costs nothing to fire. Every element's bolt stream is worth about
+**12 damage a second** (`BOLT_DPS`), counting status and utility the same
+way as spells, a little more when its bolts are harder to land (`skill`:
+slow bolts, few a second, or thrown in an arc). Each element flies its own
+way (`FLIGHT`):
 
-A plain bolt (empty queue) does 0.2 of an earth hit: weak on purpose, so
+| Element | Shots/s | Speed | Range | Arc | Feel |
+|---|---|---|---|---|---|
+| Fire | 6 | 22 | 16 | | the steady stream |
+| Frost | 4 | 36 | 22 | | fast, far needles |
+| Water | 9 | 16 | 9 | yes | a short hose |
+| Lightning | 5 | 60 | 13 | | there at once |
+| Earth | 1.5 | 15 | 13 | yes | a heavy thrown rock |
+| Air | 7 | 30 | 18 | | quick gusts |
+| Poison | 3 | 11 | 10 | yes | slow lobbed globs |
+| Void | 2 | 9 | 15 | | slow, heavy orbs |
+
+A fusion flies like the average of its two parts. The strength of one bolt
+follows from that (`bolt_scale`), so a rock hits about five times as hard as
+a fire spark. Loading an element (3 mana) gives 1.35 seconds of its bolts
+(`AMMO_TIME`): 8 fire bolts, 2 rocks. In a mixed queue the front element sets
+how the bolt flies; every element in it keeps its own worth a second.
+
+A plain bolt (empty queue) does 0.12 of an earth hit: weak on purpose, so
 loading is worth it.
 
 ## Where mana comes from

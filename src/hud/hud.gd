@@ -159,6 +159,51 @@ func fade_to(alpha: float, time: float) -> void:
 	tw.tween_property(_fade, "color:a", alpha, time)
 
 
+var _death: Label
+var _death_black: ColorRect
+
+
+## Everyone is down: fade to black and say so, large and alone.
+func you_died() -> void:
+	# Its own black, over everything the HUD draws too.
+	if _death_black == null:
+		_death_black = ColorRect.new()
+		_death_black.color = Color(0, 0, 0)
+		_death_black.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_death_black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_death_black)
+	move_child(_death_black, -1)
+	_death_black.modulate.a = 0.0
+	_death_black.create_tween().tween_property(_death_black, "modulate:a", 1.0, 1.4)
+	if _death == null:
+		_death = Label.new()
+		_death.text = "YOU DIED"
+		_death.add_theme_font_override("font", Art.title_font())
+		_death.add_theme_font_size_override("font_size", 170)
+		_death.add_theme_color_override("font_color", Color(0.62, 0.04, 0.03))
+		_death.add_theme_constant_override("outline_size", 0)
+		_death.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_death.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_death.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_death)
+	move_child(_death, -1)
+	_death.modulate.a = 0.0
+	_death.pivot_offset = get_viewport().get_visible_rect().size * 0.5
+	_death.scale = Vector2.ONE * 0.94
+	var tw := _death.create_tween().set_parallel()
+	tw.tween_property(_death, "modulate:a", 1.0, 1.6).set_delay(0.5)
+	tw.tween_property(_death, "scale", Vector2.ONE * 1.04, 3.7)
+
+
+## The new run is ready: the words go and the world comes back.
+func you_died_end() -> void:
+	if _death:
+		_death.create_tween().tween_property(_death, "modulate:a", 0.0, 0.4)
+	if _death_black:
+		_death_black.create_tween().tween_property(_death_black, "modulate:a", 0.0, 0.8)
+
+
 func show_banner(text: String, sub: String, c: Color) -> void:
 	_banner.text = text
 	_banner.add_theme_color_override("font_color", c)
@@ -273,7 +318,7 @@ class WizardPanel:
 				_socket_balls[i].visible = false
 		# The front element burns first: a ring round it shows the bolts it has left.
 		if not slots.is_empty():
-			var k := clampf(float(wizard.ammo) / Wizard.BOLTS_PER_ELEMENT, 0.0, 1.0)
+			var k := clampf(float(wizard.ammo) / maxf(wizard.full_ammo(), 1.0), 0.0, 1.0)
 			draw_arc(Vector2(sx0, 36), 11.5, -PI * 0.5, -PI * 0.5 + TAU * k, 28, Color(1.0, 0.88, 0.5), 1.6, true)
 		# A running stream (flamethrower, beam, chain lightning) drains a bar
 		# over the sockets until it ends.

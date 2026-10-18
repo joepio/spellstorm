@@ -7,8 +7,8 @@ extends Node3D
 ## plain golden bolts. From an enchanted staff ([member charmed]) a bolt is
 ## bigger and each base element in it adds its own trick (_charm).
 
-const SPEED := 22.0
-const LIFE := 0.85
+## Lobbed bolts (Balance.FLIGHT lob) fall this hard, landing at their range.
+const GRAVITY := 12.0
 const PLAIN := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
 
 var caster: Wizard
@@ -17,6 +17,9 @@ var el := -1
 var vel := Vector3.ZERO
 var spell: Dictionary
 var t := 0.0
+## How this bolt flies (Balance.flight of its element).
+var flight: Dictionary
+var life := 0.8
 ## The base elements of the enchantment this bolt was fired with, if any.
 var charmed := {}
 ## Who a piercing frost shard already went through.
@@ -27,7 +30,9 @@ func setup(w: Wizard, s: Dictionary, dir: Vector3) -> BoltFx:
 	caster = w
 	spell = s
 	el = s.primary
-	vel = dir.normalized() * SPEED
+	flight = Balance.flight(el)
+	vel = dir.normalized() * float(flight.speed)
+	life = float(flight.range) / float(flight.speed)
 	return self
 
 
@@ -123,13 +128,20 @@ func _ready() -> void:
 	for e in spell.counts:
 		loaded += spell.counts[e]
 	_size = 0.45 if loaded == 0 else 0.6 + 0.13 * (loaded - 1)
+	# A slow, heavy bolt looks as heavy as it hits.
+	_size *= clampf(pow(6.0 / float(flight.rate), 0.3), 0.85, 1.6)
 	if not charmed.is_empty():
-		_size = 1.1
+		_size = 1.1 * clampf(pow(6.0 / float(flight.rate), 0.3), 0.85, 1.6)
 		if El.AIR in charmed:
 			vel *= 1.5
+			life /= 1.5
 		elif El.EARTH in charmed:
 			vel *= 0.8
+			life /= 0.8
 	global_position.y = 1.1
+	if flight.lob:
+		# Thrown up just enough to come down at the end of its range.
+		vel.y = (GRAVITY * life * life * 0.5 - 1.1) / life
 	reset_physics_interpolation()
 	_body = MeshInstance3D.new()
 	_body.mesh = _mesh_for(el)
@@ -176,11 +188,17 @@ func _physics_process(dt: float) -> void:
 		_body.rotate_x(dt * 14.0)
 	elif _look.get("jitter", false):
 		_body.scale = Vector3(randf_range(0.6, 1.3), randf_range(0.6, 1.3), _look.stretch * randf_range(0.8, 1.2)) * _look.size * _size
-	if t > LIFE:
+	if t > life:
 		_end(global_position)
 		return
 	var from := global_position
+	if flight.lob:
+		vel.y -= GRAVITY * dt
 	var to := from + vel * dt
+	if to.y <= 0.05:
+		global_position = to
+		_end(Vector3(to.x, 0.05, to.z))
+		return
 	var wall: Dictionary = Game.I.arena.ray(from, to) if Game.I else {}
 	if wall:
 		if wall.collider and wall.collider.has_method("damage") :
@@ -188,10 +206,12 @@ func _physics_process(dt: float) -> void:
 		_end(wall.position)
 		return
 	global_position = to
+	if flight.lob:
+		look_at(to + vel, Vector3.UP)
 	for a in (Game.I.living() if Game.I else []):
 		if a == caster or a in _pierced or not affects(a, spell, caster):
 			continue
-		if a.hit_by(from, to, 0.18 if charmed.is_empty() else 0.3):
+		if a.hit_by(from, to, float(flight.hit) * (1.0 if charmed.is_empty() else 1.5)):
 			strike(a, spell, 1.0, caster, vel.normalized())
 			Fx.burst(to, _look.trail, int(3 + 6 * _size), 2.0 + 2.0 * _size, 0.12 * _size + 0.04, el)
 			if not charmed.is_empty():
@@ -230,7 +250,7 @@ func _charm_hit(a: Actor, at: Vector3) -> void:
 			if best == null:
 				break
 			var p := best.global_position + Vector3.UP * 0.9
-			best.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, Wizard.BOLT[El.LIGHTNING] * 1.2, caster, (p - from).normalized())
+			best.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, Balance.bolt_scale(El.LIGHTNING) * 1.2, caster, (p - from).normalized())
 			_zap(from, p)
 			done.append(best)
 			from = p
@@ -279,7 +299,7 @@ func _charm_end(at: Vector3) -> void:
 			var d: Vector3 = a.global_position - ground
 			d.y = 0.0
 			if d.length() < 1.8 + a.radius:
-				a.hit_spell({counts = {El.FIRE: 1}, payload = [], primary = El.FIRE, n = {}}, Wizard.BOLT[El.FIRE] * 1.4, caster, d.normalized())
+				a.hit_spell({counts = {El.FIRE: 1}, payload = [], primary = El.FIRE, n = {}}, _burst_fire(), caster, d.normalized())
 		Game.I.shake(0.06)
 	if El.VOID in charmed:
 		for a in Game.I.enemies:
@@ -292,6 +312,12 @@ func _charm_end(at: Vector3) -> void:
 	if El.POISON in charmed:
 		var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(ground), El.POISON, 0.9, 2.5, caster)
 		f.friendly = true
+
+
+## How hard an enchanted fire bolt's burst hits (Balance.enchant_shot).
+func _burst_fire() -> float:
+	var f: float = spell.scales.get(El.FIRE, spell.scales.get(El.MAGMA, spell.scales.get(El.STEAM, 0.0)))
+	return maxf(f, Balance.bolt_scale(El.FIRE)) * 0.5
 
 
 func _end(at: Vector3) -> void:

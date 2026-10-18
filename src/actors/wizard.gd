@@ -31,14 +31,10 @@ const MANA_REGEN := Balance.MANA_REGEN
 const MANA_PER_LOAD := Balance.MANA_PER_LOAD
 const MANA_PER_ELEMENT := Balance.MANA_PER_ELEMENT
 const OVERLOAD_COST := Balance.OVERLOAD_COST
-## Bolts each loaded element is good for. The oldest one burns first and
-## drops out of the queue when it is spent.
-const BOLTS_PER_ELEMENT := 8
 ## Plain bolts when the queue is empty: weak, so loading is worth it.
 const PLAIN_BOLT := Balance.PLAIN_BOLT
 const MANA_PER_SWING := Balance.MANA_PER_SWING
 const MANA_PER_DEFLECT := Balance.MANA_PER_DEFLECT
-const BOLT_RATE := Balance.BOLT_RATE
 const SWING_COOLDOWN := 0.34
 ## After a swing the staff needs this long before it can swing again, so
 ## knocking bullets back is a timed choice, not a shield. The gem goes dark
@@ -57,7 +53,6 @@ const ROLL_SPEED := 11.0
 const ROLL_IFRAMES := 0.3
 const ROLL_RECOVER := 0.3
 const ROLL_COOLDOWN := 0.95
-const BOLT := Balance.BOLT
 
 var player_name := "Wizard"
 var robe := Color(0.6, 0.15, 0.15)
@@ -83,7 +78,7 @@ var _channel_button := -1
 var _charging := {}
 var _charge_t := 0.0
 var _charge_need := 0.5
-const WINDUP := {spray = 0.4, beam = 0.55, arc = 0.45, projectile = 0.65, overload = 1.0}
+const WINDUP := Balance.WINDUP
 ## A winding-up spell shows on the staff alone: the gem swells and glows,
 ## the element pours off it, and it crackles once the spell is ready.
 var _charge_halo: MeshInstance3D
@@ -366,7 +361,7 @@ func _read_input(dt: float) -> void:
 	_bolt_t -= dt
 	# Swinging the staff stops the bolts for a moment: your hands are busy.
 	if pad.fire and _bolt_t <= 0.0 and not busy() and _swing_t <= 0.0:
-		_bolt_t = 1.0 / BOLT_RATE
+		_bolt_t = 1.0 / shot_rate()
 		shoot()
 	if pad.pressed(Pad.UP) and not last_cast.is_empty():
 		load_slots(last_cast)
@@ -418,27 +413,34 @@ func bolt_spell() -> Dictionary:
 	var counts := {}
 	for e in queue.slots:
 		counts[e] = int(counts.get(e, 0)) + 1
-	var scales := {}
-	var split := 1.0 / sqrt(float(counts.size()))
-	for e in counts:
-		scales[e] = BOLT[e] * (0.6 + 0.4 * counts[e]) * split
-	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = scales}
+	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = Balance.bolt_scales(counts, queue.slots[0], 1.0)}
+
+
+## How many bolts a second the staff fires now: the front element's rate,
+## or the enchantment's.
+func shot_rate() -> float:
+	if enchant_time > 0.0:
+		return Balance.flight(enchant.primary).rate
+	return Balance.flight(queue.slots[0] if not queue.is_empty() else -1).rate
+
+
+## Bolts the front element of the queue is good for. The oldest one burns
+## first and drops out of the queue when it is spent.
+func full_ammo() -> int:
+	return Balance.ammo(queue.slots[0]) if not queue.is_empty() else 0
 
 
 ## What an enchanted staff fires: the enchantment's elements, harder than
 ## a loaded bolt, costing nothing from the queue while it lasts.
 func enchanted_bolt() -> Dictionary:
-	var scales := {}
-	var split := 1.0 / sqrt(float(enchant.counts.size()))
-	for e in enchant.counts:
-		scales[e] = BOLT[e] * (0.6 + 0.4 * enchant.counts[e]) * split * ENCHANT_BOLT
+	var scales := Balance.bolt_scales(enchant.counts, enchant.primary, Balance.ENCHANT_BOLT)
 	return {counts = enchant.counts, payload = [], primary = enchant.primary, n = {}, scales = scales}
 
 
 func shoot() -> void:
 	var dir := aim_dir.rotated(Vector3.UP, randf_range(-0.03, 0.03))
 	# Fired steadily, the staff stays up instead of bobbing with every shot.
-	_cast_anim = maxf(_cast_anim, 1.0 / BOLT_RATE + 0.1)
+	_cast_anim = maxf(_cast_anim, 1.0 / shot_rate() + 0.1)
 	if enchant_time > 0.0:
 		_enchanted_shot(dir)
 		return
@@ -448,7 +450,7 @@ func shoot() -> void:
 		ammo -= 1
 		if ammo <= 0:
 			var gone: int = queue.slots.pop_front()
-			ammo = BOLTS_PER_ELEMENT if not queue.is_empty() else 0
+			ammo = full_ammo()
 			Fx.burst(global_position + Vector3.UP * 2.1, El.COLOR[gone], 8, 2.0, 0.2)
 	_trace_once("shoot")
 	Game.I.count("shots")
@@ -492,6 +494,8 @@ func melee() -> void:
 	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
 	Fx.burst(global_position + aim_dir * 1.4 + Vector3.UP, sc.lerp(Color(0.95, 0.9, 0.75), 0.4), 10 if enchant.is_empty() else 22, 3.5, 0.22, int(enchant.get("primary", -1)))
 	_zone_mat.set_shader_parameter("color", sc.lerp(Color(1.0, 0.9, 0.6), 0.5))
+	if enchant_time > 0.0:
+		_spend_enchant(Balance.enchant_swing(enchant))
 
 
 ## Knock back every enemy bullet inside the arc drawn on the ground. Runs
@@ -623,7 +627,7 @@ func conjure(e: int) -> void:
 	if queue.is_empty():
 		ammo = 0
 	elif queue.slots[0] != front:
-		ammo = BOLTS_PER_ELEMENT
+		ammo = full_ammo()
 	var c: Color = El.COLOR[e]
 	match what:
 		"cancel":
@@ -641,7 +645,7 @@ func load_slots(slots: Array) -> void:
 		return
 	mana -= price
 	queue.set_slots(slots)
-	ammo = BOLTS_PER_ELEMENT
+	ammo = full_ammo()
 
 
 func _no_mana() -> void:
@@ -707,7 +711,7 @@ func cast(form: String, button: int) -> void:
 	queue.clear()
 	if not rest.is_empty():
 		queue.set_slots(rest)
-		ammo = BOLTS_PER_ELEMENT
+		ammo = full_ammo()
 	_cast_anim = 0.3
 	if Game.I:
 		Game.I.on_cast(self, s)
@@ -919,16 +923,15 @@ func _throw(s: Dictionary) -> void:
 var enchant := {}
 var enchant_time := 0.0
 var _enchant_parts: CPUParticles3D
-## How hard an enchanted swing hits with its elements, per element.
-const ENCHANT_SWING := 2.0
+## What is left of the enchantment's store of damage (Balance.enchant_store):
+## every enchanted bolt and swing spends what it is worth.
+var enchant_store := 0.0
+var _enchant_full := 1.0
+var _enchant_power := 0.0
 ## How far a full enchantment (five elements) makes the sword reach.
 const SWORD_MAX := 3.0
 ## Where the sword's hilt is from the wizard's middle when it swings flat.
 const SWORD_HAND := 0.62
-
-
-## How much harder an enchanted staff's bolts hit than loaded ones.
-const ENCHANT_BOLT := 1.2
 
 
 ## An enchanted staff shoots its element's own way (BoltFx.charmed): fire
@@ -936,6 +939,7 @@ const ENCHANT_BOLT := 1.2
 ## earth stuns, air hurls, void drags in, poison leaves a puddle.
 func _enchanted_shot(dir: Vector3) -> void:
 	var s := enchanted_bolt()
+	var spend := Balance.enchant_shot(enchant, s.scales)
 	var bases := {}
 	for e in s.counts:
 		for b in El.parts(e):
@@ -951,6 +955,20 @@ func _enchanted_shot(dir: Vector3) -> void:
 		Game.I.spawn(b, staff_tip() + d * 0.1)
 	_trace_once("enchanted shot")
 	Game.I.count("shots")
+	_spend_enchant(spend)
+
+
+## Take [param dmg] from the enchantment's store. As it runs low the
+## element draws back to the sword's edges; spent, the sword is steel again.
+func _spend_enchant(dmg: float) -> void:
+	enchant_store -= dmg
+	if enchant_store <= 0.0:
+		_enchant_end()
+		return
+	if model.steel.material_override is ShaderMaterial:
+		var left := enchant_store / _enchant_full
+		(model.steel.material_override as ShaderMaterial).set_shader_parameter("power", _enchant_power * left)
+		(model.steel.material_override as ShaderMaterial).set_shader_parameter("energy", 0.85 * (0.45 + 0.55 * left))
 
 
 ## How far an enchanted swing reaches: the blade grows with every element
@@ -999,7 +1017,7 @@ func _enchanted_swing() -> void:
 			continue
 		hit += 1
 		var dir := to.normalized()
-		a.hit_spell(s, ENCHANT_SWING, self, dir)
+		a.hit_spell(s, Balance.ENCHANT_SWING, self, dir)
 		if El.EARTH in bases:
 			a.stun = maxf(a.stun, 0.8)
 		if El.AIR in bases or El.WATER in bases:
@@ -1029,6 +1047,8 @@ func _enchant(s: Dictionary) -> void:
 	_enchant_end()
 	enchant = s
 	enchant_time = s.n.duration
+	enchant_store = Balance.enchant_store(s)
+	_enchant_full = enchant_store
 	var c: Color = El.COLOR[s.primary]
 	var n := 0
 	for e in s.counts:
@@ -1039,6 +1059,7 @@ func _enchant(s: Dictionary) -> void:
 	_size_sword()
 	var length := enchant_reach() - SWORD_HAND - Art.BLADE_AT
 	var power := minf(n, SpellQueue.SIZE) / float(SpellQueue.SIZE)
+	_enchant_power = power
 	var sword: Node3D = model.sword
 	(model.steel as MeshInstance3D).material_override = Fx.shader("sword", {
 		element = s.primary, base = c, power = power, energy = 0.85})

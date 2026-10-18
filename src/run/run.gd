@@ -188,11 +188,15 @@ func _physics_process(dt: float) -> void:
 		"dead", "won":
 			_end_t -= dt
 			if _end_t <= 0.0:
+				var died := state == "dead"
 				Game.I.new_run()
+				if died:
+					Game.I.hud.you_died_end()
 	if state in ["fight", "cleared"] and Game.I.wizards.size() > 0 and Game.I.wizards.all(func(w): return not w.alive):
 		state = "dead"
-		_end_t = 9.0
-		banner.emit("You have perished", "%s, level %d. %d monsters slain." % [Game.I.arena.biome.name, depth() + 1, kills], Color(0.75, 0.05, 0.05))
+		# The world goes black and two words say it all; then a new run.
+		_end_t = 4.2
+		Game.I.hud.you_died()
 		Game.I.run_over(false)
 
 
