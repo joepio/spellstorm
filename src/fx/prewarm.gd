@@ -14,7 +14,7 @@ extends Node3D
 const FRAMES := 4
 ## The spell and world shaders in src/fx; each one compiles once whatever
 ## its uniforms, so one material each is enough.
-const SHADERS := ["beam", "bolt", "bullet", "element", "fire_ground", "flame", "halo", "hp_bar", "molten",
+const SHADERS := ["beam", "bolt", "bullet", "element", "fire_ground", "flame", "halo", "hp_bar", "molten", "poison_ground",
 	"shock", "slash", "stream", "trap", "wind", "zap"]
 
 var _frames := FRAMES

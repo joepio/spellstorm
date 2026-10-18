@@ -10,6 +10,8 @@ const RECIPES := [
 	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast", 1.6],
 	[[El.WATER, El.FROST, El.WATER, El.FROST], "cast", 0.7],
 	[[El.VOID, El.VOID, El.FIRE], "cast", 1.8],
+	[[El.POISON, El.POISON, El.VOID], "cast", 1.5],
+	[[El.POISON, El.POISON], "plant", 0.0],
 	[[El.EARTH, El.EARTH, El.EARTH], "cast", 0.9],
 	[[El.FROST, El.FROST, El.FROST], "cast", 1.5],
 	[[El.WATER, El.WATER], "cast", 1.2],
@@ -55,11 +57,6 @@ func think(w: Wizard, dt: float) -> void:
 		_strafe = -_strafe if randf() < 0.3 else _strafe
 	var move := Vector3.ZERO
 	var aim := Vector3.ZERO
-	if downed and _phase == "idle":
-		plan = [El.LIFE, El.LIFE, El.LIFE]
-		form = "cast"
-		hold = 2.5
-		_phase = "conjure"
 	var tome: Variant = run.tome_for(w) if run and enemy == null else null
 	if run and enemy == null and (tome or run.state == "cleared"):
 		_phase = "idle"
@@ -75,30 +72,41 @@ func think(w: Wizard, dt: float) -> void:
 		var to_goal := run.walk_goal(w) - w.global_position
 		to_goal.y = 0
 		move = to_goal.normalized() * 0.8
-	var target_pos := downed.global_position if (downed and plan.has(El.LIFE)) else (enemy.global_position if enemy else w.global_position)
+	# A friend down: go and stand at the grave to raise them.
+	var target_pos := downed.global_position if downed else (enemy.global_position if enemy else w.global_position)
 	var to := target_pos - w.global_position
 	to.y = 0
 	var d := to.length()
 	if enemy or downed:
 		aim = to.normalized()
-		var want := 2.5 if (downed and plan.has(El.LIFE)) else 6.0
-		if d > want + 1.0:
-			move = to.normalized()
-		elif d < want - 1.5:
-			move = -to.normalized()
-		move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
+		if downed:
+			move = to.normalized() if d > 0.8 else Vector3.ZERO
+			if enemy:
+				var te := enemy.global_position - w.global_position
+				te.y = 0
+				aim = te.normalized()
+		else:
+			if d > 7.0:
+				move = to.normalized()
+			elif d < 4.5:
+				move = -to.normalized()
+			move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
 	# Low on mana: go and take the souls lying around.
 	var soul := _nearest_soul(w)
-	if soul and w.mana < Wizard.MANA_MAX * 0.75:
+	if soul and w.mana < Wizard.MANA_MAX * 0.75 and not downed:
 		var ts := soul.global_position - w.global_position
 		ts.y = 0
 		move = ts.normalized() * 1.2
+	# Hurt: go for the nearest health globe.
+	var globe := _nearest_globe(w)
+	if globe and w.hp < w.max_hp * 0.7 and not downed:
+		var tg := globe.global_position - w.global_position
+		tg.y = 0
+		move = tg.normalized() * 1.2
 	pad.move = Vector2(move.x, move.z).limit_length(1.0)
 	pad.aim = Vector2(aim.x, aim.z)
-	if downed and plan.has(El.LIFE):
-		pad.fire = w.bolt_el == El.LIFE
-	else:
-		pad.fire = enemy != null and d < 16.0
+	var de := w.global_position.distance_to(enemy.global_position) if enemy else INF
+	pad.fire = enemy != null and de < 16.0
 	var threat := _bullet_threat(w)
 	if threat != Vector3.ZERO and randf() < 0.12:
 		pad.set_button(Pad.LT, true)
@@ -205,7 +213,7 @@ func _choose(w: Wizard, d: float) -> void:
 		hold = maxf(r[2], 0.3)
 		return
 	if w.hp < w.max_hp * 0.4 and randf() < 0.5:
-		plan = [El.LIFE, El.LIFE, El.EARTH]
+		plan = [El.EARTH, El.EARTH, El.EARTH]
 		form = "ward"
 		return
 	if d < 3.0 and randf() < 0.6:
@@ -218,6 +226,17 @@ func _choose(w: Wizard, d: float) -> void:
 	plan = r2[0].duplicate()
 	form = r2[1]
 	hold = r2[2] * randf_range(0.8, 1.3)
+
+
+func _nearest_globe(w: Wizard) -> Globe:
+	var best: Globe = null
+	var best_d := 14.0
+	for g in Globe.all:
+		var d := w.global_position.distance_to(g.global_position)
+		if d < best_d:
+			best = g
+			best_d = d
+	return best
 
 
 func _nearest_soul(w: Wizard) -> Soul:

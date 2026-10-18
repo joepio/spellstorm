@@ -74,7 +74,7 @@ func _physics_process(dt: float) -> void:
 	var wall = Game.I.arena.ray(from, to) if Game.I else {}
 	if wall:
 		if wall.collider and wall.collider.has_method("damage"):
-			wall.collider.damage(power * 20.0)
+			wall.collider.damage(power * 20.0, vel)
 		_land(wall.position)
 		return
 	global_position = to
@@ -83,7 +83,7 @@ func _physics_process(dt: float) -> void:
 			continue
 		if hostile_only and a.team == caster.team:
 			continue
-		if not a.alive and not spell.counts.has(El.LIFE):
+		if not a.alive:
 			continue
 		if a.hit_by(from, to, radius):
 			_hit.append(a)

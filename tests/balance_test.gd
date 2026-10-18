@@ -47,9 +47,9 @@ func _init() -> void:
 		if bad:
 			failures += 1
 		if bad or all:
-			print("%s %5.2f  %-38s %-10s %d el  %5.0f mana  worth %6.0f (hit %.0f burn %.0f freeze %.0f util %.0f heal %.0f x%.1f)" % [
+			print("%s %5.2f  %-38s %-10s %d el  %5.0f mana  worth %6.0f (hit %.0f burn %.0f freeze %.0f util %.0f poison %.0f x%.1f)" % [
 				"FAIL" if bad else "    ", row.r, sp.name, sp.shape, sp.power, Balance.price(sp), row.w.total,
-				row.w.hit, row.w.burn, row.w.freeze, row.w.utility, row.w.heal, row.w.targets])
+				row.w.hit, row.w.burn, row.w.freeze, row.w.utility, row.w.poison, row.w.targets])
 		var st: Array = shapes.get(sp.shape, [99.0, 0.0, 0.0, 0])
 		st[0] = minf(st[0], row.r)
 		st[1] = maxf(st[1], row.r)

@@ -1,7 +1,6 @@
 class_name BeamFx
 extends SpellFx
-## A Life or Void beam: stops at the first thing it touches. Life heals what
-## it touches, friend or foe, and burns the undead.
+## A Poison or Void beam: stops at the first thing it touches.
 
 var _core: MeshInstance3D
 var _halo: MeshInstance3D
@@ -66,11 +65,11 @@ func _physics_process(dt: float) -> void:
 	if hit:
 		length = from.distance_to(hit.position)
 		if hit.collider and hit.collider.has_method("damage"):
-			hit.collider.damage(12.0 * dt)
+			hit.collider.damage(12.0 * dt, dir)
 	var first: Actor = null
 	if caster.can_act():
 		for a in targets():
-			if a == caster or (not a.alive and not spell.counts.has(El.LIFE)):
+			if a == caster or not a.alive:
 				continue
 			var to: Vector3 = a.global_position - caster.global_position
 			to.y = 0

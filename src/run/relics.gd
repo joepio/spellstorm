@@ -2,7 +2,7 @@ class_name Relics
 ## Tomes found on shrines along each level. Each changes numbers in a way you
 ## can say in one sentence; none changes what a spell is.
 ## Keys: el_<element> multiplies that element, dmg, heal, spray_range, charge
-## and ward_time multiply, hp, hops, slots and siphon add, speed multiplies
+## and ward_time multiply, hp, hops and slots add, speed multiplies
 ## move speed, echo and firewalker switch something on.
 
 const ALL := [
@@ -12,8 +12,9 @@ const ALL := [
 	{"name": "Storm Sigil", "text": "Lightning +40%, arcs jump to 2 more", "el_5": 1.4, "el_12": 1.4, "hops": 2},
 	{"name": "Stone Heart", "text": "Earth, Mud and Magma +40%", "el_6": 1.4, "el_10": 1.4, "el_11": 1.4},
 	{"name": "Zephyr Feather", "text": "Air pushes 80% harder, you walk 15% faster", "el_7": 1.8, "speed": 1.15},
-	{"name": "Green Chalice", "text": "All your healing +60%", "heal": 1.6},
-	{"name": "Black Grimoire", "text": "Void +40%, and it heals you for 15% of the damage", "el_1": 1.4, "siphon": 0.15},
+	{"name": "Red Chalice", "text": "Health globes heal 60% more", "heal": 1.6},
+	{"name": "Black Grimoire", "text": "Void +50%", "el_1": 1.5},
+	{"name": "Viper Fang", "text": "Poison +50%", "el_0": 1.5},
 	{"name": "Long Nozzle", "text": "Sprays reach 35% further", "spray_range": 1.35},
 	{"name": "Quick Hands", "text": "Thrown spells charge twice as fast", "charge": 0.5},
 	{"name": "Echo Stone", "text": "Bursts around you go off twice", "echo": true},

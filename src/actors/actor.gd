@@ -5,6 +5,8 @@ extends CharacterBody3D
 ##   Wet:     water soaks. Fire dries you instead of burning you, frost freezes
 ##            you on the spot, lightning does double damage.
 ##   Burning: fire and magma. Hurts over time; water or frost puts it out.
+##   Poisoned: poison seeps in and hurts slowly for a long time; nothing
+##            washes it out, and the undead feel it less.
 ##   Chilled: frost and ice stack up and slow; three stacks freeze solid.
 ##   Frozen:  cannot move. Earth shatters it for double damage, fire thaws it.
 ##   Shocked: lightning stuns for a moment.
@@ -13,6 +15,7 @@ extends CharacterBody3D
 signal died(actor: Actor)
 
 const BURN_DPS := Balance.BURN_DPS
+const POISON_DPS := Balance.POISON_DPS
 const FREEZE_TIME := Balance.FREEZE_TIME
 
 var team := 0
@@ -31,6 +34,7 @@ var armor := 1.0
 
 var wet := 0.0
 var burn := 0.0
+var poison := 0.0
 var chill := 0.0
 var frozen := 0.0
 ## After a freeze, frost cannot freeze this actor again until this runs out.
@@ -64,6 +68,7 @@ var invuln := 0.0
 var meshes: Array[GeometryInstance3D] = []
 var _overlay: StandardMaterial3D
 var _flames: CPUParticles3D
+var _bubbles: CPUParticles3D
 
 
 func _init() -> void:
@@ -81,6 +86,17 @@ func setup_status_fx() -> void:
 		m.material_overlay = _overlay
 	_flames = Fx.flames(radius)
 	add_child(_flames)
+	# Sickly bubbles rising off whoever is poisoned.
+	_bubbles = Fx.particles(El.COLOR[El.POISON], 10, 0.9, 0.12)
+	_bubbles.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_bubbles.emission_sphere_radius = radius
+	_bubbles.position = Vector3.UP * 0.9
+	_bubbles.direction = Vector3.UP
+	_bubbles.gravity = Vector3.UP * 0.8
+	_bubbles.initial_velocity_min = 0.2
+	_bubbles.initial_velocity_max = 0.6
+	_bubbles.emitting = false
+	add_child(_bubbles)
 
 
 ## Resistance to one element, fused ones average their parts. Wards add theirs.
@@ -89,6 +105,8 @@ func resistance(e: int) -> float:
 	var r := 0.0
 	for b in parts:
 		var x := float(resist.get(b, 0.0))
+		if undead and b == El.POISON:
+			x += 0.4
 		if ward_time > 0.0:
 			x += Grammar.ward_resist(ward, b)
 		r += x
@@ -99,8 +117,6 @@ func resistance(e: int) -> float:
 ## continuous). [param ff] scales damage from a teammate. Returns damage done.
 func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 1.0) -> float:
 	if not alive:
-		if team == 0 and spell.counts.has(El.LIFE):
-			revive_progress(El.EFFECT[El.LIFE].heal * spell.counts[El.LIFE] * scale)
 		return 0.0
 	var ally := src != null and src.team == team and src != self
 	if invuln > 0.0 and not ally:
@@ -116,19 +132,13 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 		var n: float = spell.counts[e] * scale * float(mods.get("el_%d" % e, 1.0))
 		var eff: Dictionary = El.EFFECT[e]
 		var mult := 1.0 - resistance(e)
-		if eff.has("dmg") and (e != El.LIFE or undead):
+		if eff.has("dmg"):
 			if mult > 1.05:
 				shown.weak = true
 			elif mult < 0.95:
 				shown.resist = true
 		if heals_from != -1 and El.contains(e, heals_from):
 			heal += float(eff.get("dmg", 0.0)) * n
-			continue
-		if e == El.LIFE:
-			if undead:
-				dmg += eff.heal * n * mult * 1.4
-			else:
-				heal += eff.heal * n * float(mods.get("heal", 1.0))
 			continue
 		if e == El.VOID and undead:
 			heal += eff.dmg * n * 0.5
@@ -192,6 +202,8 @@ func _status(eff: Dictionary, n: float) -> void:
 				_freeze()
 	if eff.has("slow"):
 		slow = maxf(slow, 3.0 * eff.slow * minf(n * 4.0, 1.0))
+	if eff.has("poison"):
+		poison = minf(poison + eff.poison * n * 5.0, 10.0)
 
 
 func _freeze() -> void:
@@ -335,6 +347,12 @@ func tick_status(delta: float) -> void:
 		last_el = El.FIRE
 		last_melee = false
 		take(BURN_DPS * delta * (1.0 - resistance(El.FIRE)) * armor)
+	if poison > 0.0:
+		poison -= delta
+		if burn <= 0.0:
+			last_el = El.POISON
+		last_melee = false
+		take(POISON_DPS * delta * (1.0 - resistance(El.POISON)) * armor)
 	wet = maxf(0.0, wet - delta)
 	chill = maxf(0.0, chill - 0.6 * delta)
 	frozen = maxf(0.0, frozen - delta)
@@ -363,6 +381,10 @@ func tick_status(delta: float) -> void:
 			c = Color(0.15, 0.35, 0.8, 0.25)
 		elif slow > 0.0:
 			c = Color(0.35, 0.25, 0.12, 0.35)
+		elif poison > 0.0:
+			c = Color(0.45, 0.85, 0.1, 0.3)
 		_overlay.albedo_color = c
 	if _flames:
 		_flames.emitting = burn > 0.0 and alive
+	if _bubbles:
+		_bubbles.emitting = poison > 0.0 and alive

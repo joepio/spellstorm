@@ -3,8 +3,8 @@ extends Node3D
 ## One staff bolt, the shot that fires while the right stick aims. It carries
 ## the wizard's whole loaded queue (see Wizard.bolt_spell), so each element in
 ## it brings its status: fire burns, frost chills, water soaks, lightning
-## shocks. Life heals friends and flies through the living; an empty queue
-## shoots plain golden bolts.
+## shocks, poison sickens. Bolts fly through friends; an empty queue shoots
+## plain golden bolts.
 
 const SPEED := 22.0
 const LIFE := 0.85
@@ -26,33 +26,19 @@ func setup(w: Wizard, s: Dictionary, dir: Vector3) -> BoltFx:
 	return self
 
 
-## Whether [param s] does anything to [param a]: friends only take its Life,
-## the living (not undead) ignore Life.
-static func affects(a: Actor, s: Dictionary, src: Actor) -> bool:
-	var friend := a.team == src.team
-	if s.counts.is_empty():
-		return not friend and a.alive
-	for e in s.counts:
-		if friend:
-			if e == El.LIFE and (not a.alive or a.hp < a.max_hp):
-				return true
-		elif a.alive and (e != El.LIFE or a.undead):
-			return true
-	return false
+## Whether [param s] does anything to [param a]: bolts fly through friends.
+static func affects(a: Actor, _s: Dictionary, src: Actor) -> bool:
+	return a.team != src.team and a.alive
 
 
 ## Land [param s] on [param a], each element at its own strength times [param mult].
 static func strike(a: Actor, s: Dictionary, mult: float, src: Actor, dir: Vector3) -> void:
-	var friend := a.team == src.team
+	if a.team == src.team:
+		return
 	if s.counts.is_empty():
-		if not friend:
-			a.hit_spell(PLAIN, Wizard.PLAIN_BOLT * mult, src, dir, 1.0)
+		a.hit_spell(PLAIN, Wizard.PLAIN_BOLT * mult, src, dir, 1.0)
 		return
 	for e in s.counts:
-		if friend and e != El.LIFE:
-			continue
-		if not friend and e == El.LIFE and not a.undead:
-			continue
 		a.hit_spell({counts = {e: 1}, payload = [], primary = e, n = {}}, s.scales[e] * mult, src, dir, 1.0)
 
 
@@ -71,8 +57,8 @@ const LOOK := {
 		trail = Color(0.55, 0.45, 0.32), rise = -2.0, rock = true},
 	El.AIR: {core = Color(0.95, 1.0, 0.97), edge = Color(0.55, 0.85, 0.8, 0.7), flicker = 0.9, speed = 14.0, stretch = 2.2, size = 1.1,
 		trail = Color(0.8, 0.95, 0.9, 0.6), rise = 0.5},
-	El.LIFE: {core = Color(0.9, 1.0, 0.75), edge = Color(0.2, 0.9, 0.3), flicker = 0.4, speed = 4.0, stretch = 1.6, size = 0.95,
-		trail = Color(0.5, 1.0, 0.45), rise = 1.5},
+	El.POISON: {core = Color(0.85, 1.0, 0.45), edge = Color(0.4, 0.8, 0.05), flicker = 0.5, speed = 5.0, stretch = 1.6, size = 0.95,
+		trail = Color(0.45, 0.75, 0.1), rise = -0.5},
 	El.VOID: {core = Color(0.25, 0.0, 0.35), edge = Color(0.75, 0.25, 1.0), flicker = 0.7, speed = 6.0, stretch = 1.5, size = 1.1,
 		trail = Color(0.55, 0.15, 0.85), rise = 0.0},
 	El.STEAM: {core = Color(1.0, 1.0, 1.0), edge = Color(0.75, 0.8, 0.9, 0.8), flicker = 0.9, speed = 7.0, stretch = 1.8, size = 1.2,
@@ -183,7 +169,7 @@ func _physics_process(dt: float) -> void:
 	var wall: Dictionary = Game.I.arena.ray(from, to) if Game.I else {}
 	if wall:
 		if wall.collider and wall.collider.has_method("damage") :
-			wall.collider.damage(2.0)
+			wall.collider.damage(2.0, vel)
 		_end(wall.position)
 		return
 	global_position = to

@@ -49,7 +49,9 @@ everything it is likely to hit:
 - **Utility, in damage per unit:** push 1, wet 1, slow 3, shock 2. Wet and
   shock are combo enablers (shock does double on wet), so they count, but
   not as much as damage.
-- **Healing a friend:** 0.6 × the healing, for an expected 1.5 friends.
+- **Poison:** each unit of scale adds five seconds, at most ten past the last
+  hit, at 4 damage a second. No spell heals: health comes from the red globes
+  monsters drop.
 
 ### How many monsters a shape hits
 
@@ -60,7 +62,7 @@ everything it is likely to hit:
 | spray | 2 | yes |
 | arc (chain lightning) | 1 + hops, at most 3 | yes |
 | nova | 3 | no |
-| trap | 2.5 (a life rune: 1 friend, 30% of the time) | no |
+| trap | 2.5 | no |
 | sentry | 1, a monster in range 60% of the time | yes |
 
 These are the assumptions to change when playtests show a shape hits more
@@ -85,7 +87,7 @@ Tuning:
 - Want combos to pay more? Raise `BONUS_PER_SLOT` / `BONUS_PER_KIND`.
 
 `tests/balance_test.gd -- --all` prints every spell with its worth split
-into hit, burn, freeze, utility and heal.
+into hit, burn, poison, freeze, utility.
 
 ### Not fitted
 

@@ -252,6 +252,7 @@ func _physics_process(dt: float) -> void:
 	no_mana = maxf(0.0, no_mana - dt)
 	if not alive:
 		drive(Vector3.ZERO, dt)
+		_raise(dt)
 		return
 	if Game.I and Game.I.paused_play:
 		drive(Vector3.ZERO, dt)
@@ -460,6 +461,14 @@ func melee() -> void:
 		a.hit_spell(bonk, 0.4, self, to.normalized())
 		BoltFx.strike(a, touch, 2.5, self, to.normalized())
 		add_mana(MANA_PER_SWING)
+	# The staff smashes what stands in the arc too.
+	for p in Game.I.arena.props.duplicate():
+		if not is_instance_valid(p):
+			continue
+		var tp: Vector3 = p.global_position - global_position
+		tp.y = 0
+		if tp.length() < SWING_REACH + 0.6 and absf(aim_dir.signed_angle_to(tp, Vector3.UP)) < SWING_ARC + 0.3:
+			p.damage(4.0, aim_dir)
 	_swing_dir = aim_dir
 	_deflect_sweep()
 	var sc: Color = El.COLOR[bolt_el] if bolt_el >= 0 else Color(1.0, 0.85, 0.5)
@@ -653,7 +662,7 @@ func cast(form: String, button: int) -> void:
 			_ward(s)
 		"overload":
 			var at := global_position + aim_dir * 7.0
-			if s.primary in [El.EARTH, El.LIFE, El.WATER]:
+			if s.primary in [El.EARTH, El.WATER]:
 				at = global_position
 			Game.I.spawn(OverloadFx.new().setup(self, s), Game.I.arena.clamp_inside(at))
 		"stomp":
@@ -700,8 +709,8 @@ func _throw() -> void:
 
 ## A ward is a shield round you: it soaks SHIELD_PER_ELEMENT damage of any
 ## kind for each element in it, and when it breaks it bursts outward with
-## its elements. Earth also hardens you, Air speeds you up, Life heals, and
-## matching elements are resisted on top.
+## its elements. Earth also hardens you, Air speeds you up, and matching
+## elements are resisted on top. Nothing heals you.
 const SHIELD_PER_ELEMENT := 18.0
 
 
@@ -718,14 +727,6 @@ func _ward(s: Dictionary) -> void:
 			armor *= pow(0.75, k)
 		if El.contains(e, El.AIR):
 			haste += 0.15 * k
-	if s.counts.has(El.LIFE):
-		healed(El.EFFECT[El.LIFE].heal * 2.2 * s.counts[El.LIFE] * float(_mod("heal", 1.0)))
-		Fx.burst(global_position + Vector3.UP, El.COLOR[El.LIFE], 24, 3.0)
-	if s.counts.size() == 1 and s.counts.has(El.LIFE):
-		ward = {}
-		ward_time = 0.0
-		shield = 0.0
-		return
 	var m := StandardMaterial3D.new()
 	var mixed: Color = El.COLOR[s.primary]
 	for e in s.payload:
@@ -758,12 +759,6 @@ func _swing(s: Dictionary) -> void:
 	Fx.ring(global_position, Color(0.7, 0.6, 0.5), 2.6, 0.3)
 
 
-func on_dealt(dmg: float, spell: Dictionary) -> void:
-	var siphon := float(_mod("siphon", 0.0))
-	if siphon > 0.0 and spell.counts.has(El.VOID):
-		healed(dmg * siphon)
-
-
 func die(src: Actor) -> void:
 	var how := Remains.style_for(self, overkill)
 	super.die(src)
@@ -771,6 +766,7 @@ func die(src: Actor) -> void:
 	channel = null
 	queue.clear()
 	burn = 0.0
+	poison = 0.0
 	_light.light_energy = 0.4
 	_remains.die(how, last_dir)
 	_revive = 0.0
@@ -781,6 +777,30 @@ func die(src: Actor) -> void:
 	var tw := _tomb.create_tween()
 	tw.tween_interval(1.2)
 	tw.tween_property(_tomb, "position:y", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+## A friend standing at your grave raises you: REVIVE_NEED in about three
+## seconds with one, faster with more. Walking away lets it fade again.
+const REVIVE_RATE := 14.0
+const REVIVE_REACH := 1.9
+var _raise_fx := 0.0
+
+
+func _raise(dt: float) -> void:
+	if not Game.I or Game.I.paused_play:
+		return
+	var n := 0
+	for w in Game.I.wizards:
+		if w != self and w.alive and w.global_position.distance_to(global_position) < REVIVE_REACH:
+			n += 1
+	if n == 0:
+		_revive = maxf(0.0, _revive - REVIVE_RATE * 0.5 * dt)
+		return
+	_raise_fx -= dt
+	if _raise_fx <= 0.0:
+		_raise_fx = 0.35
+		Fx.ring(global_position + Vector3.UP * 0.04, Color(1.0, 0.85, 0.5), REVIVE_REACH * (1.0 - _revive / REVIVE_NEED * 0.7), 0.35)
+	revive_progress(REVIVE_RATE * n * dt)
 
 
 func revive_progress(amount: float) -> void:

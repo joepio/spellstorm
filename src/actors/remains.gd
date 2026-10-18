@@ -5,7 +5,7 @@ extends Node3D
 ## fire chars you black, frost freezes you solid and then you shatter,
 ## lightning fries you, void crushes you into a point, wind throws you away,
 ## and a big enough hit bursts you into pieces. The body stays where it fell
-## until someone heals the grave; then the pieces fly back together in light.
+## until a friend stands at the grave; then the pieces fly back together in light.
 
 const GRAVITY := 20.0
 
@@ -270,7 +270,7 @@ func revive() -> void:
 		tw.tween_callback(func():
 			if is_instance_valid(p):
 				p.transform = _rest[p])
-	var c: Color = El.COLOR[El.LIFE]
+	var c := Color(1.0, 0.85, 0.5)
 	var glow := Fx.halo(c.lerp(Color.WHITE, 0.4), 2.6, 0.8, 1.0)
 	add_child(glow)
 	glow.global_position = wizard.global_position + Vector3.UP

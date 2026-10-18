@@ -8,8 +8,7 @@ extends SpellFx
 ##   solid (earth, ice, mud, magma)         spikes that pin monsters down
 ##   energy (lightning, storm)              a blast
 ##   void                                   pulls monsters in, then blasts
-##   life                                   a healing rune, not a trap: it
-##                                          pulses for your side while it lasts
+##   poison                                 a blast that leaves a poison pool
 
 const ARM_TIME := 0.5
 ## Void drags monsters in for this long before it blows.
@@ -45,7 +44,7 @@ func _ready() -> void:
 
 ## How close a monster has to come to set it off: the ring you see.
 func _trigger_r() -> float:
-	return 1.0 + 0.1 * spell.slots.size() if spell.primary != El.LIFE else n.radius * 0.7
+	return 1.0 + 0.1 * spell.slots.size()
 
 
 func _physics_process(dt: float) -> void:
@@ -59,9 +58,6 @@ func _physics_process(dt: float) -> void:
 	if armed and not _lit:
 		_lit = true
 		create_tween().tween_property(_mat, "shader_parameter/armed", 1.0, 0.3)
-	if spell.primary == El.LIFE:
-		_heal(dt)
-		return
 	if _pull >= 0.0:
 		_pull -= dt
 		for a in targets():
@@ -112,6 +108,9 @@ func _blast() -> void:
 				_spikes(at)
 		El.Kind.ENERGY:
 			Fx.light_pop(at, color(), 4.0, n.radius * 3.0, 0.3)
+		El.Kind.SPIRIT:
+			if spell.primary == El.POISON:
+				_spill(El.POISON, n.field)
 	Game.I.shake(0.25)
 	finish()
 
@@ -149,20 +148,6 @@ func _spikes(at: Vector3) -> void:
 	var tw2 := spikes.create_tween()
 	tw2.tween_interval(n.stun + 0.6)
 	tw2.tween_callback(spikes.queue_free)
-
-
-## A life rune: once a second it heals your side in reach and burns the undead.
-func _heal(dt: float) -> void:
-	_pulse_t -= dt
-	if _pulse_t > 0.0:
-		return
-	_pulse_t = 1.0
-	Fx.ring(global_position, color(), n.radius * 0.7, 0.5)
-	for a in targets():
-		var d: Vector3 = a.global_position - global_position
-		d.y = 0
-		if d.length() < n.radius * 0.7 + a.radius and (a.team == caster.team or a.undead):
-			a.hit_spell(spell, 0.35 * n.rate, caster, d.normalized(), ff())
 
 
 ## Gone unsprung (it timed out, or a newer trap took its place): it sinks

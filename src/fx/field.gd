@@ -1,7 +1,7 @@
 class_name Field
 extends Node3D
 ## A patch of ground with an element on it: burning ground, a puddle, an ice
-## slick, a steam cloud, mud, a whirlwind, lava. Spilled by wizards' traps,
+## slick, a steam cloud, mud, a whirlwind, lava, a pool of poison. Spilled by wizards' traps,
 ## left by lava bombs and dying monsters, or part of the room. Fields react to
 ## elements that touch them, see Arena.touch_ground.
 
@@ -138,10 +138,21 @@ func _build() -> void:
 			_parts.initial_velocity_min = 1.0
 			_parts.initial_velocity_max = 2.5
 			_parts.local_coords = true
-		El.LIFE:
-			_mat.albedo_color = Color(0.2, 0.9, 0.35, 0.3)
-			_mat.emission_enabled = true
-			_mat.emission = c
+		El.POISON:
+			_disc.visible = false
+			var pool := MeshInstance3D.new()
+			var pm := PlaneMesh.new()
+			pm.size = Vector2.ONE * radius * 2.3
+			pool.mesh = pm
+			pool.material_override = Fx.shader("poison_ground")
+			pool.position.y = 0.05 + randf() * 0.01
+			_look(pool)
+			# A low sickly vapour hanging over it.
+			_parts = Fx.particles(Color(c.r * 0.6, c.g * 0.6, c.b * 0.6, 0.12), int(2 * radius * radius) + 4, 2.0, 0.4)
+			_parts.direction = Vector3.UP
+			_parts.gravity = Vector3.UP * 0.15
+			_parts.initial_velocity_min = 0.05
+			_parts.initial_velocity_max = 0.3
 		_:
 			_mat.albedo_color = Color(c.r, c.g, c.b, 0.4)
 	if _parts:
@@ -259,8 +270,6 @@ func _physics_process(dt: float) -> void:
 			El.AIR:
 				var tangent := d.cross(Vector3.UP).normalized()
 				a.push += (tangent * 5.0 - d.normalized() * 2.0) * dt * 4.0
-		if kind == El.LIFE and a.team != (owner_actor.team if owner_actor else 0):
-			continue
 		var scale := dt * rate
 		if kind in [El.FIRE, El.MAGMA] and a.has_method("mods") and a.mods().get("firewalker", false):
 			continue

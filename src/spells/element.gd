@@ -2,19 +2,19 @@ class_name El
 ## The eight elements, the five fusions, and what each one does when it lands.
 ## Pure data: no nodes, so tests and the spell grammar can use it headless.
 
-enum { LIFE, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR, STEAM, ICE, MUD, MAGMA, STORM }
+enum { POISON, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR, STEAM, ICE, MUD, MAGMA, STORM }
 
-const BASE := [LIFE, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR]
+const BASE := [POISON, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR]
 const FUSED := [STEAM, ICE, MUD, MAGMA, STORM]
-const ALL := [LIFE, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR, STEAM, ICE, MUD, MAGMA, STORM]
+const ALL := [POISON, VOID, FIRE, FROST, WATER, LIGHTNING, EARTH, AIR, STEAM, ICE, MUD, MAGMA, STORM]
 
-const NAMES := ["Life", "Void", "Fire", "Frost", "Water", "Lightning", "Earth", "Air",
+const NAMES := ["Poison", "Void", "Fire", "Frost", "Water", "Lightning", "Earth", "Air",
 	"Steam", "Ice", "Mud", "Magma", "Storm"]
 ## One letter for the HUD orbs.
-const GLYPH := ["+", "◆", "F", "❄", "W", "⚡", "E", "≈", "S", "I", "M", "L", "T"]
+const GLYPH := ["☠", "◆", "F", "❄", "W", "⚡", "E", "≈", "S", "I", "M", "L", "T"]
 
 const COLOR := [
-	Color(0.35, 0.95, 0.45),  # life
+	Color(0.55, 0.95, 0.12),  # poison
 	Color(0.7, 0.2, 0.95),    # void
 	Color(1.0, 0.45, 0.1),    # fire
 	Color(0.4, 0.88, 1.0),    # frost
@@ -33,14 +33,14 @@ const COLOR := [
 ## first, hold LB and tap for the second. Opposites cancel in the queue, so the
 ## same button with LB is also the undo for it.
 const PAIRS := {
-	"A": [LIFE, VOID],
+	"A": [POISON, VOID],
 	"B": [FIRE, FROST],
 	"X": [WATER, LIGHTNING],
 	"Y": [EARTH, AIR],
 }
 
 const OPPOSITE := {
-	LIFE: VOID, VOID: LIFE,
+	POISON: VOID, VOID: POISON,
 	FIRE: FROST, FROST: FIRE,
 	WATER: LIGHTNING, LIGHTNING: WATER,
 	EARTH: AIR, AIR: EARTH,
@@ -61,16 +61,17 @@ enum Kind { SOLID, ENERGY, SPIRIT, FLOW }
 const KIND := {
 	EARTH: Kind.SOLID, ICE: Kind.SOLID, MUD: Kind.SOLID, MAGMA: Kind.SOLID,
 	LIGHTNING: Kind.ENERGY, STORM: Kind.ENERGY,
-	LIFE: Kind.SPIRIT, VOID: Kind.SPIRIT,
+	POISON: Kind.SPIRIT, VOID: Kind.SPIRIT,
 	FIRE: Kind.FLOW, FROST: Kind.FLOW, WATER: Kind.FLOW, STEAM: Kind.FLOW, AIR: Kind.FLOW,
 }
 
 ## What one unit of an element does on a hit. Continuous spells (spray, beam)
 ## apply this per second, bursts (projectile, nova, arc) once.
-##   dmg: damage, heal: healing for allies, push: knockback,
-##   burn / chill / wet / shock / slow: status strength.
+##   dmg: damage, push: knockback,
+##   burn / poison / chill / wet / shock / slow: status strength.
+## No element heals: health only comes back from the red globes monsters drop.
 const EFFECT := {
-	LIFE: {heal = 14.0},
+	POISON: {dmg = 6.0, poison = 1.0},
 	VOID: {dmg = 16.0},
 	FIRE: {dmg = 7.0, burn = 1.0},
 	FROST: {dmg = 3.0, chill = 1.0},

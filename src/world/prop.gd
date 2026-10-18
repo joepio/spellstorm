@@ -17,7 +17,8 @@ static var _meshes := {}
 
 var kind := ""
 var hp := 6.0
-## What breaking it lets out: "souls" (mana), "fire" (burning oil).
+## What breaking it lets out: "souls" (mana), "globe" (health), "fire"
+## (burning oil).
 var spill := ""
 var _chunks: Array[Dictionary] = []
 var _broken := false
@@ -90,18 +91,22 @@ static func _drum(top: float, bottom: float, h: float, seg: int) -> Mesh:
 	return _meshes[key]
 
 
-func damage(amount: float) -> void:
+## Take [param amount] from a hit travelling along [param dir] (zero for a
+## blast from [param at], or for nothing in particular).
+func damage(amount: float, dir := Vector3.ZERO, at := Vector3.INF) -> void:
 	if _broken:
 		return
 	hp -= amount
 	if hp <= 0.0:
-		shatter(global_position + Vector3.UP * 0.3)
+		shatter(dir, at, amount)
 	else:
 		Fx.burst(global_position + Vector3.UP * 0.6, Color(0.5, 0.47, 0.42), 3, 2.0, 0.08)
 
 
-## Break apart, the pieces flying away from [param from].
-func shatter(from: Vector3) -> void:
+## Break apart. Knocked along [param dir] the pieces fly on that way, harder
+## for a harder hit (a boulder sends them far, the last bolt into a grave
+## mostly topples it); a blast at [param at] throws them out from there.
+func shatter(dir := Vector3.ZERO, at := Vector3.INF, force := 6.0) -> void:
 	if _broken or not is_inside_tree():
 		return
 	_broken = true
@@ -109,6 +114,17 @@ func shatter(from: Vector3) -> void:
 	if Game.I and Game.I.arena:
 		Game.I.arena.props.erase(self)
 		Game.I.count("props_broken")
+	var power := clampf(force * 0.35, 1.2, 8.0)
+	dir.y = 0.0
+	var from: Vector3
+	if dir.length() > 0.05:
+		# Behind the prop, so everything flies on the way the hit went.
+		from = global_position - dir.normalized() * 1.6 + Vector3.UP * 0.3
+	elif at != Vector3.INF:
+		from = at
+	else:
+		from = global_position + Vector3.UP * 0.3
+		power = 1.5
 	var d := Debris.new()
 	d._life = 3.0
 	if Fx.root:
@@ -124,11 +140,13 @@ func shatter(from: Vector3) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		d.add_child(mi)
 		mi.global_transform = global_transform * (c.xf as Transform3D)
-		d.add(mi, from, 3.5, 3.0)
+		# Higher pieces fly further; the foot mostly drops where it stood.
+		var lift := clampf(mi.global_position.y - global_position.y, 0.0, 2.0)
+		d.add(mi, from, power * (0.4 + 0.5 * lift), 0.8 + power * 0.25)
 		thrown += 1
 	live += thrown
 	d.tree_exited.connect(func() -> void: live -= thrown)
-	d.bits(global_position + Vector3.UP * 0.4, Color(0.4, 0.37, 0.33), 6, 0.08, 3.0, 3.0)
+	d.bits(global_position + Vector3.UP * 0.4, Color(0.4, 0.37, 0.33), 6, 0.08, power, 1.5)
 	_spill()
 	queue_free()
 
@@ -144,6 +162,9 @@ func _spill() -> void:
 				var a := randf() * TAU
 				s.vel = Vector3(cos(a), 0, sin(a)) * randf_range(1.5, 3.5)
 				Game.I.spawn(s, global_position + Vector3.UP * 0.6)
+		"globe":
+			if randf() < 0.6:
+				Globe.drop(global_position)
 		"fire":
 			# Burning oil splashes out: it scorches whoever stands close and
 			# sets the ground alight, and the blast breaks what is next to it.

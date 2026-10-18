@@ -4,7 +4,7 @@ class_name Balance
 ##
 ## One number rules it: DMG_PER_MANA. A spell is worth the damage it does to
 ## everything it is likely to hit over its whole life, plus its statuses,
-## shoves and healing turned into damage at fixed rates (worth). What it
+## and shoves turned into damage at fixed rates (worth). What it
 ## really costs is loading its elements plus casting it (price). Grammar
 ## then sets each spell's rate so worth / (price * DMG_PER_MANA) lands on
 ## its target (fit): 1.0, plus a little for every extra element and every
@@ -31,14 +31,15 @@ const MANA_PER_DEFLECT := 3.0
 # Bolts, the free attack. One bolt hits for this share of a whole element
 # (El.EFFECT), set so every element is worth about BOLT_DPS a second with
 # its status and shove counted (bolt_dps; tests/balance_test.gd checks it).
-# Life heals friends instead.
 const BOLT_RATE := 6.0
 const BOLT_DPS := 20.0
 const PLAIN_BOLT := 0.2
-const BOLT := {El.LIFE: 0.4, El.VOID: 0.21, El.FIRE: 0.31, El.FROST: 0.8, El.WATER: 0.9,
+const BOLT := {El.POISON: 0.44, El.VOID: 0.21, El.FIRE: 0.31, El.FROST: 0.8, El.WATER: 0.9,
 	El.LIGHTNING: 0.24, El.EARTH: 0.19, El.AIR: 0.67,
 	El.STEAM: 0.2, El.ICE: 0.22, El.MUD: 0.4, El.MAGMA: 0.15, El.STORM: 0.26}
 const BURN_DPS := 7.0
+## Poison is slower than fire but lasts, and nothing washes it out.
+const POISON_DPS := 4.0
 ## Extra budget for each element past the first, and for each kind of
 ## element past the first: five mixed slots get about 1.4.
 const BONUS_PER_SLOT := 0.06
@@ -55,16 +56,12 @@ const TARGETS := {
 	"trap": 2.5, "overload": 4.0, "sentry": 1.0,
 }
 ## How much of a lasting spell's life it actually has something to hit.
-const UPTIME := {"sentry": 0.6, "rune": 0.3}
+const UPTIME := {"sentry": 0.6}
 ## Status worth, in damage: a freeze holds a monster still for FREEZE_TIME.
 const FREEZE_WORTH := 12.0
 const FREEZE_TIME := 2.6
 ## What a shove, a soak, a slow and a shock are worth, in damage, per unit.
 const UTILITY := {push = 1.0, wet = 1.0, slow = 3.0, shock = 2.0}
-## Healing a friend counts this much of the same damage.
-const HEAL_WORTH := 0.6
-## Friends a heal is expected to reach.
-const FRIENDS := 1.5
 
 
 ## What a spell really costs: loading each element plus casting it.
@@ -104,9 +101,6 @@ static func delivery(s: Dictionary) -> Dictionary:
 		"nova":
 			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.nova}
 		"trap":
-			if s.primary == El.LIFE:
-				# A healing rune pulses once a second (RuneFx-style, TrapFx).
-				return {scale = 0.35 * n.rate * n.duration * UPTIME.rune, time = n.duration * UPTIME.rune, targets = 1.0}
 			return {scale = n.rate * 0.8, time = 0.0, targets = TARGETS.trap}
 		"sentry":
 			var shots: float = floorf(n.duration / n.interval) * UPTIME.sentry
@@ -120,7 +114,7 @@ static func delivery(s: Dictionary) -> Dictionary:
 static func worth(s: Dictionary) -> Dictionary:
 	var d := delivery(s)
 	var dmg := 0.0
-	var heal := 0.0
+	var poison := 0.0
 	var burn := 0.0
 	var chill := 0.0
 	var utility := 0.0
@@ -128,7 +122,7 @@ static func worth(s: Dictionary) -> Dictionary:
 		var c: float = s.counts[e]
 		var eff: Dictionary = El.EFFECT[e]
 		dmg += float(eff.get("dmg", 0.0)) * c
-		heal += float(eff.get("heal", 0.0)) * c
+		poison += float(eff.get("poison", 0.0)) * c
 		burn += float(eff.get("burn", 0.0)) * c
 		chill += float(eff.get("chill", 0.0)) * c
 		for k in UTILITY:
@@ -142,10 +136,12 @@ static func worth(s: Dictionary) -> Dictionary:
 	var freezes: float = minf(chill * d.scale / 3.0, 1.0 + d.time / 4.0)
 	var freeze_worth: float = FREEZE_WORTH * floorf(freezes)
 	var utility_worth: float = utility * d.scale
-	var heal_worth: float = heal * d.scale * HEAL_WORTH * FRIENDS
-	var total: float = (per_target + burn_worth + freeze_worth + utility_worth) * d.targets + heal_worth
-	return {total = total, hit = per_target, burn = burn_worth, freeze = freeze_worth,
-		utility = utility_worth, heal = heal_worth, targets = d.targets}
+	# Poison: each unit of scale adds five seconds, capped at ten past the
+	# last hit, at POISON_DPS.
+	var poison_worth: float = POISON_DPS * minf(d.time + 10.0, 5.0 * poison * d.scale)
+	var total: float = (per_target + burn_worth + poison_worth + freeze_worth + utility_worth) * d.targets
+	return {total = total, hit = per_target, burn = burn_worth, poison = poison_worth, freeze = freeze_worth,
+		utility = utility_worth, targets = d.targets}
 
 
 ## The spell's worth divided by its budget: 1.0 is spot on.
@@ -199,5 +195,6 @@ static func bolt_dps(e: int) -> float:
 	if eff.has("burn"):
 		worth += BURN_DPS
 	worth += FREEZE_WORTH * minf(float(eff.get("chill", 0.0)) * per_s / 3.0, 1.0 / FREEZE_TIME)
-	worth += float(eff.get("heal", 0.0)) * per_s * HEAL_WORTH
+	if eff.has("poison"):
+		worth += POISON_DPS
 	return worth

@@ -84,17 +84,13 @@ func _ready() -> void:
 		El.AIR:
 			_field = Game.I.arena.add_field(target, El.AIR, 2.4, 8.0, caster)
 			_field.spell = {counts = {El.AIR: 2}, payload = [], primary = El.AIR, n = {rate = 0.6}}
-		El.LIFE:
-			for a in Game.I.wizards:
-				if not a.alive:
-					a.revive(0.6)
-				a.healed(a.max_hp * 0.6)
-				Fx.burst(a.global_position + Vector3.UP, c, 30, 4.0)
-				Fx.light_pop(a.global_position, c, 3.0, 5.0, 0.6)
-			for a in targets():
-				if a.undead and a.global_position.distance_to(caster.global_position) < 9.0:
-					a.hit_spell(spell, 1.0, caster, Vector3.ZERO, 0.0)
-			Fx.ring(caster.global_position, c, 9.0, 0.8)
+		El.POISON:
+			# Plague: a wide cloud of poison that your own side walks through.
+			_field = Game.I.arena.add_field(target, El.POISON, 5.0, 8.0, caster)
+			_field.spell = {counts = {El.POISON: 2}, payload = [], primary = El.POISON, n = {rate = 0.7}}
+			_field.friendly = true
+			Fx.burst(target + Vector3.UP * 0.5, c, 40, 6.0, 0.3)
+			Fx.ring(target, c, 5.0, 0.6)
 		El.VOID:
 			_thing = Node3D.new()
 			Art.part(_thing, Art.sphere(0.9, 14), Fx.solid(Color(0, 0, 0), 1.0))
@@ -168,7 +164,7 @@ func _physics_process(dt: float) -> void:
 				Game.I.spawn(nova, global_position)
 				Game.I.shake(0.8)
 				finish()
-		El.FROST, El.AIR:
+		El.FROST, El.AIR, El.POISON:
 			if _field and is_instance_valid(_field):
 				if spell.primary == El.AIR:
 					# The tornado hunts the nearest monster.

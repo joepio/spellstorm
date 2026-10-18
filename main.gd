@@ -46,7 +46,6 @@ var _cam_center := Vector3.ZERO
 var _cam_height := 20.0
 var _confluence_t := {}
 var _dmg_t := 0.0
-var _globes: Array = []
 
 var shot := ""
 var shot_frames := 240
@@ -304,8 +303,14 @@ func on_enemy_died(e: Enemy, _src: Actor) -> void:
 	run.kills += 1
 	count("kills")
 	enemies.erase(e)
-	if randf() < (0.5 if e.elite else 0.12):
-		_globe(e.global_position)
+	# Health only comes from globes (no spell heals): bosses leave a few,
+	# elites always one, the rest now and then.
+	if e.cfg.get("boss", false):
+		Globe.drop(e.global_position, 4)
+	elif e.elite:
+		Globe.drop(e.global_position, 2 if randf() < 0.4 else 1)
+	elif randf() < 0.22:
+		Globe.drop(e.global_position)
 
 
 func on_cast(w: Wizard, s: Dictionary) -> void:
@@ -336,19 +341,6 @@ func summon_circle(at: Vector3) -> void:
 	Fx.light_pop(at, c, 2.0, 4.0, 0.9)
 
 
-func _globe(at: Vector3) -> void:
-	var g := Node3D.new()
-	Art.part(g, Art.sphere(0.12, 8), Fx.glow(Color(0.85, 0.05, 0.05), 2.5), Vector3(0, 0.5, 0))
-	var l := OmniLight3D.new()
-	l.light_color = Color(1, 0.1, 0.1)
-	l.light_energy = 0.6
-	l.omni_range = 1.8
-	l.position.y = 0.6
-	g.add_child(l)
-	spawn(g, Vector3(at.x, 0, at.z))
-	_globes.append(g)
-
-
 # --- Every frame ---------------------------------------------------------
 
 func count(what: String, n := 1) -> void:
@@ -360,18 +352,6 @@ func _physics_process(dt: float) -> void:
 	if sim_frames > 0 and _frame == sim_frames:
 		get_tree().quit(Sim.report(self))
 	_confluence(dt)
-	for g in _globes.duplicate():
-		if not is_instance_valid(g):
-			_globes.erase(g)
-			continue
-		g.get_child(0).position.y = 0.5 + sin(Time.get_ticks_msec() / 300.0) * 0.1
-		for w in wizards:
-			if w.alive and w.global_position.distance_to(g.global_position) < 1.0:
-				w.healed(30.0)
-				Fx.burst(g.global_position + Vector3.UP * 0.5, Color(1, 0.1, 0.1), 16, 3.0)
-				_globes.erase(g)
-				g.queue_free()
-				break
 	_dmg_t -= dt
 	if _dmg_t <= 0.0:
 		_dmg_t = 0.3
@@ -599,7 +579,7 @@ func _take_shot() -> void:
 		for i in names.size():
 			var ang := TAU * i / names.size()
 			var k: int = {"fire": El.FIRE, "magma": El.MAGMA, "air": El.AIR, "water": El.WATER, "frost": El.FROST,
-				"steam": El.STEAM, "mud": El.MUD}.get(names[i], El.FIRE)
+				"steam": El.STEAM, "mud": El.MUD, "poison": El.POISON}.get(names[i], El.FIRE)
 			arena.add_field(c + Vector3(cos(ang), 0, sin(ang)) * 5.0, k, 2.6, 999.0, null)
 	for f in shot_frames:
 		await get_tree().physics_frame

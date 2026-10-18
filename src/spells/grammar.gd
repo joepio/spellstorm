@@ -8,13 +8,13 @@ class_name Grammar
 ##   * The heaviest element decides the shape of a cast:
 ##       solid (Earth, Ice, Mud, Magma)  throw it
 ##       energy (Lightning, Storm)       arc to targets
-##       spirit (Life, Void)             a beam
+##       spirit (Poison, Void)           a beam
 ##       flow (Fire, Frost, Water,       a spray
 ##             Steam, Air)
 ##   * Planting always puts it at your feet. Up to four elements make a
 ##     trap that goes off when a monster comes close (what it does depends
 ##     on the same class: flow spills a field, solid spikes and pins, energy
-##     blasts, void pulls in, life is a healing rune); a full queue of five
+##     blasts, void pulls in, poison leaves a pool); a full queue of five
 ##     makes a sentry that shoots your mix at monsters. Your own traps and
 ##     sentries never hurt your side.
 ##   * Within that class, the element you have most of leads.
@@ -25,12 +25,12 @@ class_name Grammar
 const CAST_NOUN := {
 	El.EARTH: "Boulder", El.ICE: "Ice Shards", El.MUD: "Mud Ball", El.MAGMA: "Lava Bomb",
 	El.LIGHTNING: "Chain Lightning", El.STORM: "Thunderclap",
-	El.LIFE: "Life Beam", El.VOID: "Void Ray",
+	El.POISON: "Venom Beam", El.VOID: "Void Ray",
 	El.FIRE: "Flamethrower", El.FROST: "Frost Breath", El.WATER: "Water Jet",
 	El.STEAM: "Steam Jet", El.AIR: "Gale",
 }
 const NOVA_NOUN := {
-	El.LIFE: "Bloom", El.VOID: "Void Burst", El.FIRE: "Fire Nova", El.FROST: "Frost Nova",
+	El.POISON: "Toxic Burst", El.VOID: "Void Burst", El.FIRE: "Fire Nova", El.FROST: "Frost Nova",
 	El.WATER: "Splash", El.LIGHTNING: "Thunder Ring", El.EARTH: "Shockwave", El.AIR: "Gust Ring",
 	El.STEAM: "Steam Burst", El.ICE: "Ice Ring", El.MUD: "Mudslide", El.MAGMA: "Eruption",
 	El.STORM: "Tempest",
@@ -38,14 +38,14 @@ const NOVA_NOUN := {
 const PLANT_NOUN := {
 	El.EARTH: "Spike Trap", El.ICE: "Ice Spikes", El.MUD: "Mud Trap", El.MAGMA: "Lava Trap",
 	El.LIGHTNING: "Shock Trap", El.STORM: "Thunder Trap",
-	El.LIFE: "Healing Rune", El.VOID: "Void Mine",
+	El.POISON: "Poison Trap", El.VOID: "Void Mine",
 	El.FIRE: "Fire Trap", El.FROST: "Frost Trap", El.WATER: "Puddle Trap", El.STEAM: "Steam Vent",
 	El.AIR: "Gust Trap",
 }
 const SENTRY_NOUN := {
 	El.EARTH: "Stone Sentry", El.ICE: "Ice Sentry", El.MUD: "Mud Sentry", El.MAGMA: "Lava Sentry",
 	El.LIGHTNING: "Tesla Sentry", El.STORM: "Storm Sentry",
-	El.LIFE: "Life Sentry", El.VOID: "Void Sentry",
+	El.POISON: "Venom Sentry", El.VOID: "Void Sentry",
 	El.FIRE: "Fire Sentry", El.FROST: "Frost Sentry", El.WATER: "Water Sentry", El.STEAM: "Steam Sentry",
 	El.AIR: "Wind Sentry",
 }
@@ -54,16 +54,16 @@ const SENTRY_SLOTS := 5
 const OVERLOAD_NOUN := {
 	El.FIRE: "Meteor", El.FROST: "Blizzard", El.WATER: "Tidal Wave",
 	El.LIGHTNING: "Thunderbolt", El.EARTH: "Earthquake", El.AIR: "Tornado",
-	El.LIFE: "Resurrection", El.VOID: "Black Hole",
+	El.POISON: "Plague", El.VOID: "Black Hole",
 }
 const ADJ := {
-	El.LIFE: "Blessed", El.VOID: "Cursed", El.FIRE: "Burning", El.FROST: "Freezing",
+	El.POISON: "Venomous", El.VOID: "Cursed", El.FIRE: "Burning", El.FROST: "Freezing",
 	El.WATER: "Soaking", El.LIGHTNING: "Shocking", El.EARTH: "Crushing", El.AIR: "Gusting",
 	El.STEAM: "Scalding", El.ICE: "Glacial", El.MUD: "Muddy", El.MAGMA: "Molten",
 	El.STORM: "Thundering",
 }
 const WARD_ADJ := {
-	El.LIFE: "Mending", El.VOID: "Void", El.FIRE: "Fire", El.FROST: "Frost",
+	El.POISON: "Poison", El.VOID: "Void", El.FIRE: "Fire", El.FROST: "Frost",
 	El.WATER: "Water", El.LIGHTNING: "Lightning", El.EARTH: "Stone", El.AIR: "Wind",
 	El.STEAM: "Steam", El.ICE: "Ice", El.MUD: "Mud", El.MAGMA: "Magma", El.STORM: "Storm",
 }
@@ -133,15 +133,11 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 			spell.name = _adjectives(payload) + (SENTRY_NOUN if spell.shape == "sentry" else PLANT_NOUN)[primary]
 		"ward":
 			spell.shape = "ward"
-			var only_life := payload.is_empty() and primary == El.LIFE
-			if only_life:
-				spell.name = "Mend"
-			else:
-				var words: Array = []
-				for e in [primary] + payload:
-					if words.size() < 2:
-						words.append(WARD_ADJ[e])
-				spell.name = " ".join(words) + " Ward"
+			var words: Array = []
+			for e in [primary] + payload:
+				if words.size() < 2:
+					words.append(WARD_ADJ[e])
+			spell.name = " ".join(words) + " Ward"
 	var sorted_payload := payload.duplicate()
 	sorted_payload.sort()
 	spell.key = "%s|%s|%d|%s" % [form, spell.shape, primary, ",".join(sorted_payload.map(func(e): return str(e)))]
@@ -169,7 +165,7 @@ static func _adjectives(payload: Array) -> String:
 ## The summed per-unit effect of every element in the spell, scaled by
 ## the caster's relics. Fusions count once each, the same as a base element.
 static func effect(spell: Dictionary, mods: Dictionary = {}) -> Dictionary:
-	var out := {dmg = 0.0, heal = 0.0, push = 0.0, burn = 0.0, chill = 0.0, wet = 0.0, shock = 0.0, slow = 0.0, curse = 0.0}
+	var out := {dmg = 0.0, poison = 0.0, push = 0.0, burn = 0.0, chill = 0.0, wet = 0.0, shock = 0.0, slow = 0.0, curse = 0.0}
 	for e in spell.counts:
 		var n: int = spell.counts[e]
 		var m := float(mods.get("el_%d" % e, 1.0))
@@ -178,7 +174,6 @@ static func effect(spell: Dictionary, mods: Dictionary = {}) -> Dictionary:
 		if e == El.VOID:
 			out.curse += n
 	out.dmg *= float(mods.get("dmg", 1.0))
-	out.heal *= float(mods.get("heal", 1.0))
 	return out
 
 
@@ -230,9 +225,8 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 		"trap":
 			# radius: the blast; field: what flow traps leave behind; stun:
 			# how long solid spikes pin; duration: how long it lies in wait
-			# (a life rune heals for that long instead).
 			n = {radius = 2.2 + 0.35 * p, field = 1.4 + 0.35 * p, field_time = 5.0 + p,
-				stun = 0.8 + 0.25 * lead, duration = 12.0 if spell.primary == El.LIFE else 30.0, rate = 1.6}
+				stun = 0.8 + 0.25 * lead, duration = 30.0, rate = 1.6}
 		"sentry":
 			n = {range = 9.0, interval = 0.3, duration = 14.0, rate = 0.5}
 		"ward":

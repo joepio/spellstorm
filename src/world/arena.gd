@@ -1087,7 +1087,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			var wood := Fx.solid(Color(0.2, 0.13, 0.08), 0.85)
 			Art.part(body, Art.box(0.7, 0.4, 1.9), wood, Vector3(0, 0.2, 0))
 			Art.part(body, Art.box(0.76, 0.08, 1.96), Fx.solid(Color(0.15, 0.1, 0.06), 0.85), Vector3(0.06, 0.44, -0.05), Vector3(0, 6, 0))
-			body.spill = "souls"
+			body.spill = "globe"
 			r = 0.6
 		"statue":
 			# A weeping angel on a plinth.
@@ -1134,7 +1134,7 @@ const PROP_HP := {
 func blast(at: Vector3, r: float, dmg: float) -> void:
 	for p in props.duplicate():
 		if is_instance_valid(p) and Vector2(p.global_position.x - at.x, p.global_position.z - at.z).length() < r + 0.4:
-			p.damage(dmg)
+			p.damage(dmg, Vector3.ZERO, at)
 
 
 var _dust_p: CPUParticles3D

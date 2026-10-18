@@ -293,7 +293,7 @@ class WizardPanel:
 		if not wizard.alive:
 			for b in _button_balls:
 				b.visible = false
-			draw_string(f, Vector2(_x(16) - (150 if mirrored else 0), 84), "Heal the grave", align, 150, 13, Color(0.85, 0.3, 0.25))
+			draw_string(f, Vector2(_x(16) - (150 if mirrored else 0), 84), "Stand at the grave", align, 150, 13, Color(0.85, 0.3, 0.25))
 			return
 		_buttons(Vector2(_x(222), 36))
 		_spells(f)

@@ -1,6 +1,6 @@
 class_name Icons
 ## Element icons drawn from simple shapes, so the HUD needs no text or image
-## files: a flame, a snowflake, a drop, a bolt, a rock, a gust, a heart and an
+## files: a flame, a snowflake, a drop, a bolt, a rock, a gust, a skull and an
 ## eye, plus the five fusions. Each fits a circle of radius [code]r[/code].
 
 
@@ -19,8 +19,8 @@ static func draw(ci: CanvasItem, e: int, c: Vector2, r: float, col: Color) -> vo
 			_rock(ci, c, r, col)
 		El.AIR:
 			_gust(ci, c, r, col, w)
-		El.LIFE:
-			_heart(ci, c, r, col)
+		El.POISON:
+			_skull(ci, c, r, col)
 		El.VOID:
 			_eye(ci, c, r, col, w)
 		El.STEAM:
@@ -112,10 +112,14 @@ static func _gust(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float) ->
 		ci.draw_arc(Vector2(x1, y - r * 0.18), r * 0.18, PI * 0.5, PI * 2.0, 10, col, w, true)
 
 
-static func _heart(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
-	ci.draw_circle(c + Vector2(-r * 0.33, -r * 0.2), r * 0.38, col)
-	ci.draw_circle(c + Vector2(r * 0.33, -r * 0.2), r * 0.38, col)
-	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.7, -r * 0.05), c + Vector2(r * 0.7, -r * 0.05), c + Vector2(0, r * 0.8)]), col)
+static func _skull(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+	ci.draw_circle(c + Vector2(0, -r * 0.12), r * 0.62, col)
+	ci.draw_rect(Rect2(c + Vector2(-r * 0.36, r * 0.2), Vector2(r * 0.72, r * 0.5)), col)
+	var hole := col.darkened(0.8)
+	ci.draw_circle(c + Vector2(-r * 0.24, -r * 0.1), r * 0.17, hole)
+	ci.draw_circle(c + Vector2(r * 0.24, -r * 0.1), r * 0.17, hole)
+	for i in 3:
+		ci.draw_line(c + Vector2((i - 1) * r * 0.2, r * 0.42), c + Vector2((i - 1) * r * 0.2, r * 0.7), hole, maxf(1.0, r * 0.07))
 
 
 static func _eye(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float) -> void:
