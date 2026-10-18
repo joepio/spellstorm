@@ -67,9 +67,14 @@ static func wizard(robe: Color) -> Dictionary:
 	var robe_m := Fx.solid(robe, 0.9)
 	var trim_m := Fx.solid(Color(0.75, 0.6, 0.3), 0.5)
 	var meshes: Array[GeometryInstance3D] = []
-	meshes.append(part(body, cyl(0.22, 0.48, 1.0, 12), robe_m, Vector3(0, 0.5, 0)))
-	meshes.append(part(body, cyl(0.5, 0.5, 0.05, 12), Fx.solid(dark), Vector3(0, 0.03, 0)))
-	meshes.append(part(body, cyl(0.25, 0.25, 0.06, 12), trim_m, Vector3(0, 0.62, 0)))
+	# The skirt of the robe is cloth (Robe); a short stiff piece under the
+	# shoulders hides where it hangs from.
+	meshes.append(part(body, cyl(0.2, 0.245, 0.2, 12), robe_m, Vector3(0, 0.93, 0)))
+	var skirt := Robe.new().setup(robe, dark)
+	skirt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	body.add_child(skirt)
+	meshes.append(skirt)
+	meshes.append(part(body, cyl(0.25, 0.25, 0.06, 12), trim_m, Vector3(0, 0.9, 0)))
 	# Shoulders and sleeves.
 	meshes.append(part(body, sphere(0.27), robe_m, Vector3(0, 1.02, 0), Vector3.ZERO, Vector3(1.15, 0.7, 1.0)))
 	meshes.append(part(body, cyl(0.07, 0.11, 0.5, 8), robe_m, Vector3(0.3, 0.86, 0.12), Vector3(60, 0, -20)))
