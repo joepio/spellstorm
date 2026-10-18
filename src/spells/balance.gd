@@ -11,8 +11,10 @@ class_name Balance
 ## extra kind of element, because a longer combo is more work to build.
 ## tests/balance_test.gd prints every spell and fails when one leaves BAND.
 
-## The exchange rate: one mana buys this much damage.
-const DMG_PER_MANA := 5.0
+## The exchange rate: one mana buys this much damage. Set so a spell hits
+## each target clearly harder per second than the free bolts do (BOLT_DPS):
+## spending mana must always beat not spending it.
+const DMG_PER_MANA := 9.0
 
 # The mana economy. Mana comes mostly from souls: every monster that dies
 # leaves wisps worth SOUL_MANA_PER_HP of its health, which you walk over to
@@ -32,11 +34,11 @@ const MANA_PER_DEFLECT := 3.0
 # (El.EFFECT), set so every element is worth about BOLT_DPS a second with
 # its status and shove counted (bolt_dps; tests/balance_test.gd checks it).
 const BOLT_RATE := 6.0
-const BOLT_DPS := 20.0
-const PLAIN_BOLT := 0.2
-const BOLT := {El.POISON: 0.44, El.VOID: 0.21, El.FIRE: 0.31, El.FROST: 0.8, El.WATER: 0.9,
-	El.LIGHTNING: 0.24, El.EARTH: 0.19, El.AIR: 0.67,
-	El.STEAM: 0.2, El.ICE: 0.22, El.MUD: 0.4, El.MAGMA: 0.15, El.STORM: 0.26}
+const BOLT_DPS := 12.0
+const PLAIN_BOLT := 0.12
+const BOLT := {El.POISON: 0.22, El.VOID: 0.12, El.FIRE: 0.12, El.FROST: 0.41, El.WATER: 0.57,
+	El.LIGHTNING: 0.14, El.EARTH: 0.11, El.AIR: 0.40,
+	El.STEAM: 0.08, El.ICE: 0.12, El.MUD: 0.24, El.MAGMA: 0.06, El.STORM: 0.16}
 const BURN_DPS := 7.0
 ## Poison is slower than fire but lasts, and nothing washes it out.
 const POISON_DPS := 4.0
@@ -48,7 +50,7 @@ const BONUS_PER_KIND := 0.06
 const BAND := Vector2(0.8, 1.3)
 ## Fitting never turns a spell's rate more than this far either way, so the
 ## shapes keep their character.
-const FIT_RANGE := Vector2(0.05, 6.0)
+const FIT_RANGE := Vector2(0.05, 12.0)
 
 ## How many monsters each shape is expected to hit in a normal fight.
 const TARGETS := {

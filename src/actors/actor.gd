@@ -296,7 +296,21 @@ func drive(desired: Vector3, delta: float) -> void:
 	velocity.y = 0.0
 	move_and_slide()
 	global_position.y = 0.0
+	_keep_inside()
 	push *= exp(-5.0 * delta)
+
+
+## Walls have gaps where they meet and a hard shove can squeeze through:
+## in a walled level nobody ends up outside the band.
+func _keep_inside() -> void:
+	if not Game.I or not Game.I.arena or not Game.I.arena.corridor:
+		return
+	var q := Vector2(global_position.x, global_position.z)
+	var d: float = Game.I.arena.bound(q)
+	if d > -0.4:
+		var o: Vector2 = Game.I.arena._bound_out(q)
+		global_position.x -= o.x * (d + 0.4)
+		global_position.z -= o.y * (d + 0.4)
 
 
 var _wading := false

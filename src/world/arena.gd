@@ -378,67 +378,102 @@ func _band_walls() -> void:
 					continue
 				taken[key] = q
 				pts.append(q)
+	# Chain the contour points into walls: from each loose point, step to
+	# the nearest unused one close by, so every wall runs unbroken along the
+	# edge of the band instead of standing as loose blocks.
+	var chains: Array = []
+	var used := {}
+	for start in pts.size():
+		if used.has(start):
+			continue
+		var chain: Array[Vector2] = [pts[start]]
+		used[start] = true
+		var grow := true
+		while grow:
+			grow = false
+			var tip: Vector2 = chain[chain.size() - 1]
+			var best := -1
+			var bd := 2.4
+			for k in pts.size():
+				if used.has(k):
+					continue
+				var d := pts[k].distance_to(tip)
+				if d < bd:
+					bd = d
+					best = k
+			if best >= 0:
+				used[best] = true
+				chain.append(pts[best])
+				grow = true
+		chains.append(chain)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	add_child(body)
 	var tools := {}
 	var lit := Fx.solid(biome.wall, 0.95)
-	var dark := Fx.solid(biome.wall.darkened(0.35), 0.95)
-	var shapes := {}
+	var dark := Fx.solid(biome.wall.darkened(0.3), 0.95)
 	var last_torch: Array[Vector2] = []
-	for q in pts:
-		var out := _bound_out(q)
-		# The gate fills the gap at the far end.
-		if q.y < -half.y + 1.5 and absf(q.x - portal_at.x) < 2.6:
+	for chain: Array in chains:
+		if chain.size() < 2:
 			continue
-		var face := smoothstep(0.25, 0.8, out.y)
-		var h := lerpf(2.9, 0.7, face) * _rng.randf_range(0.75, 1.12)
-		if _rng.randf() < 0.12:
-			# Crumbled down to a stump here and there.
-			h *= 0.45
-		var size := Vector3(snappedf(_rng.randf_range(1.5, 1.8), 0.1), snappedf(h, 0.1), 1.1)
-		var basis := Basis(Vector3.UP, atan2(out.x, out.y))
-		var at := Vector3(q.x + out.x * 0.5, size.y * 0.5, q.y + out.y * 0.5)
-		var ck := Vector2i(int(floor(q.x / 20.0)), int(floor(q.y / 20.0)))
-		var which := 0 if _rng.randf() < 0.7 else 1
-		var tk := Vector3i(ck.x, ck.y, which)
-		if not tools.has(tk):
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			tools[tk] = st
-		(tools[tk] as SurfaceTool).append_from(Prop._box(size), 0, Transform3D(basis, at))
-		if size.y > 1.5:
-			# A coping stone along the top.
-			var cap := Vector3(size.x + 0.1, 0.16, size.z + 0.16)
-			var ck2 := Vector3i(ck.x, ck.y, 1 - which)
-			if not tools.has(ck2):
-				var st2 := SurfaceTool.new()
-				st2.begin(Mesh.PRIMITIVE_TRIANGLES)
-				tools[ck2] = st2
-			(tools[ck2] as SurfaceTool).append_from(Prop._box(cap), 0, Transform3D(basis, at + Vector3(0, size.y * 0.5 + 0.08, 0)))
-		var sk := "%.1f,%.1f" % [size.x, size.y]
-		if not shapes.has(sk):
+		# The height drifts slowly along a wall instead of jumping per stone.
+		var drift := _rng.randf() * 10.0
+		for k in chain.size() - 1:
+			var a: Vector2 = chain[k]
+			var b: Vector2 = chain[k + 1]
+			var mid := (a + b) * 0.5
+			# The gate fills the gap at the far end.
+			if mid.y < -half.y + 1.5 and absf(mid.x - portal_at.x) < 2.6:
+				continue
+			var out := _bound_out(mid)
+			var along := b - a
+			var len := along.length()
+			if len < 0.05:
+				continue
+			var face := smoothstep(0.25, 0.8, out.y)
+			var wave := 0.88 + 0.12 * sin(drift + k * 0.45) + 0.06 * sin(drift * 1.7 + k * 1.3)
+			var h := lerpf(2.7, 0.75, face) * wave
+			var basis := Basis(Vector3.UP, atan2(along.x, along.y) + PI * 0.5)
+			var centre := Vector3(mid.x + out.x * 0.45, 0, mid.y + out.y * 0.45)
+			var ck := Vector2i(int(floor(mid.x / 20.0)), int(floor(mid.y / 20.0)))
+			_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(len + 0.35, h, 0.8), Transform3D(basis, centre + Vector3.UP * h * 0.5))
+			# A coping along the top, darker.
+			_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.14, 1.0), Transform3D(basis, centre + Vector3.UP * (h + 0.07)))
+			# A plinth along the foot.
+			_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.3, 1.05), Transform3D(basis, centre + Vector3.UP * 0.15))
+			# A buttress every few stones, a little taller, with a cap.
+			if k % 3 == 0:
+				var ph := h + 0.35
+				_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(0.75, ph, 1.15), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph * 0.5, a.y + out.y * 0.45)))
+				_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(0.95, 0.2, 1.35), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph + 0.1, a.y + out.y * 0.45)))
+				if ph > 2.4:
+					var far := true
+					for o in last_torch:
+						if o.distance_to(a) < 13.0:
+							far = false
+					if far:
+						last_torch.append(a)
+						_torch(self, Vector3(a.x - out.x * 0.25, 2.2, a.y - out.y * 0.25))
 			var bs := BoxShape3D.new()
-			bs.size = Vector3(size.x, 4.0, size.z)
-			shapes[sk] = bs
-		var cs := CollisionShape3D.new()
-		cs.shape = shapes[sk]
-		cs.transform = Transform3D(basis, Vector3(at.x, 2.0, at.z))
-		body.add_child(cs)
-		_rim.append(Vector4(q.x - out.x * 1.4, q.y - out.y * 1.4, -out.x, -out.y))
-		if size.y > 2.5:
-			var far := true
-			for o in last_torch:
-				if o.distance_to(q) < 13.0:
-					far = false
-			if far:
-				last_torch.append(q)
-				_torch(self, Vector3(q.x - out.x * 0.15, 2.2, q.y - out.y * 0.15))
+			bs.size = Vector3(len + 0.5, 4.0, 1.2)
+			var cs := CollisionShape3D.new()
+			cs.shape = bs
+			cs.transform = Transform3D(basis, centre + Vector3.UP * 2.0)
+			body.add_child(cs)
+			_rim.append(Vector4(mid.x - out.x * 1.4, mid.y - out.y * 1.4, -out.x, -out.y))
 	for tk: Vector3i in tools:
 		var m := MeshInstance3D.new()
 		m.mesh = (tools[tk] as SurfaceTool).commit()
 		m.material_override = lit if tk.z == 0 else dark
 		add_child(m)
+
+
+func _wall_piece(tools: Dictionary, key: Vector3i, size: Vector3, xf: Transform3D) -> void:
+	if not tools.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		tools[key] = st
+	(tools[key] as SurfaceTool).append_from(Art.box(size.x, size.y, size.z), 0, xf)
 
 
 ## Beyond the walls: dark ground thick with the biome's things, so the edge
@@ -735,13 +770,13 @@ func _floor() -> void:
 				var v := clampf(_sdf[iz * _sdf_w + ix] / 16.0 + 0.5, 0.0, 1.0)
 				img.set_pixel(ix, iz, Color(v, v, v))
 		tex = ImageTexture.create_from_image(img)
-	var x := -half.x - 5.0 - (12.0 if corridor else 0.0)
-	while x < half.x + 5.0 + (12.0 if corridor else 0.0):
+	var x := -half.x - 5.0 - (24.0 if corridor else 0.0)
+	while x < half.x + 5.0 + (24.0 if corridor else 0.0):
 		var z := -half.y - 5.0
 		while z < half.y + 8.0:
 			var lo := Vector2(x, z)
 			var hi := lo + Vector2(chunk, chunk)
-			if corridor and bound(lo + Vector2(chunk, chunk) * 0.5) > 7.1 + 11.0:
+			if corridor and bound(lo + Vector2(chunk, chunk) * 0.5) > 7.1 + 24.0:
 				# Nothing here to see: deep beyond the walls.
 				z += chunk
 				continue

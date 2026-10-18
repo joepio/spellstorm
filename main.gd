@@ -626,7 +626,6 @@ func _take_shot() -> void:
 				w.last_el = {"burn": El.FIRE, "freeze": El.FROST, "shock": El.LIGHTNING, "void": El.VOID, "blown": El.AIR}.get(how, -1)
 				w.last_dir = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
 				w.invuln = 0.0
-				w.shield = 0.0
 				w.take(w.hp + (40.0 if how == "gore" else 1.0))
 		if how != "" and "--revive" in args and f == shot_frames - 25:
 			for w in wizards:

@@ -268,8 +268,11 @@ void fragment() {
 		float sd = (texture(bounds, (p - bounds_rect.xy) / bounds_rect.zw).r - 0.5) * 16.0;
 		// Shadowed along the foot of the walls, dark rubble beyond them.
 		col *= 1.0 - 0.3 * smoothstep(-2.5, 0.3, sd);
-		col = mix(col, base_b * (0.5 + 0.4 * fine), smoothstep(0.0, 1.5, sd));
-		edge_dark = smoothstep(1.0, 10.0, sd) * 1.4;
+		col = mix(col, base_b * (0.75 + 0.4 * fine), smoothstep(0.0, 1.5, sd));
+		// Only gently darker out there: land you cannot reach, not a void.
+		edge_dark = smoothstep(1.0, 14.0, sd) * 0.75;
+		// A faint moonlit glow, so ground nobody lights still reads as ground.
+		glow += base_b * (0.6 + 0.5 * fine) * 0.22 * smoothstep(0.5, 3.0, sd);
 	}
 	col *= 1.0 - min(edge_dark, 1.0) * 0.6 - max(edge_dark - 1.0, 0.0) * 0.8;
 	ALBEDO = col * 1.7;

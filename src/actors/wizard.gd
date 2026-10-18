@@ -17,8 +17,8 @@ extends Actor
 ##       will go; a tap fires it as soon as it is ready, holding RT keeps it
 ##       while you aim and fires on release
 ##   LS click  plant the queue at your feet: a trap, or a sentry when full
-##   RS click  enchant yourself: for a while every bolt carries the queue's
-##             elements and the staff swings with them (a fire sword)
+##   RS click  enchant the staff: for a while your swing becomes an element
+##             weapon (a fire sword, a thunder hammer), bolts stay as they are
 ##   D-pad up  conjure your last spell again
 ##   D-pad left / right  tap to conjure a saved spell, hold to save the queue
 
@@ -275,7 +275,7 @@ func _physics_process(dt: float) -> void:
 		enchant_time -= dt
 		if enchant_time <= 0.0:
 			_enchant_end()
-	bolt_el = queue.slots[0] if not queue.is_empty() else int(enchant.get("primary", -1))
+	bolt_el = queue.slots[0] if not queue.is_empty() else -1
 	_read_input(dt)
 	if _roll_t > 0.0:
 		_roll_t -= dt
@@ -412,19 +412,16 @@ func _trace_once(what: String) -> void:
 ## What one bolt carries: every loaded element, a little stronger for each
 ## copy, split across the mix so a mixed bolt is not simply stronger.
 func bolt_spell() -> Dictionary:
-	if queue.is_empty() and enchant.is_empty():
+	if queue.is_empty():
 		return {counts = {}, payload = [], primary = -1, n = {}, scales = {}}
 	var counts := {}
 	for e in queue.slots:
 		counts[e] = int(counts.get(e, 0)) + 1
-	# The enchantment rides on every bolt.
-	for e in enchant.get("counts", {}):
-		counts[e] = int(counts.get(e, 0)) + int(enchant.counts[e])
 	var scales := {}
 	var split := 1.0 / sqrt(float(counts.size()))
 	for e in counts:
 		scales[e] = BOLT[e] * (0.6 + 0.4 * counts[e]) * split
-	return {counts = counts, payload = [], primary = queue.slots[0] if not queue.is_empty() else enchant.primary, n = {}, scales = scales}
+	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = scales}
 
 
 func shoot() -> void:
@@ -453,6 +450,8 @@ func melee() -> void:
 	Game.I.count("swings")
 	var bonk := {counts = {El.EARTH: 1}, payload = [], primary = El.EARTH, n = {}}
 	var touch := bolt_spell()
+	if enchant_time > 0.0:
+		_enchanted_swing()
 	for a in Game.I.enemies:
 		if not is_instance_valid(a) or not a.alive:
 			continue
@@ -461,7 +460,8 @@ func melee() -> void:
 		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > SWING_ARC + atan2(a.radius, maxf(to.length(), 0.1)):
 			continue
 		a.hit_spell(bonk, 0.4, self, to.normalized())
-		BoltFx.strike(a, touch, 2.5 * (ENCHANT_SWING if enchant_time > 0.0 else 1.0), self, to.normalized())
+		if enchant_time <= 0.0:
+			BoltFx.strike(a, touch, 2.5, self, to.normalized())
 		add_mana(MANA_PER_SWING)
 	# The staff smashes what stands in the arc too.
 	for p in Game.I.arena.props.duplicate():
@@ -793,15 +793,76 @@ func _throw(s: Dictionary) -> void:
 	_cast_anim = 0.3
 
 
-## An enchantment (RS) lays the queue on your staff for a while: every bolt
-## carries its elements on top of whatever is loaded, so even plain bolts
-## burn or freeze, and the staff swing strikes with them, a fire sword. The
-## staff shows it: the element pours off the shaft. Nothing heals you.
+## An enchantment (RS) lays the queue on your staff for a while and turns
+## the swing (RB) into an element weapon, close up and risky but strong:
+## it reaches further, hits with the enchantment's elements, throws a slash
+## of them ahead, and each element adds its own trick (_enchanted_swing).
+## Bolts are not touched. The staff shows it: the element pours off the
+## shaft. Nothing heals you.
 var enchant := {}
 var enchant_time := 0.0
 var _enchant_parts: CPUParticles3D
-## A swing hits this much harder with an enchantment on the staff.
-const ENCHANT_SWING := 1.6
+## How hard an enchanted swing hits with its elements, per element.
+const ENCHANT_SWING := 3.0
+const ENCHANT_REACH := 0.9
+## The slash flies this much further than the staff reaches, at half strength.
+const SLASH_REACH := 2.8
+
+
+## The enchanted swing: the staff's elements land on everything in a wider
+## arc, a slash of them flies on ahead, and each element adds its trick.
+func _enchanted_swing() -> void:
+	var s := enchant
+	var bases := {}
+	for e in s.counts:
+		for b in El.parts(e):
+			bases[b] = true
+	var reach := SWING_REACH + ENCHANT_REACH
+	var c: Color = El.COLOR[s.primary]
+	if El.VOID in bases:
+		# Void drags everything near into the arc first.
+		for a in Game.I.enemies:
+			if is_instance_valid(a) and a.alive and a.global_position.distance_to(global_position) < reach + 3.0:
+				var d: Vector3 = global_position + aim_dir * 1.4 - a.global_position
+				d.y = 0
+				a.push += d.normalized() * 9.0
+	var hit := 0
+	for a in Game.I.enemies:
+		if not is_instance_valid(a) or not a.alive:
+			continue
+		var to: Vector3 = a.global_position - global_position
+		to.y = 0
+		var ang := absf(aim_dir.signed_angle_to(to, Vector3.UP))
+		var close: bool = to.length() <= reach + a.radius and ang <= SWING_ARC + 0.2 + atan2(a.radius, maxf(to.length(), 0.1))
+		var slashed: bool = not close and to.length() <= reach + SLASH_REACH + a.radius and ang <= 0.55
+		if not close and not slashed:
+			continue
+		hit += 1
+		var dir := to.normalized()
+		a.hit_spell(s, ENCHANT_SWING * (1.0 if close else 0.5), self, dir)
+		if El.EARTH in bases:
+			a.stun = maxf(a.stun, 0.8)
+		if El.AIR in bases or El.WATER in bases:
+			a.push += dir * (13.0 if El.AIR in bases else 8.0)
+		if El.LIGHTNING in bases:
+			# The hit jumps on to whoever stands near.
+			for b in Game.I.enemies:
+				if is_instance_valid(b) and b != a and b.alive and b.global_position.distance_to(a.global_position) < 3.0:
+					b.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, 1.2, self, dir)
+					Fx.burst(b.global_position + Vector3.UP, El.COLOR[El.LIGHTNING], 8, 5.0, 0.15, El.LIGHTNING)
+	if El.FIRE in bases:
+		var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(global_position + aim_dir * 2.2), El.FIRE, 1.3, 3.0, self)
+		f.friendly = true
+	if El.FROST in bases:
+		Game.I.arena.touch_ground(global_position + aim_dir * 2.0, 2.0, El.FROST, self)
+	# The slash: a fan of the element sweeping out ahead of the staff.
+	for i in 7:
+		var k := (i - 3) / 3.0
+		var at := global_position + aim_dir.rotated(Vector3.UP, k * 0.5) * (reach + SLASH_REACH * 0.6) + Vector3.UP * 0.9
+		Fx.burst(at, c, 10, 4.0, 0.25, s.primary)
+	Fx.light_pop(global_position + aim_dir * 2.0, c, 2.5, 6.0, 0.2)
+	if hit > 0:
+		Game.I.shake(0.15)
 
 
 func _enchant(s: Dictionary) -> void:

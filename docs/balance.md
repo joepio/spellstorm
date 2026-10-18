@@ -6,7 +6,7 @@ reachable spell against them, and CI fails when one leaves the band.
 
 ## The exchange rate
 
-**1 mana buys 5 damage** (`Balance.DMG_PER_MANA`).
+**1 mana buys 9 damage** (`Balance.DMG_PER_MANA`).
 
 Every spell is held to that rate. Bolts and the staff are not, because they
 are the free attacks; they have their own budget (see below).
@@ -103,7 +103,7 @@ cost a fixed 50 mana plus loading (`SENTRY_COST`), so they are the big plant.
 
 A bolt costs nothing to fire. Loading an element (3 mana) gives 8 bolts.
 Every element's bolt stream is worth about **20 damage a second**
-(`BOLT_DPS`), counting status and utility the same way as spells. A water
+(`BOLT_DPS`, 12), counting status and utility the same way as spells. A water
 bolt does little damage but soaks and shoves; a fire bolt does less on
 impact and burns. The `BOLT` table sets the per-element strength, and the
 test checks each one against the band.

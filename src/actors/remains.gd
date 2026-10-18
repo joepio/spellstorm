@@ -102,14 +102,45 @@ func die(how: String, dir: Vector3) -> void:
 			_jolt = 0.8
 			_skin(Fx.solid(Color(0.1, 0.09, 0.09), 1.0))
 		"void":
+			# A tiny black hole opens at your chest: you are lifted, stretched
+			# thin, spun and swallowed whole, and then it snaps shut. Nothing
+			# is left but the grave.
 			var root: Node3D = _model.root
+			var c: Color = El.COLOR[El.VOID]
+			var hole := Node3D.new()
+			wizard.add_child(hole)
+			hole.position = Vector3.UP * 1.3
+			var core := Art.part(hole, Art.sphere(0.32, 14), Fx.solid(Color(0, 0, 0), 1.0))
+			core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			hole.add_child(Fx.halo(c, 2.2, 1.3, 1.0))
+			var pull := Fx.particles(c, 50, 0.45, 0.2)
+			pull.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+			pull.emission_sphere_radius = 1.6
+			pull.local_coords = true
+			Parts.style(pull, El.VOID)
+			pull.radial_accel_min = -22.0
+			pull.radial_accel_max = -14.0
+			hole.add_child(pull)
+			pull.emitting = true
+			hole.scale = Vector3.ONE * 0.1
 			var tw := create_tween()
-			tw.tween_property(root, "scale", Vector3(0.05, 0.05, 0.05), 0.55).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-			tw.parallel().tween_property(root, "rotation:y", root.rotation.y + 6.0, 0.55)
-			Fx.ring(wizard.global_position, El.COLOR[El.VOID], 2.0, 0.5)
+			tw.tween_property(hole, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(root, "position:y", root.position.y + 0.5, 0.35)
+			tw.parallel().tween_property(root, "scale", Vector3(0.45, 1.5, 0.45), 0.35).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(root, "scale", Vector3.ONE * 0.02, 0.4).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+			tw.parallel().tween_property(root, "position:y", root.position.y + 1.2, 0.4).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+			tw.parallel().tween_property(root, "rotation:y", root.rotation.y + 9.0, 0.4).set_ease(Tween.EASE_IN)
+			tw.tween_interval(0.15)
+			tw.tween_property(hole, "scale", Vector3.ONE * 1.6, 0.08)
+			tw.tween_property(hole, "scale", Vector3.ONE * 0.01, 0.12).set_ease(Tween.EASE_IN)
 			tw.tween_callback(func():
-				_blood(Vector3.ZERO, 14, 1.2, Color(0.18, 0.02, 0.22))
-				Fx.burst(wizard.global_position + Vector3.UP, El.COLOR[El.VOID], 24, 5.0, 0.25))
+				var at := wizard.global_position + Vector3.UP * 1.3
+				Fx.burst(at, c, 30, 7.0, 0.3, El.VOID)
+				Fx.light_pop(at, c, 4.0, 6.0, 0.25)
+				Fx.ring(wizard.global_position, c, 2.4, 0.4)
+				if Game.I:
+					Game.I.shake(0.25)
+				hole.queue_free())
 		"blown":
 			for p in [_model.hat, _model.staff]:
 				_loose(p, away * 6.0 + Vector3.UP * 6.0)
