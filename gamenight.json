@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/ontola/gamenight/main/catalog/schema.json",
   "id": "spellstorm",
   "title": "Spellstorm",
   "tagline": "Couch co-op wizards in a grim dungeon. Weave eight elements into thousands of spells, then descend together.",
@@ -24,7 +25,15 @@
     "level": "integrated",
     "protocol": 1
   },
+  "requirements": {
+    "disk_mb": 120,
+    "ram_mb": 1024,
+    "cpu": "Quad-core CPU",
+    "gpu": "OpenGL 3.3 compatible graphics"
+  },
   "links": {
-    "source": "https://github.com/joepio/spellstorm"
+    "source": "https://github.com/joepio/spellstorm",
+    "homepage": "https://github.com/joepio/spellstorm",
+    "releases": "https://github.com/joepio/spellstorm/releases"
   }
 }
