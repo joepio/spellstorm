@@ -226,19 +226,32 @@ static func shader(name: String, params := {}) -> ShaderMaterial:
 
 ## An expanding flat ring on the ground.
 static func ring(at: Vector3, c: Color, radius: float, time := 0.35) -> void:
+	_wave(at, radius, time, preload("res://src/fx/shockwave.gdshader"), {color = c, seed = randf() * 10.0})
+
+
+## A faint ripple spreading on water, for wading.
+static func ripple(at: Vector3, radius: float, time := 0.7) -> void:
+	_wave(at, radius, time, preload("res://src/fx/ripple.gdshader"), {})
+
+
+## A flat quad on the floor that grows from a fifth of [param radius] to
+## all of it, easing out, while its shader's k runs 0 to 1.
+static func _wave(at: Vector3, radius: float, time: float, sh: Shader, params: Dictionary) -> void:
 	var m := MeshInstance3D.new()
-	var t := TorusMesh.new()
-	t.inner_radius = 0.82
-	t.outer_radius = 1.0
-	t.rings = 32
-	t.ring_segments = 6
-	m.mesh = t
-	m.material_override = additive(c, 1.6)
-	m.scale = Vector3(0.2, 0.05, 0.2)
-	_spawn(m, at + Vector3.UP * 0.15)
+	var q := PlaneMesh.new()
+	q.size = Vector2(2.0, 2.0)
+	m.mesh = q
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	for key in params:
+		mat.set_shader_parameter(key, params[key])
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.scale = Vector3.ONE * radius * 0.2
+	_spawn(m, Vector3(at.x, at.y + 0.06, at.z))
 	var tw := m.create_tween()
-	tw.tween_property(m, "scale", Vector3(radius, 0.12, radius), time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.parallel().tween_property(m, "transparency", 1.0, time)
+	tw.tween_property(m, "scale", Vector3.ONE * radius, time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.parallel().tween_method(func(v: float): mat.set_shader_parameter("k", v), 0.0, 1.0, time)
 	tw.tween_callback(m.queue_free)
 
 

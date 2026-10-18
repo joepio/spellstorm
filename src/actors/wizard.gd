@@ -382,7 +382,8 @@ func _read_input(dt: float) -> void:
 			_save_t[b] = _save_t.get(b, 0.0) + dt
 			if _save_t[b] >= SAVE_HOLD and _save_t[b] - dt < SAVE_HOLD and not queue.is_empty():
 				saved[b] = queue.copy()
-				Fx.text(global_position + Vector3.UP * 3.2, "Saved", Color(1, 0.85, 0.4), 40)
+				# Saved: a little gold sparkle off the gem, no words over your head.
+				Fx.burst(staff_tip(), Color(1, 0.85, 0.4), 10, 2.0, 0.12)
 		elif pad.released(b):
 			if _save_t.get(b, 0.0) < SAVE_HOLD and not saved[b].is_empty():
 				load_slots(saved[b])
@@ -663,7 +664,8 @@ func load_slots(slots: Array) -> void:
 
 func _no_mana() -> void:
 	no_mana = 0.6
-	Fx.text(global_position + Vector3.UP * 3.1, "Not enough mana", Color(0.45, 0.6, 1.0), 32, 0.9)
+	# The gem fizzles: a dull blue puff, and the mana bar flashes (no_mana).
+	Fx.puff(staff_tip(), Color(0.3, 0.4, 0.75), 0.35)
 	_trace_once("no mana")
 	if Game.I:
 		Game.I.count("no_mana")

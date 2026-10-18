@@ -69,7 +69,7 @@ var haste := 1.0
 var invuln := 0.0
 
 var meshes: Array[GeometryInstance3D] = []
-var _overlay: StandardMaterial3D
+var _overlay: ShaderMaterial
 var _flames: CPUParticles3D
 var _bubbles: CPUParticles3D
 
@@ -81,10 +81,8 @@ func _init() -> void:
 
 
 func setup_status_fx() -> void:
-	_overlay = StandardMaterial3D.new()
-	_overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_overlay.albedo_color = Color(1, 1, 1, 0)
+	_overlay = ShaderMaterial.new()
+	_overlay.shader = preload("res://src/fx/status_overlay.gdshader")
 	for m in meshes:
 		m.material_overlay = _overlay
 	_flames = Fx.flames(radius)
@@ -344,7 +342,7 @@ func tick_status(delta: float) -> void:
 		_ripple_t -= delta
 		if _ripple_t <= 0.0:
 			_ripple_t = 0.45 if velocity.length() > 0.5 else 1.2
-			Fx.ring(global_position + Vector3.UP * 0.03, Color(0.035, 0.07, 0.075), radius + 0.3, 0.7)
+			Fx.ripple(global_position, radius + 0.5, 0.9)
 	if burn > 0.0:
 		burn -= delta
 		last_el = El.FIRE
@@ -389,7 +387,7 @@ func tick_status(delta: float) -> void:
 			c = Color(0.35, 0.25, 0.12, 0.35)
 		elif poison > 0.0:
 			c = Color(0.45, 0.85, 0.1, 0.3)
-		_overlay.albedo_color = c
+		_overlay.set_shader_parameter("tint", c)
 	if _flames:
 		_flames.emitting = burn > 0.0 and alive
 	if _bubbles:

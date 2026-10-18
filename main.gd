@@ -382,7 +382,8 @@ func _numbers(a: Actor) -> void:
 			size = 24
 		Fx.text(top + side, txt, c, size, 0.8)
 	elif s.resist and a is Enemy:
-		Fx.text(top + side, "resist", Color(0.6, 0.62, 0.68), 22, 0.8)
+		# Shrugged off: a dull grey glance off it instead of a word.
+		Fx.burst(a.global_position + Vector3.UP * 1.0, Color(0.6, 0.62, 0.68), 6, 2.5, 0.1)
 	if s.heal >= 1.0:
 		Fx.text(top - side + Vector3.UP * 0.25, "+%d" % roundi(s.heal), Color(0.4, 1.0, 0.45), 28, 0.9)
 	a.shown = {dmg = 0.0, heal = 0.0, weak = false, resist = false}
