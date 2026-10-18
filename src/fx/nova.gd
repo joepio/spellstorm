@@ -42,6 +42,8 @@ func _ready() -> void:
 			var dir := d.normalized() if d.length() > 0.05 else Vector3.RIGHT.rotated(Vector3.UP, randf() * TAU)
 			a.hit_spell(spell, power * n.get("rate", 1.0) * (1.0 - 0.35 * d.length() / radius), caster, dir, ff())
 	touch(at, radius)
+	if Game.I and Game.I.arena:
+		Game.I.arena.blast(at, radius, 8.0 * power * n.get("rate", 1.0))
 	var tw := create_tween()
 	tw.tween_interval(1.0)
 	tw.tween_callback(queue_free)

@@ -42,6 +42,12 @@ uniform int plaza_n = 0;
 uniform vec3 water_a : source_color = vec3(0.015, 0.05, 0.065);
 uniform vec3 water_b : source_color = vec3(0.04, 0.13, 0.14);
 uniform vec3 sand : source_color = vec3(0.2, 0.18, 0.13);
+// A level that follows its path: how far each point is outside the walkable
+// band, in metres (0.5 is the wall, 1/16 m per step), over bounds_rect
+// (origin, size). Beyond the walls the ground darkens away.
+uniform sampler2D bounds : filter_linear, repeat_disable;
+uniform vec4 bounds_rect = vec4(0.0, 0.0, 1.0, 1.0);
+uniform bool bounded = false;
 
 varying vec3 wpos;
 
@@ -258,7 +264,14 @@ void fragment() {
 
 	vec2 e = abs(p) / half_size;
 	float edge_dark = smoothstep(0.75, 1.05, max(e.x, e.y));
-	col *= 1.0 - edge_dark * 0.6;
+	if (bounded) {
+		float sd = (texture(bounds, (p - bounds_rect.xy) / bounds_rect.zw).r - 0.5) * 16.0;
+		// Shadowed along the foot of the walls, dark rubble beyond them.
+		col *= 1.0 - 0.3 * smoothstep(-2.5, 0.3, sd);
+		col = mix(col, base_b * (0.5 + 0.4 * fine), smoothstep(0.0, 1.5, sd));
+		edge_dark = smoothstep(1.0, 10.0, sd) * 1.4;
+	}
+	col *= 1.0 - min(edge_dark, 1.0) * 0.6 - max(edge_dark - 1.0, 0.0) * 0.8;
 	ALBEDO = col * 1.7;
 	ROUGHNESS = rough;
 	SPECULAR = shore > 0.0 ? 0.6 : 0.15;

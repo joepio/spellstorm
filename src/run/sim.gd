@@ -3,12 +3,12 @@ class_name Sim
 ## A headless run with bots, checked at the end:
 ##   godot --headless --fixed-fps 60 --path . -- --sim 3600 [--biome N] [--seed N]
 ## Every mechanic must have happened: bolts, swings, rolls, monster bullets,
-## spells for mana, and kills. Prints the counts; exit code 1 on a miss.
+## spells for mana, kills, and props broken. Prints the counts; exit code 1 on a miss.
 
 
 static func report(g: Game) -> int:
 	var s: Dictionary = g.stats
-	var need := ["shots", "swings", "rolls", "bullets", "casts", "kills", "souls"]
+	var need := ["shots", "swings", "rolls", "bullets", "casts", "kills", "souls", "props_broken"]
 	var bad: Array = []
 	for k in need:
 		if int(s.get(k, 0)) <= 0:

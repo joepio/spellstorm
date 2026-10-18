@@ -106,6 +106,8 @@ func _land(at: Vector3) -> void:
 	if splash > 0.0:
 		var r := splash * (0.8 + 0.3 * power)
 		Fx.ring(Vector3(at.x, 0, at.z), c, r)
+		if Game.I:
+			Game.I.arena.blast(at, r, 10.0 * power)
 		for a in targets():
 			if a in _hit:
 				continue

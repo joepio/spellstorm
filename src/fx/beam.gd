@@ -65,6 +65,8 @@ func _physics_process(dt: float) -> void:
 	var hit = Game.I.arena.ray(from, from + dir * length) if Game.I else {}
 	if hit:
 		length = from.distance_to(hit.position)
+		if hit.collider and hit.collider.has_method("damage"):
+			hit.collider.damage(12.0 * dt)
 	var first: Actor = null
 	if caster.can_act():
 		for a in targets():

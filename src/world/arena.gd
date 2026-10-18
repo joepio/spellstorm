@@ -12,10 +12,11 @@ var half := Vector2(34.0, 105.0)
 const LEVEL_HALF := Vector2(34.0, 105.0)
 
 const BIOMES := [
-	{id = "chapel", zones = [["grave", "grave", "grave", "dead_tree", "rock"], ["grave", "candles", "dead_tree", "bones"], ["dead_tree", "dead_tree", "rock", "rock", "grave"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
+	{id = "chapel", zones = [["grave", "grave", "grave", "dead_tree", "rock", "urn", "coffin"], ["grave", "candles", "dead_tree", "bones", "urn", "oil_jar", "statue"], ["dead_tree", "dead_tree", "rock", "grave", "coffin", "oil_jar"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2, bone_archer = 2, necromancer = 1}, boss = "gravekeeper", fields = [],
-		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave"},
+		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave",
+		corridor = true, outside = ["dead_tree", "dead_tree", "dead_tree", "grave", "rock"]},
 	{id = "catacombs", zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1, bone_archer = 2, necromancer = 1, shieldbearer = 2}, boss = "abbot", fields = [],
@@ -62,6 +63,22 @@ var plazas: Array[Vector3] = []
 ## path distances, lined with rows (graves, pillars, coffins).
 var nave := Vector2(-1, -1)
 var fields: Array = []
+## The props that break, see src/world/prop.gd.
+var props: Array = []
+## A level that follows its path (a biome with "corridor"): the ground you can
+## walk is a band round the path, wider where it opens into the clearings,
+## walled along both sides instead of one big rectangle. Kept as a signed
+## distance by 1 m cell: negative inside, positive beyond the walls.
+var corridor := false
+var _sdf := PackedFloat32Array()
+var _sdf_o := Vector2.ZERO
+var _sdf_w := 0
+var _sdf_h := 0
+## Half the band's width at each point of the path.
+var _hw := PackedFloat32Array()
+## Points just inside the walls and the way into the level from there
+## (x, z, nx, nz), for monsters that come in over the walls.
+var _rim: Array[Vector4] = []
 var _torches: Array = []
 var _rng := RandomNumberGenerator.new()
 ## Where props stand, by 3 m cell, so finding free ground stays quick on a
@@ -75,16 +92,26 @@ func build(biome_index: int, seed_value: int) -> void:
 	for c in get_children():
 		c.queue_free()
 	fields.clear()
+	props.clear()
+	_rim.clear()
+	_sdf = PackedFloat32Array()
 	_torches.clear()
 	_props_at.clear()
 	_near_path.clear()
 	biome = BIOMES[biome_index % BIOMES.size()]
 	_rng.seed = seed_value
 	half = LEVEL_HALF
+	corridor = biome.get("corridor", false)
 	_plan()
 	_index_path()
+	if corridor:
+		_band()
 	_floor()
-	_walls()
+	if corridor:
+		_band_walls()
+		_outside()
+	else:
+		_walls()
 	_path_dressing()
 	_arena_ring()
 	if built():
@@ -92,6 +119,8 @@ func build(biome_index: int, seed_value: int) -> void:
 	# The rest of the land: thick with the zone's things, so the level reads
 	# as ground you cross along a way, not an empty field.
 	var count := int(half.x * half.y * 4.0 / 34.0)
+	if corridor:
+		count = int(_inside_area() / 24.0)
 	for i in count:
 		var spot := _free_spot(2.6)
 		if spot == Vector3.INF:
@@ -139,15 +168,20 @@ func _plan() -> void:
 	var z := start.y - 16.0
 	var marks: Array[Vector2] = []
 	var last_x := start.x
+	var straight := false
 	while z > arena.y + 22.0:
 		var x := side * _rng.randf_range(reach * 0.15, reach)
-		if absf(x - last_x) < 6.0:
+		if straight:
+			# A long straight stretch now and then, between the bends.
+			x = clampf(last_x + _rng.randf_range(-1.5, 1.5), -reach, reach)
+		elif absf(x - last_x) < 6.0:
 			x = clampf(last_x + side * 8.0, -reach, reach)
 		marks.append(Vector2(x, z))
 		last_x = x
 		if _rng.randf() < 0.75:
 			side = -side
-		z -= _rng.randf_range(12.0, 24.0)
+		straight = corridor and not straight and _rng.randf() < 0.35
+		z -= _rng.randf_range(20.0, 28.0) if straight else _rng.randf_range(12.0, 24.0)
 	var c1 := int(marks.size() * 0.3)
 	var c2 := int(marks.size() * 0.68)
 	for i in marks.size():
@@ -208,6 +242,222 @@ func _index_path() -> void:
 			_near_path[Vector2i(int(floor(x / 2.0)), int(floor(z / 2.0)))] = path_dist(Vector2(x + 1.0, z + 1.0))
 			z += 2.0
 		x += 2.0
+
+
+## How wide the band round the path is along it, then its distance field.
+func _band() -> void:
+	_hw = PackedFloat32Array()
+	var knots: Array[float] = []
+	for _k in int(length() / 20.0) + 3:
+		knots.append(_rng.randf_range(5.0, 9.0))
+	for i in path.size():
+		var run := path_run[i]
+		var f := run / 20.0
+		var j := int(f)
+		var t := f - j
+		t = t * t * (3.0 - 2.0 * t)
+		var w := lerpf(knots[j], knots[j + 1], t)
+		if nave.x >= 0.0 and run > nave.x - 6.0 and run < nave.y + 6.0:
+			w = 13.5
+		# The way out narrows to the gate.
+		w = lerpf(w, 2.3, clampf((portal_at.y - 3.0 - path[i].y) / 5.0, 0.0, 1.0))
+		_hw.append(w)
+	var pad := 16.0
+	_sdf_o = Vector2(-half.x - pad, -half.y - pad)
+	_sdf_w = int((half.x + pad) * 2.0) + 1
+	_sdf_h = int((half.y + pad) * 2.0) + 1
+	_sdf.resize(_sdf_w * _sdf_h)
+	_sdf.fill(30.0)
+	for i in path.size() - 1:
+		_raster_seg(path[i], path[i + 1], _hw[i], _hw[i + 1])
+	_raster_seg(start, start, 7.0, 7.0)
+	for c in clearings:
+		var cc := Vector2(c.x, c.y)
+		_raster_seg(cc, cc, c.z + 3.0, c.z + 3.0)
+	# Ragged walls: the edge wanders a little, and the level ends at the
+	# entrance and behind the gate.
+	var noise := FastNoiseLite.new()
+	noise.seed = _rng.randi()
+	noise.frequency = 0.08
+	for iz in _sdf_h:
+		for ix in _sdf_w:
+			var q := _sdf_o + Vector2(ix, iz)
+			var i2 := iz * _sdf_w + ix
+			var d := _sdf[i2] + noise.get_noise_2d(q.x, q.y) * 1.6
+			d = maxf(d, q.y - (half.y + 0.6))
+			d = maxf(d, -q.y - (half.y + 0.6))
+			_sdf[i2] = d
+
+
+## Write the distance to a stretch of path a-b, [param wa] to [param wb]
+## wide on each side, into the field where it is nearer than what is there.
+func _raster_seg(a: Vector2, b: Vector2, wa: float, wb: float) -> void:
+	var reach := maxf(wa, wb) + 8.0
+	var x0 := maxi(0, int(minf(a.x, b.x) - reach - _sdf_o.x))
+	var x1 := mini(_sdf_w - 1, int(maxf(a.x, b.x) + reach - _sdf_o.x) + 1)
+	var z0 := maxi(0, int(minf(a.y, b.y) - reach - _sdf_o.y))
+	var z1 := mini(_sdf_h - 1, int(maxf(a.y, b.y) + reach - _sdf_o.y) + 1)
+	var ab := b - a
+	var l2 := maxf(ab.length_squared(), 0.0001)
+	for iz in range(z0, z1 + 1):
+		for ix in range(x0, x1 + 1):
+			var q := _sdf_o + Vector2(ix, iz)
+			var t := clampf((q - a).dot(ab) / l2, 0.0, 1.0)
+			var d := q.distance_to(a + ab * t) - lerpf(wa, wb, t)
+			var i := iz * _sdf_w + ix
+			if d < _sdf[i]:
+				_sdf[i] = d
+
+
+## How far [param p] (xz) is outside the walkable ground: negative inside.
+## Always inside in a level without a band.
+func bound(p: Vector2) -> float:
+	if _sdf.is_empty():
+		return -INF
+	var f := p - _sdf_o
+	var x := clampf(f.x, 0.0, _sdf_w - 1.001)
+	var z := clampf(f.y, 0.0, _sdf_h - 1.001)
+	var ix := int(x)
+	var iz := int(z)
+	var tx := x - ix
+	var tz := z - iz
+	var i := iz * _sdf_w + ix
+	return lerpf(lerpf(_sdf[i], _sdf[i + 1], tx), lerpf(_sdf[i + _sdf_w], _sdf[i + _sdf_w + 1], tx), tz)
+
+
+## The way out of the walkable ground at [param p].
+func _bound_out(p: Vector2) -> Vector2:
+	var g := Vector2(bound(p + Vector2(0.5, 0)) - bound(p - Vector2(0.5, 0)), bound(p + Vector2(0, 0.5)) - bound(p - Vector2(0, 0.5)))
+	return g.normalized() if g.length() > 0.0001 else Vector2.UP
+
+
+func _inside_area() -> float:
+	var n := 0
+	for v in _sdf:
+		if v < 0.0:
+			n += 1
+	return float(n)
+
+
+## Half the band's width [param run] metres along the path.
+func _hw_at(run: float) -> float:
+	if _hw.is_empty():
+		return 9.0
+	for i in path.size() - 1:
+		if path_run[i + 1] >= run:
+			return lerpf(_hw[i], _hw[i + 1], clampf((run - path_run[i]) / maxf(path_run[i + 1] - path_run[i], 0.001), 0.0, 1.0))
+	return _hw[_hw.size() - 1]
+
+
+## Walls along the edge of the band: masonry blocks set on the line where
+## the distance field crosses zero, low where they face the camera so they
+## never hide a wizard, tall with torches elsewhere.
+func _band_walls() -> void:
+	var pts: Array[Vector2] = []
+	var taken := {}
+	for iz in _sdf_h - 1:
+		for ix in _sdf_w - 1:
+			var i := iz * _sdf_w + ix
+			var v := _sdf[i]
+			for nb: Vector2i in [Vector2i(1, 0), Vector2i(0, 1)]:
+				var w := _sdf[i + nb.x + nb.y * _sdf_w]
+				if (v < 0.0) == (w < 0.0):
+					continue
+				var t := v / (v - w)
+				var q := _sdf_o + Vector2(ix + nb.x * t, iz + nb.y * t)
+				var key := Vector2i(int(floor(q.x / 1.4)), int(floor(q.y / 1.4)))
+				if taken.has(key):
+					continue
+				var near := false
+				for dx in range(-1, 2):
+					for dz in range(-1, 2):
+						var o: Variant = taken.get(key + Vector2i(dx, dz))
+						if o != null and (o as Vector2).distance_to(q) < 1.25:
+							near = true
+				if near:
+					continue
+				taken[key] = q
+				pts.append(q)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	add_child(body)
+	var tools := {}
+	var lit := Fx.solid(biome.wall, 0.95)
+	var dark := Fx.solid(biome.wall.darkened(0.35), 0.95)
+	var shapes := {}
+	var last_torch: Array[Vector2] = []
+	for q in pts:
+		var out := _bound_out(q)
+		# The gate fills the gap at the far end.
+		if q.y < -half.y + 1.5 and absf(q.x - portal_at.x) < 2.6:
+			continue
+		var face := smoothstep(0.25, 0.8, out.y)
+		var h := lerpf(2.9, 0.7, face) * _rng.randf_range(0.75, 1.12)
+		if _rng.randf() < 0.12:
+			# Crumbled down to a stump here and there.
+			h *= 0.45
+		var size := Vector3(snappedf(_rng.randf_range(1.5, 1.8), 0.1), snappedf(h, 0.1), 1.1)
+		var basis := Basis(Vector3.UP, atan2(out.x, out.y))
+		var at := Vector3(q.x + out.x * 0.5, size.y * 0.5, q.y + out.y * 0.5)
+		var ck := Vector2i(int(floor(q.x / 20.0)), int(floor(q.y / 20.0)))
+		var which := 0 if _rng.randf() < 0.7 else 1
+		var tk := Vector3i(ck.x, ck.y, which)
+		if not tools.has(tk):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tools[tk] = st
+		(tools[tk] as SurfaceTool).append_from(Prop._box(size), 0, Transform3D(basis, at))
+		if size.y > 1.5:
+			# A coping stone along the top.
+			var cap := Vector3(size.x + 0.1, 0.16, size.z + 0.16)
+			var ck2 := Vector3i(ck.x, ck.y, 1 - which)
+			if not tools.has(ck2):
+				var st2 := SurfaceTool.new()
+				st2.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[ck2] = st2
+			(tools[ck2] as SurfaceTool).append_from(Prop._box(cap), 0, Transform3D(basis, at + Vector3(0, size.y * 0.5 + 0.08, 0)))
+		var sk := "%.1f,%.1f" % [size.x, size.y]
+		if not shapes.has(sk):
+			var bs := BoxShape3D.new()
+			bs.size = Vector3(size.x, 4.0, size.z)
+			shapes[sk] = bs
+		var cs := CollisionShape3D.new()
+		cs.shape = shapes[sk]
+		cs.transform = Transform3D(basis, Vector3(at.x, 2.0, at.z))
+		body.add_child(cs)
+		_rim.append(Vector4(q.x - out.x * 1.4, q.y - out.y * 1.4, -out.x, -out.y))
+		if size.y > 2.5:
+			var far := true
+			for o in last_torch:
+				if o.distance_to(q) < 13.0:
+					far = false
+			if far:
+				last_torch.append(q)
+				_torch(self, Vector3(q.x - out.x * 0.15, 2.2, q.y - out.y * 0.15))
+	for tk: Vector3i in tools:
+		var m := MeshInstance3D.new()
+		m.mesh = (tools[tk] as SurfaceTool).commit()
+		m.material_override = lit if tk.z == 0 else dark
+		add_child(m)
+
+
+## Beyond the walls: dark ground thick with the biome's things, so the edge
+## of the level reads as land you cannot reach, not as the end of the world.
+func _outside() -> void:
+	var kinds: Array = biome.get("outside", ["rock"])
+	var n := 0
+	for _i in 900:
+		if n >= 170:
+			break
+		var p := Vector2(_rng.randf_range(-half.x - 12.0, half.x + 12.0), _rng.randf_range(-half.y, half.y + 6.0))
+		var d := bound(p)
+		if d < 1.8 or d > 11.0:
+			continue
+		var body := _prop(kinds[_rng.randi() % kinds.size()], Vector3(p.x, 0, p.y))
+		if body:
+			body.collision_layer = 0
+			props.erase(body)
+		n += 1
 
 
 ## A Catmull-Rom curve through [param keys], [param steps] points per span,
@@ -307,12 +557,23 @@ func _nave_props() -> void:
 	var z_end := maxf(a.y, b.y)
 	match biome.id:
 		"chapel":
+			# The ruined chapel's nave: pews in rows either side of the aisle,
+			# some knocked askew, angels along the walls, and urns and oil jars
+			# left between them.
+			var zs := z
 			while z < z_end:
-				for x: float in [4.2, 6.6, 9.0, 11.4]:
+				for x: float in [3.2, 6.0]:
 					for sgn: float in [-1.0, 1.0]:
-						if _rng.randf() < 0.62:
-							_prop("grave", Vector3(x0 + sgn * x + _rng.randf_range(-0.15, 0.15), 0, z), _rng.randf_range(-0.12, 0.12))
-				z += 2.5
+						if _rng.randf() < 0.8:
+							_prop("pew", Vector3(x0 + sgn * (x + 0.4) + _rng.randf_range(-0.2, 0.2), 0, z), PI + _rng.randf_range(-0.15, 0.15) + (0.6 if _rng.randf() < 0.12 else 0.0))
+				if _rng.randf() < 0.45:
+					var sgn2 := 1.0 if _rng.randf() < 0.5 else -1.0
+					_prop("urn" if _rng.randf() < 0.6 else "oil_jar", Vector3(x0 + sgn2 * _rng.randf_range(8.6, 10.0), 0, z + 1.2))
+				z += 2.2
+			while zs < z_end:
+				for sgn: float in [-1.0, 1.0]:
+					_prop("statue", Vector3(x0 + sgn * 11.4, 0, zs + 1.0), -PI * 0.5 * sgn)
+				zs += 9.0
 		"catacombs":
 			var zp := z
 			while zp < z_end:
@@ -466,13 +727,29 @@ func _floor() -> void:
 	# shader stays cheap however long the level is.
 	var chunk := 10.0
 	var reach := PATH_W + 1.0
-	var x := -half.x - 5.0
-	while x < half.x + 5.0:
+	var tex: ImageTexture
+	if corridor:
+		var img := Image.create(_sdf_w, _sdf_h, false, Image.FORMAT_L8)
+		for iz in _sdf_h:
+			for ix in _sdf_w:
+				var v := clampf(_sdf[iz * _sdf_w + ix] / 16.0 + 0.5, 0.0, 1.0)
+				img.set_pixel(ix, iz, Color(v, v, v))
+		tex = ImageTexture.create_from_image(img)
+	var x := -half.x - 5.0 - (12.0 if corridor else 0.0)
+	while x < half.x + 5.0 + (12.0 if corridor else 0.0):
 		var z := -half.y - 5.0
 		while z < half.y + 8.0:
 			var lo := Vector2(x, z)
 			var hi := lo + Vector2(chunk, chunk)
+			if corridor and bound(lo + Vector2(chunk, chunk) * 0.5) > 7.1 + 11.0:
+				# Nothing here to see: deep beyond the walls.
+				z += chunk
+				continue
 			var mat := ShaderMaterial.new()
+			if corridor:
+				mat.set_shader_parameter("bounds", tex)
+				mat.set_shader_parameter("bounds_rect", Vector4(_sdf_o.x - 0.5, _sdf_o.y - 0.5, _sdf_w, _sdf_h))
+				mat.set_shader_parameter("bounded", true)
 			mat.shader = shader
 			mat.set_shader_parameter("base_a", biome.floor_a)
 			mat.set_shader_parameter("base_b", biome.floor_b)
@@ -602,6 +879,15 @@ func _torch(parent: Node3D, at: Vector3) -> void:
 func _free_spot(clear: float) -> Vector3:
 	for _i in 40:
 		var p := Vector3(_rng.randf_range(-half.x + 2, half.x - 2), 0, _rng.randf_range(-half.y + 2, half.y - 2))
+		if corridor:
+			# Somewhere in the band: along the path, out to either side.
+			var run := _rng.randf_range(0.0, length())
+			var c := point_at(run)
+			var dir := (point_at(run + 1.0) - point_at(run - 1.0)).normalized()
+			var off := Vector2(-dir.y, dir.x) * _rng.randf_range(-1.0, 1.0) * (_hw_at(run) + 4.0)
+			p = Vector3(c.x + off.x, 0, c.y + off.y)
+			if bound(Vector2(p.x, p.z)) > -1.2:
+				continue
 		var p2 := Vector2(p.x, p.z)
 		if p2.distance_to(start) < 7.0 or in_clearing(p2, 1.0):
 			continue
@@ -648,13 +934,15 @@ func _crowded(p: Vector3, clear: float) -> bool:
 
 ## A prop of [param kind] at a free spot, or at [param at] facing
 ## [param yaw] when a layout places it.
-func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
+func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 	var p := at if at != Vector3.INF else _free_spot(2.6)
 	if p == Vector3.INF:
-		return
+		return null
 	if at != Vector3.INF:
 		_mark(at)
-	var body := StaticBody3D.new()
+	var body := Prop.new()
+	body.kind = kind
+	body.hp = PROP_HP.get(kind, 8.0)
 	body.collision_layer = 1
 	body.position = p
 	body.rotation.y = yaw if yaw != INF else _rng.randf() * TAU
@@ -691,7 +979,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 			body.add_child(l)
 			_torches.append(l)
 			body.collision_layer = 0
-			return
+			return body
 		"pillar":
 			Art.part(body, Art.cyl(0.45, 0.45, 3.2, 8), stone, Vector3(0, 1.6, 0))
 			Art.part(body, Art.box(1.1, 0.3, 1.1), stone, Vector3(0, 0.15, 0))
@@ -703,7 +991,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 				Art.part(body, Art.cyl(0.03, 0.03, 0.5, 5), bone, Vector3(_rng.randf_range(-0.4, 0.4), 0.04, _rng.randf_range(-0.4, 0.4)), Vector3(90, _rng.randf() * 180, 0))
 			Art.part(body, Art.sphere(0.12, 6), bone, Vector3(0.1, 0.1, 0.1))
 			body.collision_layer = 0
-			return
+			return body
 		"sarcophagus":
 			Art.part(body, Art.box(1.0, 0.8, 2.2), stone, Vector3(0, 0.4, 0))
 			Art.part(body, Art.box(1.1, 0.15, 2.3), stone.duplicate(), Vector3(0, 0.85, 0))
@@ -727,7 +1015,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 			l2.position.y = 0.6
 			body.add_child(l2)
 			body.collision_layer = 0
-			return
+			return body
 		"ice":
 			var m := StandardMaterial3D.new()
 			m.albedo_color = Color(0.6, 0.85, 1.0, 0.75)
@@ -748,11 +1036,11 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 				if i % 3 == 0:
 					Art.part(body, Art.cyl(0.04, 0.04, 0.22, 5), Fx.solid(Color(0.3, 0.18, 0.1)), rp + Vector3(0, rh * 0.8, 0))
 			body.collision_layer = 0
-			return
+			return body
 		"lantern":
 			body.queue_free()
 			_lamp(Vector2(p.x, p.z))
-			return
+			return null
 		"basalt":
 			var bm := Fx.solid(Color(0.09, 0.07, 0.07), 0.8)
 			for i in 3:
@@ -778,13 +1066,75 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> void:
 			body.add_child(l3)
 			_torches.append(l3)
 			r = 0.5
+		"urn":
+			# A clay urn with a faint blue light in its mouth: mana inside.
+			var clay := Fx.solid(Color(0.42, 0.26, 0.17), 0.9)
+			Art.part(body, Art.cyl(0.2, 0.15, 0.45, 9), clay, Vector3(0, 0.22, 0))
+			Art.part(body, Art.cyl(0.12, 0.2, 0.18, 9), clay, Vector3(0, 0.52, 0))
+			Art.part(body, Art.cyl(0.08, 0.08, 0.02, 8), Fx.glow(Soul.COLOR, 2.0), Vector3(0, 0.62, 0))
+			body.spill = "souls"
+			r = 0.3
+		"oil_jar":
+			# A squat jar of lamp oil, red-banded: breaking it sets the ground
+			# alight and blasts what stands beside it.
+			var jar := Fx.solid(Color(0.24, 0.16, 0.1), 0.6)
+			Art.part(body, Art.cyl(0.28, 0.24, 0.6, 10), jar, Vector3(0, 0.3, 0))
+			Art.part(body, Art.cyl(0.29, 0.29, 0.1, 10), Fx.solid(Color(0.55, 0.1, 0.05), 0.6), Vector3(0, 0.42, 0))
+			Art.part(body, Art.cyl(0.1, 0.14, 0.12, 8), jar, Vector3(0, 0.66, 0))
+			body.spill = "fire"
+			r = 0.35
+		"coffin":
+			var wood := Fx.solid(Color(0.2, 0.13, 0.08), 0.85)
+			Art.part(body, Art.box(0.7, 0.4, 1.9), wood, Vector3(0, 0.2, 0))
+			Art.part(body, Art.box(0.76, 0.08, 1.96), Fx.solid(Color(0.15, 0.1, 0.06), 0.85), Vector3(0.06, 0.44, -0.05), Vector3(0, 6, 0))
+			body.spill = "souls"
+			r = 0.6
+		"statue":
+			# A weeping angel on a plinth.
+			var marble := Fx.solid(Color(0.46, 0.46, 0.48), 0.8)
+			Art.part(body, Art.box(1.0, 0.6, 1.0), stone, Vector3(0, 0.3, 0))
+			Art.part(body, Art.cyl(0.18, 0.34, 1.4, 8), marble, Vector3(0, 1.3, 0))
+			Art.part(body, Art.sphere(0.17, 8), marble, Vector3(0, 2.15, 0.04))
+			for sgn: float in [-1.0, 1.0]:
+				Art.part(body, Art.box(0.08, 1.1, 0.5), marble, Vector3(sgn * 0.3, 1.6, -0.22), Vector3(-15, sgn * 25, sgn * 18))
+			r = 0.55
+		"pew":
+			var oak := Fx.solid(Color(0.24, 0.15, 0.09), 0.8)
+			Art.part(body, Art.box(2.4, 0.08, 0.45), oak, Vector3(0, 0.45, 0))
+			Art.part(body, Art.box(2.4, 0.55, 0.07), oak, Vector3(0, 0.75, -0.22), Vector3(-8, 0, 0))
+			for sgn: float in [-1.0, 1.0]:
+				Art.part(body, Art.box(0.08, 0.9, 0.5), oak, Vector3(sgn * 1.16, 0.45, -0.02))
+			r = 0.0
 	var cs := CollisionShape3D.new()
-	var cyl := CylinderShape3D.new()
-	cyl.radius = r
-	cyl.height = 3.0
-	cs.shape = cyl
+	if kind == "pew":
+		var bs := BoxShape3D.new()
+		bs.size = Vector3(2.4, 3.0, 0.55)
+		cs.shape = bs
+	else:
+		var cyl := CylinderShape3D.new()
+		cyl.radius = r
+		cyl.height = 3.0
+		cs.shape = cyl
 	cs.position.y = 1.5
 	body.add_child(cs)
+	body.prepare()
+	props.append(body)
+	return body
+
+
+## How much a prop takes before it breaks; a bolt does 2.
+const PROP_HP := {
+	grave = 6.0, dead_tree = 6.0, rock = 16.0, pillar = 22.0, sarcophagus = 16.0, stalagmite = 12.0,
+	ice = 6.0, basalt = 20.0, brazier = 8.0, urn = 2.0, oil_jar = 2.0, coffin = 6.0, statue = 16.0, pew = 5.0,
+}
+
+
+## Something hit the ground hard at [param at]: the props within
+## [param r] take [param dmg].
+func blast(at: Vector3, r: float, dmg: float) -> void:
+	for p in props.duplicate():
+		if is_instance_valid(p) and Vector2(p.global_position.x - at.x, p.global_position.z - at.z).length() < r + 0.4:
+			p.damage(dmg)
 
 
 var _dust_p: CPUParticles3D
@@ -901,7 +1251,15 @@ func ray(from: Vector3, to: Vector3) -> Dictionary:
 
 
 func clamp_inside(p: Vector3) -> Vector3:
-	return Vector3(clampf(p.x, -half.x + 0.8, half.x - 0.8), 0, clampf(p.z, -half.y + 0.8, half.y - 0.8))
+	var q := Vector3(clampf(p.x, -half.x + 0.8, half.x - 0.8), 0, clampf(p.z, -half.y + 0.8, half.y - 0.8))
+	if corridor:
+		var q2 := Vector2(q.x, q.z)
+		var d := bound(q2)
+		if d > -0.8:
+			var out := _bound_out(q2)
+			q.x -= out.x * (d + 0.8)
+			q.z -= out.y * (d + 0.8)
+	return q
 
 
 ## Where a monster of an encounter walks in: ahead of the wizards, between
@@ -915,7 +1273,8 @@ func spawn_ahead(lead: float, near: float, far: float, away_from: Array, water :
 		var run := clampf(lead + _rng.randf_range(near, far), 0.0, length())
 		var c := point_at(run)
 		var dir := (point_at(run + 1.0) - point_at(run - 1.0)).normalized()
-		var side := Vector2(-dir.y, dir.x) * _rng.randf_range(-9.0, 9.0)
+		var wide := minf(9.0, _hw_at(run) - 1.5) if corridor else 9.0
+		var side := Vector2(-dir.y, dir.x) * _rng.randf_range(-wide, wide)
 		var p := clamp_inside(Vector3(c.x + side.x, 0, c.y + side.y))
 		var d := INF
 		for w in away_from:
@@ -932,6 +1291,19 @@ func spawn_ahead(lead: float, near: float, far: float, away_from: Array, water :
 func spawn_point(away_from: Array) -> Vector3:
 	var best := Vector3.ZERO
 	var best_d := -1.0
+	if corridor and not _rim.is_empty():
+		# Over the walls near the wizards, as far from them as it gets.
+		for _i in 24:
+			var r: Vector4 = _rim[_rng.randi() % _rim.size()]
+			var p2 := Vector3(r.x, 0, r.y)
+			var d2 := INF
+			for w in away_from:
+				d2 = minf(d2, p2.distance_to(w.global_position))
+			if d2 < 30.0 and d2 > best_d:
+				best_d = d2
+				best = p2
+		if best_d > 0.0:
+			return best
 	for _i in 12:
 		var side := _rng.randi() % 3
 		var p: Vector3
