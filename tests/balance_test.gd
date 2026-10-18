@@ -100,9 +100,9 @@ func _init() -> void:
 	# Enchantments: a store of damage that every bolt and swing spends. How
 	# long a store lasts while you only shoot, and how many swings it is.
 	print("enchantments: store, then seconds of shooting or swings it buys")
-	for slots in [[El.FIRE], [El.FIRE, El.FIRE, El.FIRE], [El.FIRE, El.FIRE, El.FIRE, El.FIRE, El.FIRE],
-			[El.FROST, El.FROST, El.FROST], [El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING],
-			[El.EARTH, El.EARTH, El.EARTH], [El.WATER, El.FIRE, El.LIGHTNING], [El.VOID, El.VOID, El.POISON]]:
+	for slots in [[El.FIRE], [El.FIRE, El.FIRE], [El.FIRE, El.FIRE, El.FIRE],
+			[El.FROST, El.FROST], [El.LIGHTNING, El.LIGHTNING, El.LIGHTNING],
+			[El.EARTH, El.EARTH], [El.WATER, El.FIRE, El.LIGHTNING], [El.VOID, El.VOID, El.POISON]]:
 		var sp := Grammar.compose(slots, "enchant")
 		var scales := Balance.bolt_scales(sp.counts, sp.primary, Balance.ENCHANT_BOLT)
 		var store := Balance.enchant_store(sp)

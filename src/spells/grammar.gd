@@ -7,24 +7,24 @@ class_name Grammar
 ##     LS (click) plants it at your feet, RS (click) enchants your bolts and staff.
 ##   * The heaviest element decides the shape of a cast:
 ##       solid (Earth, Ice, Mud, Magma)  throw it
-##       energy (Lightning, Storm)       arc to targets
+##       energy (Lightning, Storm)       a thunderbolt from the sky
 ##       spirit (Poison, Void)           a beam
 ##       flow (Fire, Frost, Water,       a spray
 ##             Steam, Air)
-##   * Planting always puts it at your feet. Up to four elements make a
+##   * Planting always puts it at your feet. One or two elements make a
 ##     trap that goes off when a monster comes close (what it does depends
 ##     on the same class: flow spills a field, solid spikes and pins, energy
-##     blasts, void pulls in, poison leaves a pool); a full queue of five
+##     blasts, void pulls in, poison leaves a pool); a full queue of three
 ##     makes a sentry that shoots your mix at monsters. Your own traps and
 ##     sentries never hurt your side.
 ##   * Within that class, the element you have most of leads.
 ##   * Every other element rides along as payload and adds its effect.
 ##   * More of an element makes it stronger, bigger or longer.
-##   * Five of one base element cast ahead is its overload, the big one.
+##   * A full queue of three cast ahead is a cataclysm, the big one.
 
 const CAST_NOUN := {
 	El.EARTH: "Boulder", El.ICE: "Ice Shards", El.MUD: "Mud Ball", El.MAGMA: "Lava Bomb",
-	El.LIGHTNING: "Chain Lightning", El.STORM: "Thunderclap",
+	El.LIGHTNING: "Thunderbolt", El.STORM: "Thunderclap",
 	El.POISON: "Venom Beam", El.VOID: "Void Ray",
 	El.FIRE: "Flamethrower", El.FROST: "Frost Breath", El.WATER: "Water Jet",
 	El.STEAM: "Steam Jet", El.AIR: "Gale",
@@ -50,7 +50,10 @@ const SENTRY_NOUN := {
 	El.AIR: "Wind Sentry",
 }
 ## A queue this full plants a sentry instead of a trap.
-const SENTRY_SLOTS := 5
+const SENTRY_SLOTS := SpellQueue.SIZE
+## The queue holds three: one element now counts as much as 5/3 did when
+## it held five, so a full queue is as big as a full queue was.
+const STEP := 5.0 / SpellQueue.SIZE
 const OVERLOAD_NOUN := {
 	El.FIRE: "Meteor", El.FROST: "Blizzard", El.WATER: "Tidal Wave",
 	El.LIGHTNING: "Thunderstorm", El.EARTH: "Earthquake", El.AIR: "Tornado",
@@ -90,7 +93,7 @@ const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "strike", El.K
 const FORMS := ["cast", "nova", "plant", "enchant"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
 ## by trying every sequence of button presses and fails if this drifts.
-const TOTAL := 4400
+const TOTAL := 1606
 
 
 ## [param slots] in queue order, [param form] one of FORMS. [param mods] are
@@ -242,8 +245,8 @@ static var _fit := {}
 
 
 static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
-	var p: int = spell.power
-	var lead: int = spell.counts.get(spell.primary, 0)
+	var p: float = spell.power * STEP
+	var lead: float = float(spell.counts.get(spell.primary, 0)) * STEP
 	var n := {}
 	match spell.shape:
 		"spray":
@@ -257,7 +260,7 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 		"projectile":
 			var pieces := 1
 			if spell.primary == El.ICE:
-				pieces = 3 + 2 * lead
+				pieces = roundi(3 + 2 * lead)
 			n = {pieces = pieces, spread = 8.0 + 3.0 * pieces, speed = 16.0, radius = 0.25 + 0.12 * lead,
 				charge_time = 1.0 * float(mods.get("charge", 1.0)), rate = 1.0 / pieces * (1.4 if pieces > 1 else 1.0),
 				splash = 2.2 + 0.4 * lead if spell.primary in [El.MAGMA, El.MUD] else 0.0,

@@ -5,24 +5,24 @@ extends RefCounted
 ## from bullets about to hit, and casts a recipe when it has the mana.
 
 const RECIPES := [
-	[[El.FIRE, El.FIRE, El.FIRE], "cast", 2.0],
-	[[El.EARTH, El.EARTH, El.FIRE], "cast", 0.8],
-	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast", 1.6],
+	[[El.FIRE, El.FIRE], "cast", 2.0],
+	[[El.EARTH, El.FIRE], "cast", 0.8],
+	[[El.LIGHTNING, El.LIGHTNING], "cast", 1.6],
 	[[El.WATER, El.FROST, El.WATER, El.FROST], "cast", 0.7],
-	[[El.VOID, El.VOID, El.FIRE], "cast", 1.8],
-	[[El.POISON, El.POISON, El.VOID], "cast", 1.5],
+	[[El.VOID, El.FIRE], "cast", 1.8],
+	[[El.POISON, El.VOID], "cast", 1.5],
 	[[El.POISON, El.POISON], "plant", 0.0],
-	[[El.EARTH, El.EARTH, El.EARTH], "cast", 0.9],
-	[[El.FROST, El.FROST, El.FROST], "cast", 1.5],
-	[[El.WATER, El.WATER], "cast", 1.2],
+	[[El.EARTH, El.EARTH], "cast", 0.9],
+	[[El.FROST, El.FROST], "cast", 1.5],
+	[[El.WATER], "cast", 1.2],
 	[[El.WATER, El.FIRE, El.WATER, El.FIRE], "cast", 1.6],
-	[[El.AIR, El.LIGHTNING, El.LIGHTNING], "cast", 1.4],
-	[[El.EARTH, El.EARTH, El.EARTH], "plant", 0.0],
-	[[El.LIGHTNING, El.LIGHTNING], "plant", 0.0],
-	[[El.VOID, El.VOID, El.EARTH], "plant", 0.0],
-	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.FIRE, El.FIRE], "plant", 0.0],
-	[[El.FIRE, El.FIRE, El.FIRE, El.FIRE, El.FIRE], "cast", 0.0],
-	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast", 0.0],
+	[[El.AIR, El.LIGHTNING], "cast", 1.4],
+	[[El.EARTH, El.EARTH], "plant", 0.0],
+	[[El.LIGHTNING], "plant", 0.0],
+	[[El.VOID, El.EARTH], "plant", 0.0],
+	[[El.LIGHTNING, El.LIGHTNING, El.FIRE], "plant", 0.0],
+	[[El.FIRE, El.FIRE, El.FIRE], "cast", 0.0],
+	[[El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast", 0.0],
 ]
 const CLOSE := [[El.FROST, El.FROST, El.AIR], [El.FIRE, El.FIRE, El.EARTH], [El.EARTH, El.EARTH, El.AIR], [El.VOID, El.LIGHTNING, El.LIGHTNING]]
 
@@ -169,7 +169,7 @@ func think(w: Wizard, dt: float) -> void:
 ## Roughly what the plan will cost; fusions make it a little cheaper.
 func _price() -> float:
 	var load := Wizard.MANA_PER_LOAD * plan.size()
-	if plan.size() >= 5 and form == "cast" and plan.count(plan[0]) == plan.size():
+	if plan.size() >= SpellQueue.SIZE and form == "cast":
 		return load + Wizard.OVERLOAD_COST
 	return load + Wizard.MANA_PER_ELEMENT * plan.size()
 

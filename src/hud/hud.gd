@@ -293,18 +293,19 @@ class WizardPanel:
 		_orb(hc, 22.0, frac, Color(0.62, 0.04, 0.04), Color(0.3, 0.24, 0.16), Color(0.08, 0.02, 0.02))
 		# An enchantment: a band in its element round the orb that runs down.
 		if wizard.enchant_time > 0.0:
-			var sk := wizard.enchant_time / maxf(wizard.enchant.n.duration, 0.1)
+			# What is left of it: every bolt and swing spends it, and so does time.
+			var sk := wizard.enchant_left()
 			var wc: Color = El.COLOR[wizard.enchant.primary]
 			draw_arc(hc, 27.0, -PI * 0.5, -PI * 0.5 + TAU * sk, 40, wc.lightened(0.4), 3.0, true)
 		var hp_txt := "%d" % ceili(wizard.hp) if wizard.alive else "✝"
 		draw_string(tf, Vector2(hc.x - 30, hc.y + 6), hp_txt, HORIZONTAL_ALIGNMENT_CENTER, 60, 15, Color(1, 0.92, 0.85))
-		# Name, then the queue: five sockets, filled in order.
+		# Name, then the queue: three sockets, filled in order.
 		var sx0 := _x(74)
 		var nx := sx0 + 9.0 - 150.0 if mirrored else sx0 - 9.0
 		draw_string(tf, Vector2(nx, 18), wizard.player_name, align, 150, 15, wizard.robe.lightened(0.45))
 		var slots := wizard.queue.slots
 		var step := -22.0 if mirrored else 22.0
-		while _socket_balls.size() < 6:
+		while _socket_balls.size() < SpellQueue.SIZE:
 			_ball(_socket_balls)
 		# Short of mana, a cast falls back to the front elements it can pay
 		# for (Wizard.preview): the ones it would leave out sit dimmed.
@@ -326,9 +327,9 @@ class WizardPanel:
 		if not slots.is_empty():
 			var k := clampf(float(wizard.ammo) / maxf(wizard.full_ammo(), 1.0), 0.0, 1.0)
 			draw_arc(Vector2(sx0, 36), 11.5, -PI * 0.5, -PI * 0.5 + TAU * k, 28, Color(1.0, 0.88, 0.5), 1.6, true)
-		# A running stream (flamethrower, beam, chain lightning) drains a bar
+		# A running stream (flamethrower, beam) drains a bar
 		# over the sockets until it ends.
-		var bw := 4 * 22.0 + 20.0
+		var bw := (SpellQueue.SIZE - 1) * 22.0 + 20.0
 		var bx := sx0 - bw + 10.0 if mirrored else sx0 - 10.0
 		var left := wizard.channel_left()
 		if left >= 0.0 and wizard.channel:

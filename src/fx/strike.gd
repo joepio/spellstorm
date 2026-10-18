@@ -74,7 +74,7 @@ func _physics_process(dt: float) -> void:
 func _draw() -> void:
 	_im.clear_surfaces()
 	_im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	var w := 0.32 + 0.05 * float(spell.get("power", 1))
+	var w := 0.32 + 0.05 * float(spell.get("power", 1)) * Grammar.STEP
 	_bolt(_top, _at, 1.2, w)
 	# Forks crackling off the main bolt, and a few running along the floor.
 	for i in 3:

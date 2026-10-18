@@ -22,8 +22,10 @@ const DMG_PER_MANA := 9.0
 const MANA_MAX := 100.0
 const MANA_REGEN := 3.0
 const SOUL_MANA_PER_HP := 0.15
-const MANA_PER_LOAD := 3.0
-const MANA_PER_ELEMENT := 8.0
+## Three slots where there were five: each element costs 5/3 as much, so a
+## full queue costs what it did and a single element more.
+const MANA_PER_LOAD := 5.0
+const MANA_PER_ELEMENT := 13.0
 const OVERLOAD_COST := 40.0
 ## A sentry is the big plant (a full queue): it costs this to plant.
 const SENTRY_COST := 50.0
@@ -55,7 +57,7 @@ const FLIGHT := {
 	El.VOID: {rate = 2.0, speed = 9.0, range = 15.0, lob = false, hit = 0.34},
 }
 ## How long one loaded element lasts as bolts, at its own rate.
-const AMMO_TIME := 1.35
+const AMMO_TIME := 2.25
 const BURN_DPS := 7.0
 ## How long a burn runs at most after the last hit (Actor._status). Hits
 ## stack the time up to this, never the damage a second: a monster burns at
@@ -78,7 +80,7 @@ const POISON_FLOOR := 2.0
 const PATIENCE := 4.0
 ## Extra budget for each element past the first, and for each kind of
 ## element past the first: five mixed slots get about 1.4.
-const BONUS_PER_SLOT := 0.06
+const BONUS_PER_SLOT := 0.1
 const BONUS_PER_KIND := 0.06
 ## How far a spell may end up from its target after fitting.
 const BAND := Vector2(0.8, 1.3)
@@ -90,7 +92,7 @@ const FIT_RANGE := Vector2(0.05, 30.0)
 ## it covers: one, plus DENSITY monsters for every square metre past that,
 ## at most MAX_TARGETS. A bigger nova or a wider cone counts on more.
 ## Single-target shapes (a beam stops at the first, a sentry picks one)
-## count one; chain lightning counts its jumps.
+## count one; a thunderbolt its one target and splash.
 const DENSITY := 0.04
 const MAX_TARGETS := 6.0
 ## Every monster past the first counts for this much: a spell that hits a
@@ -98,7 +100,7 @@ const MAX_TARGETS := 6.0
 ## single-target spell of the same mana.
 const CROWD := 0.5
 ## Easy spells are worth a little less, hard ones a little more: a sentry
-## aims itself and chain lightning finds its targets, a thrown boulder has
+## aims itself and a thunderbolt snaps onto a monster, a thrown boulder has
 ## to be led and lands late.
 const EASE := {"sentry": 0.85, "strike": 1.0, "spray": 0.95, "beam": 1.0, "nova": 1.0,
 	"trap": 1.0, "projectile": 1.15, "enchant": 1.0}
@@ -255,7 +257,19 @@ static func gain(s: Dictionary) -> float:
 ## Where a spell should land: a longer, more mixed combo earns a little more.
 static func target(s: Dictionary) -> float:
 	var t: float = 1.0 + BONUS_PER_SLOT * (s.slots.size() - 1) + BONUS_PER_KIND * (s.counts.size() - 1)
+	# Spells you aim at a distance: the less reach, the more they may hit.
+	if s.shape in RANGED and s.has("n") and s.n.has("range"):
+		t *= 1.0 + RANGE_WEIGHT * clampf((RANGE_EVEN - float(s.n.range)) / 10.0, -0.5, 1.0)
 	return t * float(EASE.get(s.shape, 1.0))
+
+
+## Reach counts: at RANGE_EVEN metres a bolt or spell is even, every ten
+## metres less is RANGE_WEIGHT stronger, every ten more that much weaker
+## (at most half of it). A poison glob that goes 10 m hits harder than a
+## frost needle that goes 22.
+const RANGE_EVEN := 14.0
+const RANGE_WEIGHT := 0.2
+const RANGED := ["spray", "beam", "strike"]
 
 
 ## Spells held to the budget. Enchantments feed the free attacks; the overloads are
@@ -311,6 +325,9 @@ static func skill(e: int) -> float:
 	k += 0.1 * maxf(1.0 - f.rate / 6.0, 0.0)
 	if f.lob:
 		k += 0.1
+	# Short reach means walking into danger to use it: a short bolt hits a
+	# bit harder, a long one a bit softer (RANGE_EVEN metres is even).
+	k += RANGE_WEIGHT * clampf((RANGE_EVEN - f.range) / 10.0, -0.5, 1.0)
 	return k
 
 

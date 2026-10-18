@@ -46,6 +46,8 @@ var biome: Dictionary
 var path := PackedVector2Array()
 var path_run := PackedFloat32Array()
 const PATH_W := 2.4
+## Metres of the way between two jars of blood.
+const URN_EVERY := 28.0
 ## Open ground along the path where the fights gather, as (x, z, r): the
 ## first two hold shrines with tomes once their monsters are beaten, the last
 ## is the boss's arena.
@@ -128,9 +130,13 @@ func build(biome_index: int, seed_value: int) -> void:
 		var zone_props: Array = biome.zones[zone_at(spot)]
 		_prop(zone_props[_rng.randi() % zone_props.size()], spot)
 	# Jars of blood along the way, in every biome: the only health besides
-	# what monsters bleed.
-	for _b in int(half.y / 15.0):
-		_prop("blood_urn")
+	# what monsters bleed. One every URN_EVERY metres of the way, beside the
+	# path on dry ground, so a long level or one of small islands is never
+	# short of them.
+	var urns := int(length() / URN_EVERY)
+	for u in urns:
+		var at := _urn_spot((u + 0.5) * length() / urns)
+		_prop("blood_urn", at if at != Vector3.INF else Vector3.INF)
 	for _r in int(half.y / 9.0):
 		for k in biome.fields:
 			var fp := _free_spot(3.0)
@@ -972,6 +978,26 @@ func _torch(parent: Node3D, at: Vector3) -> void:
 	l.position.y = 0.3
 	t.add_child(l)
 	_torches.append(l)
+
+
+## A spot beside the path near [param run] metres along it, clear and on
+## land, or INF.
+func _urn_spot(run: float) -> Vector3:
+	for _i in 30:
+		var r := clampf(run + _rng.randf_range(-6.0, 6.0), 8.0, length() - 4.0)
+		var c := point_at(r)
+		var dir := (point_at(r + 1.0) - point_at(r - 1.0)).normalized()
+		var side := 1.0 if _rng.randf() < 0.5 else -1.0
+		var p2 := c + Vector2(-dir.y, dir.x) * side * _rng.randf_range(PATH_W * 0.5 + 1.2, PATH_W * 0.5 + 4.0)
+		if bound(p2) > -1.2 or in_clearing(p2, 1.0) or p2.distance_to(start) < 7.0:
+			continue
+		if not isles.is_empty() and shore(p2) > -0.8:
+			continue
+		var p := Vector3(p2.x, 0, p2.y)
+		if _crowded(p, 1.6):
+			continue
+		return p
+	return Vector3.INF
 
 
 func _free_spot(clear: float) -> Vector3:

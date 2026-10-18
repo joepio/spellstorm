@@ -8,7 +8,7 @@ extends RefCounted
 ##      (Water + Fire = Steam) and takes that slot.
 ##   3. Otherwise it takes a new slot, if there is room.
 
-const SIZE := 5
+const SIZE := 3
 
 var slots: Array[int] = []
 var size := SIZE

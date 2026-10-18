@@ -15,26 +15,30 @@ are the free attacks; they have their own budget (see below).
 
 The price is what the player really pays:
 
-- **loading:** 3 mana per element put in the queue (`MANA_PER_LOAD`);
-- **casting:** 8 mana per element still in the queue (`MANA_PER_ELEMENT`).
+- **loading:** 5 mana per element put in the queue (`MANA_PER_LOAD`);
+- **casting:** 13 mana per element still in the queue (`MANA_PER_ELEMENT`).
 
-One element is 11 mana and must be worth about 55 damage. Five elements are
-55 mana and must be worth about 275 damage, plus the combo bonus.
+The queue holds three elements (`SpellQueue.SIZE`). It used to hold five; each
+element now weighs 5/3 of what it did (`Grammar.STEP`), in cost, in ammo and in
+how big a spell it makes, so a full queue is what a full queue was. One
+element is 18 mana and must be worth about 160 damage. Three elements are 54
+mana and must be worth about 490 damage, plus the combo bonus. A full queue
+cast ahead is a cataclysm, planted a sentry.
 
 ## The combo bonus
 
 A longer or more mixed queue takes more work to build, so it may hit a
 little harder:
 
-- **+6% for each element past the first** (`BONUS_PER_SLOT`);
+- **+10% for each element past the first** (`BONUS_PER_SLOT`);
 - **+6% for each different element past the first** (`BONUS_PER_KIND`).
 
 | Queue | Target |
 |---|---|
 | Fire | 1.00 |
-| Fire Fire Fire | 1.12 |
-| Earth Fire Void | 1.24 |
-| five slots, three kinds | 1.36 |
+| Fire Fire | 1.10 |
+| Earth Void | 1.16 |
+| three slots, three kinds | 1.32 |
 
 ## What a spell is worth
 
@@ -114,6 +118,15 @@ length, and the sum knows it.
 `EASE` multiplies a shape's target: an aimed boulder that is slow to land
 gets 15% more, a sentry that aims itself 15% less, a spray 5% less.
 
+### Short reach earns a little more
+
+Using a short-range attack means walking into danger. Sprays, beams and
+thunderbolts, and every element's bolts, are even at 14 m of reach
+(`RANGE_EVEN`) and get 20% (`RANGE_WEIGHT`) more for every 10 m less, or
+that much less for every 10 m more (at most 10% less). Poison globs that go
+10 m hit 8% harder for it, frost needles that go 22 m 10% softer. Slow bolts
+already count as harder to land (`skill`).
+
 ## How it stays balanced: fitting
 
 `Grammar` builds every spell's size, range and duration as before. Then
@@ -157,7 +170,7 @@ draws back to the sword's edges.
 only shoot, and how many swings they are, and fails when one lasts under 2
 seconds or past the time limit.
 
-**Sentries** (planting a full queue of five) are fitted like the rest, but
+**Sentries** (planting a full queue of three) are fitted like the rest, but
 cost a fixed 50 mana plus loading (`SENTRY_COST`), so they are the big plant.
 
 ## Bolts: the free attack
@@ -165,7 +178,7 @@ cost a fixed 50 mana plus loading (`SENTRY_COST`), so they are the big plant.
 A bolt costs nothing to fire. Every element's bolt stream is worth about
 **12 damage a second** (`BOLT_DPS`), counting status and utility the same
 way as spells, a little more when its bolts are harder to land (`skill`:
-slow bolts, few a second, or thrown in an arc). Each element flies its own
+slow bolts, few a second, thrown in an arc, or short of reach). Each element flies its own
 way (`FLIGHT`):
 
 | Element | Shots/s | Speed | Range | Arc | Feel |
@@ -181,8 +194,8 @@ way (`FLIGHT`):
 
 A fusion flies like the average of its two parts. The strength of one bolt
 follows from that (`bolt_scale`), so a rock hits about five times as hard as
-a fire spark. Loading an element (3 mana) gives 1.35 seconds of its bolts
-(`AMMO_TIME`): 8 fire bolts, 2 rocks. In a mixed queue the front element sets
+a fire spark. Loading an element (5 mana) gives 2.25 seconds of its bolts
+(`AMMO_TIME`): 14 fire bolts, 3 rocks. In a mixed queue the front element sets
 how the bolt flies; every element in it keeps its own worth a second.
 
 A plain bolt (empty queue) does 0.12 of an earth hit: weak on purpose, so

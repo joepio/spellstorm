@@ -149,8 +149,9 @@ func _ready() -> void:
 	tor.outer_radius = 0.66
 	tor.rings = 28
 	tor.ring_segments = 4
-	for i in 6:
-		var o := Art.part(self, Art.sphere(0.13, 12), Fx.element(El.FIRE, 1.3))
+	# The queued elements ride on the staff, small balls circling its gem.
+	for i in SpellQueue.SIZE:
+		var o := Art.part(model.staff, Art.sphere(0.065, 10), Fx.element(El.FIRE, 1.3))
 		o.visible = false
 		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_orbs.append(o)
@@ -995,6 +996,15 @@ func _muzzle_flash(c: Color) -> void:
 	_bloom = 1.0
 
 
+## How much of the enchantment is left, 1 to 0: whichever runs out first,
+## its store (spent by every enchanted bolt and swing) or its time.
+func enchant_left() -> float:
+	if enchant_time <= 0.0 or enchant.is_empty():
+		return 0.0
+	var by_time := enchant_time / maxf(float(enchant.n.duration), 0.1)
+	return minf(by_time, enchant_store / maxf(_enchant_full, 0.001))
+
+
 ## Take [param dmg] from the enchantment's store. As it runs low the
 ## element draws back to the sword's edges; spent, the sword is steel again.
 func _spend_enchant(dmg: float) -> void:
@@ -1309,17 +1319,19 @@ func _visuals(dt: float) -> void:
 			_zone_mat.set_shader_parameter("strength", 0.22 * near)
 			_zone_mat.set_shader_parameter("mirror", false)
 			_place_zone(aim_dir)
-	# Orbs circle the hat, one per queued element.
+	# The queue rides on the staff: up to three small balls circling the gem,
+	# which wears the element the bolts will be.
 	var slots := queue.slots
 	var gem_color := Color(0.9, 0.85, 0.7)
+	var gem_at: Vector3 = model.gem.position
 	for i in _orbs.size():
 		var o := _orbs[i]
 		if i < slots.size():
 			o.visible = true
-			o.material_override = Fx.element(slots[i], 1.3)
-			var ang := Time.get_ticks_msec() / 1000.0 * 2.2 + i * TAU / maxf(slots.size(), 1)
-			o.position = Vector3(cos(ang) * 0.62, 2.1 + sin(ang * 2.0) * 0.05, sin(ang) * 0.62)
-			var big := 1.25 if El.is_fused(slots[i]) else 1.0
+			o.material_override = Fx.element(slots[i], 1.5)
+			var ang := Time.get_ticks_msec() / 1000.0 * 3.0 + i * TAU / maxf(slots.size(), 1)
+			o.position = gem_at + Vector3(cos(ang) * 0.24, sin(ang * 2.0) * 0.03 - 0.02, sin(ang) * 0.24)
+			var big := 1.3 if El.is_fused(slots[i]) else 1.0
 			o.scale = Vector3.ONE * big
 		else:
 			o.visible = false

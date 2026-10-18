@@ -44,7 +44,7 @@ func _ready() -> void:
 
 ## How close a monster has to come to set it off: the ring you see.
 func _trigger_r() -> float:
-	return 1.0 + 0.1 * spell.slots.size()
+	return 1.0 + 0.1 * spell.slots.size() * Grammar.STEP
 
 
 func _physics_process(dt: float) -> void:
