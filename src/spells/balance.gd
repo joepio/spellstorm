@@ -41,12 +41,14 @@ const PLAIN_BOLT := 0.12
 const PLAIN_FLIGHT := {rate = 6.0, speed = 22.0, range = 18.0, lob = false, hit = 0.18}
 ## How each base element's bolts fly: shots a second, speed, how far they
 ## go, whether they are thrown in an arc that lands at that range, and how
-## wide they hit. A fusion flies like the average of its two parts.
+## wide they hit. Lightning does not fly at all (zap): a little spark of it
+## jumps from the staff to the first thing in line. A fusion flies like the
+## average of its two parts.
 const FLIGHT := {
 	El.FIRE: {rate = 6.0, speed = 22.0, range = 16.0, lob = false, hit = 0.2},
 	El.FROST: {rate = 4.0, speed = 36.0, range = 22.0, lob = false, hit = 0.14},
 	El.WATER: {rate = 9.0, speed = 16.0, range = 9.0, lob = true, hit = 0.2},
-	El.LIGHTNING: {rate = 5.0, speed = 60.0, range = 13.0, lob = false, hit = 0.16},
+	El.LIGHTNING: {rate = 5.0, speed = 60.0, range = 11.0, lob = false, hit = 0.16, zap = true},
 	El.EARTH: {rate = 1.5, speed = 15.0, range = 13.0, lob = true, hit = 0.34},
 	El.AIR: {rate = 7.0, speed = 30.0, range = 18.0, lob = false, hit = 0.22},
 	El.POISON: {rate = 3.0, speed = 11.0, range = 10.0, lob = true, hit = 0.26},
@@ -81,12 +83,12 @@ const CROWD := 0.5
 ## Easy spells are worth a little less, hard ones a little more: a sentry
 ## aims itself and chain lightning finds its targets, a thrown boulder has
 ## to be led and lands late.
-const EASE := {"sentry": 0.85, "arc": 0.9, "spray": 0.95, "beam": 1.0, "nova": 1.0,
+const EASE := {"sentry": 0.85, "strike": 1.0, "spray": 0.95, "beam": 1.0, "nova": 1.0,
 	"trap": 1.0, "projectile": 1.15, "enchant": 1.0}
 ## Every RT spell winds up for this long before it goes (Wizard.WINDUP).
-const WINDUP := {spray = 0.4, beam = 0.55, arc = 0.45, projectile = 0.65, overload = 1.0}
+const WINDUP := {spray = 0.4, beam = 0.55, strike = 0.6, projectile = 0.65, overload = 1.0}
 ## Shapes you hold: the staff is busy for the whole spell.
-const HELD := ["spray", "beam", "arc"]
+const HELD := ["spray", "beam"]
 ## How much of a lasting spell's life it actually has something to hit.
 const UPTIME := {"sentry": 0.6}
 ## Status worth, in damage: a freeze holds a monster still for FREEZE_TIME.
@@ -120,9 +122,9 @@ static func delivery(s: Dictionary) -> Dictionary:
 			return {scale = n.rate * n.duration * 0.8, time = n.duration, targets = crowd(cone)}
 		"beam":
 			return {scale = n.rate * n.duration, time = n.duration, targets = 1.0}
-		"arc":
-			var zaps: float = floorf(n.duration / n.interval) + 1.0
-			return {scale = n.rate * zaps, time = n.duration, targets = minf(1.0 + n.hops, 3.0)}
+		"strike":
+			# The one struck in full, the rest of the splash at StrikeFx.SPLASH.
+			return {scale = n.rate, time = 0.0, targets = 1.0 + (crowd(PI * n.radius * n.radius) - 1.0) * 0.6}
 		"projectile":
 			# A full charge throws at power 1.75 (ProjectileFx.launch).
 			var hit: float = 1.75 * n.rate * n.pieces
@@ -257,7 +259,7 @@ static func flight(e: int) -> Dictionary:
 	var a: Dictionary = FLIGHT[p[0]]
 	var b: Dictionary = FLIGHT[p[1]]
 	return {rate = sqrt(a.rate * b.rate), speed = (a.speed + b.speed) * 0.5, range = (a.range + b.range) * 0.5,
-		lob = a.lob and b.lob, hit = (a.hit + b.hit) * 0.5}
+		lob = a.lob and b.lob, hit = (a.hit + b.hit) * 0.5, zap = a.get("zap", false) or b.get("zap", false)}
 
 
 ## How many bolts one loaded element of [param e] gives.

@@ -42,8 +42,8 @@ little harder:
 everything it is likely to hit:
 
 - **Direct damage:** `El.EFFECT` dmg × the count of each element × how much
-  of the spell lands. A spray lands every second of its duration, an arc
-  on every zap, a nova once.
+  of the spell lands. A spray lands every second of its duration, a
+  thunderbolt or a nova once.
 - **Burn:** 7 damage a second, at most 6 seconds past the last hit.
 - **Freeze:** worth 12 damage, since it holds a monster still.
 - **Utility, in damage per unit:** push 1, wet 1, slow 3, shock 2. Wet and
@@ -65,7 +65,7 @@ bigger nova or a wider cone counts on more.
 | trap | the blast circle | 1.8 to 2.6 |
 | spray | the cone (angle × range² / 2) | 1.2 to 1.7 |
 | projectile | 1, plus 0.6 of the splash circle | 1.0 to 2.1 |
-| arc (chain lightning) | 1 + hops, at most 3 | 3 |
+| strike (thunderbolt) | 1, plus 0.6 of the splash circle | 1.1 to 1.4 |
 | beam | stops at the first | 1 |
 | sentry | picks one, in range 60% of the time | 1 |
 
@@ -81,8 +81,8 @@ mana, and on a crowd it is worth more.
 ### Time you cannot shoot is a cost
 
 Bolts are free, so a spell has to beat what you would have done instead.
-Every RT spell winds up first (`WINDUP`), and while you hold a flamethrower,
-beam or chain lightning you cannot shoot at all. A spell's gain is its worth
+Every RT spell winds up first (`WINDUP`), and while you hold a flamethrower
+or beam you cannot shoot at all. A spell's gain is its worth
 **less 12 damage a second (`BOLT_DPS`) for every second the staff is busy**.
 A flamethrower does a lot a second, but you also stop shooting for its whole
 length, and the sum knows it.
@@ -90,8 +90,7 @@ length, and the sum knows it.
 ### Hard spells earn a little more
 
 `EASE` multiplies a shape's target: an aimed boulder that is slow to land
-gets 15% more, a sentry that aims itself 15% less, chain lightning (it finds
-its own targets) 10% less, a spray 5% less.
+gets 15% more, a sentry that aims itself 15% less, a spray 5% less.
 
 ## How it stays balanced: fitting
 
@@ -152,7 +151,7 @@ way (`FLIGHT`):
 | Fire | 6 | 22 | 16 | | the steady stream |
 | Frost | 4 | 36 | 22 | | fast, far needles |
 | Water | 9 | 16 | 9 | yes | a short hose |
-| Lightning | 5 | 60 | 13 | | there at once |
+| Lightning | 5 | instant | 11 | | a spark from the staff, no projectile |
 | Earth | 1.5 | 15 | 13 | yes | a heavy thrown rock |
 | Air | 7 | 30 | 18 | | quick gusts |
 | Poison | 3 | 11 | 10 | yes | slow lobbed globs |

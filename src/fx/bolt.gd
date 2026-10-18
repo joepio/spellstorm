@@ -142,6 +142,9 @@ func _ready() -> void:
 	if flight.lob:
 		# Thrown up just enough to come down at the end of its range.
 		vel.y = (GRAVITY * life * life * 0.5 - 1.1) / life
+	if flight.get("zap", false):
+		# A spark has no body: it jumps on the first tick (_spark).
+		return
 	reset_physics_interpolation()
 	_body = MeshInstance3D.new()
 	_body.mesh = _mesh_for(el)
@@ -183,6 +186,9 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if flight.get("zap", false):
+		_spark()
+		return
 	t += dt
 	if _look.get("rock", false):
 		_body.rotate_x(dt * 14.0)
@@ -254,6 +260,72 @@ func _charm_hit(a: Actor, at: Vector3) -> void:
 			_zap(from, p)
 			done.append(best)
 			from = p
+
+
+## A lightning bolt does not fly: a small spark jumps at once from the staff
+## to the first monster in line (a little forgiving sideways), or a wall,
+## or dies out at its range.
+func _spark() -> void:
+	set_physics_process(false)
+	var from := global_position
+	var dir := Vector3(vel.x, 0.0, vel.z).normalized()
+	var reach: float = flight.range
+	var hit: Actor = null
+	for a in (Game.I.living() if Game.I else []):
+		if a == caster or not affects(a, spell, caster):
+			continue
+		var to: Vector3 = a.global_position - from
+		to.y = 0.0
+		var along := to.dot(dir)
+		if along > 0.0 and along < reach and (to - dir * along).length() < a.radius + float(flight.hit) + 0.35:
+			reach = along
+			hit = a
+	var to_pt := from + dir * reach
+	var wall: Dictionary = Game.I.arena.ray(from, to_pt) if Game.I else {}
+	if wall:
+		hit = null
+		to_pt = wall.position
+		if wall.collider and wall.collider.has_method("damage"):
+			wall.collider.damage(2.0, dir)
+	if hit:
+		to_pt = hit.global_position + Vector3.UP * 0.9
+		strike(hit, spell, 1.0, caster, dir)
+		if not charmed.is_empty():
+			_charm_hit(hit, to_pt)
+	_spark_line(from, to_pt, hit != null)
+	_end(to_pt)
+
+
+## The spark itself: thin, jagged, gone in a blink.
+func _spark_line(a: Vector3, b: Vector3, landed: bool) -> void:
+	if Fx.root == null:
+		return
+	var im := ImmediateMesh.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	var c: Color = El.COLOR[el] if el >= 0 else Color.WHITE
+	mi.material_override = Fx.shader("zap", {core = c.lerp(Color.WHITE, 0.8), edge = c})
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var w := 0.05 + 0.03 * _size
+	var steps := maxi(3, int(a.distance_to(b) / 0.6))
+	var prev := a
+	for s in range(1, steps + 1):
+		var p := a.lerp(b, float(s) / steps)
+		if s < steps:
+			p += Vector3(randf() - 0.5, (randf() - 0.5) * 0.5, randf() - 0.5) * 0.35
+		var side := (p - prev).cross(Vector3.UP).normalized() * w
+		for off in [side, Vector3.UP * w]:
+			for v in [[prev - off, 0.0], [p - off, 0.0], [p + off, 1.0], [prev - off, 0.0], [p + off, 1.0], [prev + off, 1.0]]:
+				im.surface_set_color(Color.WHITE)
+				im.surface_set_uv(Vector2(v[1], 0.0))
+				im.surface_add_vertex(v[0])
+		prev = p
+	im.surface_end()
+	Fx.root.add_child(mi)
+	if landed:
+		Fx.flash(b, c, 0.7, 0.08)
+	mi.get_tree().create_timer(0.06).timeout.connect(mi.queue_free)
 
 
 ## A quick jagged flash from [param a] to [param b] for a jumping hit.

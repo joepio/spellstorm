@@ -85,7 +85,7 @@ const ENCHANT_ADJ := {
 	El.STEAM: "Steam", El.ICE: "Ice", El.MUD: "Mud", El.MAGMA: "Magma", El.STORM: "Storm",
 }
 
-const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "arc", El.Kind.SPIRIT: "beam", El.Kind.FLOW: "spray"}
+const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "strike", El.Kind.SPIRIT: "beam", El.Kind.FLOW: "spray"}
 
 const FORMS := ["cast", "nova", "plant", "enchant"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
@@ -251,9 +251,9 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 				duration = 2.5 + 0.5 * p, rate = 1.0}
 		"beam":
 			n = {range = 15.0, width = 0.25 + 0.08 * p, duration = 3.0 + 0.5 * p, rate = 1.3}
-		"arc":
-			n = {range = 7.5 + 0.5 * p, hops = 1 + lead + p / 2 + int(mods.get("hops", 0)),
-				hop_range = 4.5, interval = 0.4, duration = 2.0 + 0.4 * p, rate = 1.0}
+		"strike":
+			# One thunderbolt out of the sky where you aim: radius is its splash.
+			n = {range = 8.0 + 0.5 * p, radius = (1.0 + 0.2 * p + 0.1 * lead) * float(mods.get("strike_radius", 1.0)), rate = 1.0}
 		"projectile":
 			var pieces := 1
 			if spell.primary == El.ICE:

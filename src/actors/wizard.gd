@@ -716,7 +716,7 @@ func cast(form: String, button: int) -> void:
 	if Game.I:
 		Game.I.on_cast(self, s)
 	match s.shape:
-		"spray", "beam", "arc", "projectile", "overload":
+		"spray", "beam", "strike", "projectile", "overload":
 			_charging = s
 			_charge_t = 0.0
 			_charge_need = WINDUP[s.shape] * float(_mod("charge", 1.0))
@@ -772,8 +772,8 @@ func _release() -> void:
 			_channel(SprayFx.new().setup(self, s), Pad.RT, staff_tip())
 		"beam":
 			_channel(BeamFx.new().setup(self, s), Pad.RT, staff_tip())
-		"arc":
-			_channel(ArcFx.new().setup(self, s), Pad.RT, staff_tip())
+		"strike":
+			Game.I.spawn(StrikeFx.new().setup(self, s), _cast_point(s))
 		"projectile":
 			_throw(s)
 		"overload":
@@ -822,7 +822,7 @@ func _charge_start(e: int) -> void:
 
 
 ## Spells that strike away from you show where while they charge.
-const REMOTE := ["projectile", "beam", "arc", "overload"]
+const REMOTE := ["projectile", "beam", "strike", "overload"]
 var _cast_mark: CastMark
 
 
@@ -832,6 +832,8 @@ func _mark_radius(s: Dictionary) -> float:
 			return 2.6
 		"projectile":
 			return maxf(0.9, float(s.n.get("splash", 0.0)) * 0.8)
+		"strike":
+			return float(s.n.radius)
 	return 0.9
 
 
@@ -1235,14 +1237,16 @@ func _visuals(dt: float) -> void:
 	var sword: Node3D = model.sword
 	if sweep >= 0.0:
 		var e := 1.0 - pow(1.0 - minf(sweep * 1.6, 1.0), 3.0)
-		# The sword arm thrown out, the blade flat, cutting from left to right.
+		# The sword arm thrown out, the blade flat, cutting from right to left:
+		# the sword is in the right hand, so it comes across the body.
 		sword.position = sword.position.lerp(Vector3(-0.15, 0.95, 0.5), 1.0 - exp(-30.0 * dt))
-		sword.rotation = Vector3(PI * 0.5, lerpf(1.9, -1.9, e), 0.0)
-		body.rotation.y = target_yaw + lerpf(0.6, -0.6, e)
+		sword.rotation = Vector3(PI * 0.5, lerpf(-1.9, 1.9, e), 0.0)
+		body.rotation.y = target_yaw + lerpf(-0.6, 0.6, e)
 		_zone.visible = true
 		# An enchanted blade sweeps a wider arc on the floor too.
 		var zs := (enchant_reach() + 0.3) / (SWING_REACH + 0.3) if enchant_time > 0.0 else 1.0
-		_zone.scale = Vector3(zs, 1.0, zs)
+		# Mirrored, so the arc opens the way the blade sweeps.
+		_zone.scale = Vector3(-zs, 1.0, zs)
 		_zone_mat.set_shader_parameter("progress", e)
 		_zone_mat.set_shader_parameter("strength", (1.0 - smoothstep(0.55, 1.0, sweep)) * (0.45 if enchant_time > 0.0 else 1.0))
 		_place_zone(_swing_dir)

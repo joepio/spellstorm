@@ -42,7 +42,7 @@ func _init() -> void:
 	check(spell([El.FIRE]).shape == "spray", "fire sprays")
 	check(spell([El.EARTH, El.FIRE, El.FIRE]).name == "Burning Magma Lava Bomb" or spell([El.EARTH, El.FIRE, El.FIRE]).primary == El.MAGMA, "earth + fire fuses first")
 	check(spell([El.EARTH, El.EARTH, El.POISON]).name == "Venomous Boulder", "a venomous boulder")
-	check(spell([El.LIGHTNING, El.FIRE]).shape == "arc", "lightning beats fire to the shape")
+	check(spell([El.LIGHTNING, El.FIRE]).shape == "strike", "lightning beats fire to the shape")
 	check(spell([El.LIGHTNING, El.FIRE]).name == "Burning Chain Lightning", "burning chain lightning")
 	check(spell([El.VOID, El.FIRE, El.FIRE]).shape == "beam", "void is a beam")
 	check(spell([El.WATER, El.FROST, El.ICE]).shape == "projectile", "ice is thrown")

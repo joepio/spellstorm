@@ -9,7 +9,7 @@ const ALL := [
 	{"name": "Tome of Kindling", "text": "Fire, Steam and Magma burn 50% hotter", "el_2": 1.5, "el_8": 1.5, "el_11": 1.5},
 	{"name": "Rime Codex", "text": "Frost and Ice bite 50% harder", "el_3": 1.5, "el_9": 1.5},
 	{"name": "Tide Scroll", "text": "Water and Mud hit 60% harder", "el_4": 1.6, "el_10": 1.6},
-	{"name": "Storm Sigil", "text": "Lightning +40%, arcs jump to 2 more", "el_5": 1.4, "el_12": 1.4, "hops": 2},
+	{"name": "Storm Sigil", "text": "Lightning +40%, thunderbolts strike wider", "el_5": 1.4, "el_12": 1.4, "strike_radius": 1.4},
 	{"name": "Stone Heart", "text": "Earth, Mud and Magma +40%", "el_6": 1.4, "el_10": 1.4, "el_11": 1.4},
 	{"name": "Zephyr Feather", "text": "Air pushes 80% harder, you walk 15% faster", "el_7": 1.8, "speed": 1.15},
 	{"name": "Red Chalice", "text": "Blood heals 60% more", "heal": 1.6},

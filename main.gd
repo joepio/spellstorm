@@ -646,6 +646,11 @@ func _take_shot() -> void:
 				if "--charmed" in args:
 					b.charmed = {e: true}
 				Game.I.spawn(b, bolt_at + Vector3(-7.0, 0, -4.0 + i * 1.6))
+		# --strike N: a thunderbolt of three lightning in front of the
+		# wizards N frames before the shot.
+		if "--strike" in args and f == shot_frames - int(args[args.find("--strike") + 1]):
+			var sk := Grammar.compose([El.LIGHTNING, El.LIGHTNING, El.LIGHTNING], "cast")
+			Game.I.spawn(StrikeFx.new().setup(wizards[0], sk), wizards[0].global_position + Vector3(3.5, 0, -3.0))
 		# --boom N: a barrel's blast in front of the wizards N frames before.
 		if "--boom" in args and f == shot_frames - int(args[args.find("--boom") + 1]):
 			BlastFx.boom(wizards[0].global_position + Vector3(4, 0, -2), 2.2)
