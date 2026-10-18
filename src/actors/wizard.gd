@@ -44,7 +44,7 @@ const SWING_COOLDOWN := 0.34
 ## knocking bullets back is a timed choice, not a shield. The gem goes dark
 ## while it recovers and flashes when it is ready.
 const SWING_RECOVER := 0.7
-const SWING_REACH := 2.0
+const SWING_REACH := 1.7
 ## Half the angle of the swing, each side of where you aim: what it hits and
 ## the bullets it knocks back.
 const SWING_ARC := 1.3
@@ -922,7 +922,7 @@ var _enchant_parts: CPUParticles3D
 ## How hard an enchanted swing hits with its elements, per element.
 const ENCHANT_SWING := 2.0
 ## How far a full enchantment (five elements) makes the sword reach.
-const SWORD_MAX := 4.6
+const SWORD_MAX := 3.0
 ## Where the sword's hilt is from the wizard's middle when it swings flat.
 const SWORD_HAND := 0.62
 
