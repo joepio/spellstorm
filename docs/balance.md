@@ -44,14 +44,36 @@ everything it is likely to hit:
 - **Direct damage:** `El.EFFECT` dmg × the count of each element × how much
   of the spell lands. A spray lands every second of its duration, a
   thunderbolt or a nova once.
-- **Burn:** 7 damage a second, at most 6 seconds past the last hit.
+- **Burn:** 7 damage a second, at most 6 seconds past the last hit. More
+  hits add time up to that, never more damage a second. Water or frost puts
+  it out.
 - **Freeze:** worth 12 damage, since it holds a monster still.
 - **Utility, in damage per unit:** push 1, wet 1, slow 3, shock 2. Wet and
   shock are combo enablers (shock does double on wet), so they count, but
   not as much as damage.
-- **Poison:** each unit of scale adds five seconds, at most ten past the last
-  hit, at 4 damage a second. No spell heals: health comes from blood that
-  monsters spill and jars hold.
+- **Poison:** a dose of damage that seeps out: each unit of scale adds 25,
+  and the dose drains a fifth of itself a second, so it fades instead of
+  stopping (the last bit at 2 a second). Doses stack up to 150 on one
+  monster. Nothing washes it off. No spell heals: health comes from blood
+  that monsters spill and jars hold.
+
+### Damage that comes later counts less
+
+A monster burning for six seconds may die of something else first, walk
+out of reach or be doused. So damage over time is credited by when it lands:
+damage t seconds after the hit counts `exp(-t / PATIENCE)`, PATIENCE 4 s.
+While a lasting spell keeps it topped up it counts in full, like any hit;
+only what runs on after counts less.
+
+- A full 6 s burn deals 42 and is credited 31.
+- A poison dose comes out on average 5 s late and is credited 4/9 of itself:
+  a dose of 100 is credited 44.
+
+The budget pays for credited damage, so the longer an effect lasts, the more
+it really deals per mana. Poison lasts longest and is the strongest element:
+`tests/balance_test.gd` prints real damage per mana for spells led by each
+element and fails when poison is not on top (now poison 1.30, fire 1.07,
+the rest 0.8 to 1.0).
 
 ### How many monsters a shape hits
 

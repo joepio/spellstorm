@@ -15,7 +15,6 @@ extends CharacterBody3D
 signal died(actor: Actor)
 
 const BURN_DPS := Balance.BURN_DPS
-const POISON_DPS := Balance.POISON_DPS
 const FREEZE_TIME := Balance.FREEZE_TIME
 
 var team := 0
@@ -34,6 +33,7 @@ var armor := 1.0
 
 var wet := 0.0
 var burn := 0.0
+## Poison left to seep out, in damage (Balance.POISON_DOSE).
 var poison := 0.0
 var chill := 0.0
 var frozen := 0.0
@@ -201,7 +201,7 @@ func _status(eff: Dictionary, n: float) -> void:
 		if wet > 0.0:
 			wet = maxf(0.0, wet - eff.burn * n * 5.0)
 		else:
-			burn = minf(burn + eff.burn * n * 4.0, 6.0)
+			burn = minf(burn + eff.burn * n * 4.0, Balance.BURN_MAX)
 		if frozen > 0.0 or chill > 0.0:
 			frozen = 0.0
 			chill = 0.0
@@ -215,7 +215,7 @@ func _status(eff: Dictionary, n: float) -> void:
 	if eff.has("slow"):
 		slow = maxf(slow, 3.0 * eff.slow * minf(n * 4.0, 1.0))
 	if eff.has("poison"):
-		poison = minf(poison + eff.poison * n * 5.0, 10.0)
+		poison = minf(poison + eff.poison * n * Balance.POISON_DOSE, Balance.POISON_CAP)
 
 
 func _freeze() -> void:
@@ -351,11 +351,15 @@ func tick_status(delta: float) -> void:
 		last_melee = false
 		take(BURN_DPS * delta * (1.0 - resistance(El.FIRE)) * armor)
 	if poison > 0.0:
-		poison -= delta
+		# The dose seeps out: fast while it is big, the last of it slowly.
+		var seep := minf(poison, maxf(poison / Balance.POISON_TIME, Balance.POISON_FLOOR) * delta)
+		poison -= seep
+		if poison < 0.01:
+			poison = 0.0
 		if burn <= 0.0:
 			last_el = El.POISON
 		last_melee = false
-		take(POISON_DPS * delta * (1.0 - resistance(El.POISON)) * armor)
+		take(seep * (1.0 - resistance(El.POISON)) * armor)
 	wet = maxf(0.0, wet - delta)
 	chill = maxf(0.0, chill - 0.6 * delta)
 	frozen = maxf(0.0, frozen - delta)

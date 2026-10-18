@@ -57,8 +57,25 @@ const FLIGHT := {
 ## How long one loaded element lasts as bolts, at its own rate.
 const AMMO_TIME := 1.35
 const BURN_DPS := 7.0
-## Poison is slower than fire but lasts, and nothing washes it out.
-const POISON_DPS := 4.0
+## How long a burn runs at most after the last hit (Actor._status). Hits
+## stack the time up to this, never the damage a second: a monster burns at
+## BURN_DPS however many fireballs it took, and water or frost puts it out.
+const BURN_MAX := 6.0
+## Poison is a dose of damage that seeps out over time and that nothing
+## washes off: each unit of scale adds POISON_DOSE, and the dose drains a
+## POISON_TIME-th of itself a second (so it fades, never stops dead). Doses
+## stack, up to POISON_CAP on one monster.
+const POISON_DOSE := 25.0
+const POISON_TIME := 5.0
+const POISON_CAP := 150.0
+## Below this the last of a dose goes at this rate, so it ends.
+const POISON_FLOOR := 2.0
+## Damage that comes later is worth less: the monster may die of something
+## else first, walk out of reach, or have it washed off. Damage t seconds
+## after the hit counts exp(-t / PATIENCE). So a poison that runs ten
+## seconds deals far more than it is credited, and lasting the longest,
+## poison is the strongest element per mana in real damage.
+const PATIENCE := 4.0
 ## Extra budget for each element past the first, and for each kind of
 ## element past the first: five mixed slots get about 1.4.
 const BONUS_PER_SLOT := 0.06
@@ -165,20 +182,39 @@ static func worth(s: Dictionary) -> Dictionary:
 		for k in UTILITY:
 			utility += float(eff.get(k, 0.0)) * c * UTILITY[k]
 	var per_target: float = dmg * d.scale
-	# Burn: each unit of scale lights four seconds, capped at six past the
-	# last hit (Actor._status), at BURN_DPS.
-	var burn_worth: float = BURN_DPS * minf(d.time + 6.0, 4.0 * burn * d.scale)
+	# Burn: each unit of scale lights four seconds, capped at BURN_MAX past
+	# the last hit (Actor._status), at BURN_DPS, credited as it comes.
+	var burn_s: float = minf(d.time + BURN_MAX, 4.0 * burn * d.scale)
+	var burn_worth: float = over_time(BURN_DPS, burn_s, d.time)
 	# Chill: three gathered freezes; a burst freezes at most once, a lasting
 	# spell again every few seconds.
 	var freezes: float = minf(chill * d.scale / 3.0, 1.0 + d.time / 4.0)
 	var freeze_worth: float = FREEZE_WORTH * floorf(freezes)
 	var utility_worth: float = utility * d.scale
-	# Poison: each unit of scale adds five seconds, capped at ten past the
-	# last hit, at POISON_DPS.
-	var poison_worth: float = POISON_DPS * minf(d.time + 10.0, 5.0 * poison * d.scale)
+	# Poison: a dose, capped at POISON_CAP (and what drains away while a
+	# lasting spell keeps topping it up), credited as it seeps out.
+	var dose: float = minf(POISON_DOSE * poison * d.scale, POISON_CAP * (1.0 + d.time / POISON_TIME))
+	var poison_worth: float = dose * POISON_CREDIT
 	var total: float = (per_target + burn_worth + poison_worth + freeze_worth + utility_worth) * d.targets
+	# What it really deals, uncredited, for the test's table.
+	var real: float = (per_target + BURN_DPS * burn_s + dose) * d.targets
 	return {total = total, hit = per_target, burn = burn_worth, poison = poison_worth, freeze = freeze_worth,
-		utility = utility_worth, targets = d.targets}
+		utility = utility_worth, targets = d.targets, real = real}
+
+
+## What [param seconds] of damage over time at [param dps] is worth. While
+## the spell itself still runs ([param kept] seconds) it is kept up and
+## counts in full, like any hit; what runs on after is credited at PATIENCE.
+static func over_time(dps: float, seconds: float, kept := 0.0) -> float:
+	var now := minf(seconds, kept)
+	var tail := maxf(seconds - now, 0.0)
+	return dps * (now + PATIENCE * (1.0 - exp(-tail / PATIENCE)))
+
+
+## What one point of a poison dose is worth: it comes out at 1/POISON_TIME
+## of the dose a second, so on average POISON_TIME late, credited at
+## PATIENCE.
+const POISON_CREDIT := PATIENCE / (PATIENCE + POISON_TIME)
 
 
 ## The spell's worth divided by its budget: 1.0 is spot on.
@@ -289,7 +325,8 @@ static func shot_worth(e: int, scale: float, rate: float) -> float:
 	if eff.has("burn"):
 		w += BURN_DPS * minf(1.0, float(eff.burn) * scale * rate) / rate
 	if eff.has("poison"):
-		w += POISON_DPS * minf(1.0, float(eff.poison) * scale * rate) / rate
+		# A stream holds the dose at its rate times POISON_TIME, up to the cap.
+		w += minf(POISON_DOSE * float(eff.poison) * scale, POISON_CAP / (POISON_TIME * rate)) * POISON_CREDIT
 	w += FREEZE_WORTH * minf(float(eff.get("chill", 0.0)) * scale * rate / 3.0, 1.0 / FREEZE_TIME) / rate
 	return w
 
@@ -397,7 +434,7 @@ static func enchant_swing(s: Dictionary) -> float:
 		w += float(eff.get("dmg", 0.0)) * n
 		for k in UTILITY:
 			w += float(eff.get(k, 0.0)) * n * UTILITY[k]
-		w += BURN_DPS * minf(6.0, 4.0 * float(eff.get("burn", 0.0)) * n)
-		w += POISON_DPS * minf(10.0, 5.0 * float(eff.get("poison", 0.0)) * n)
+		w += over_time(BURN_DPS, minf(BURN_MAX, 4.0 * float(eff.get("burn", 0.0)) * n))
+		w += minf(POISON_CAP, POISON_DOSE * float(eff.get("poison", 0.0)) * n) * POISON_CREDIT
 		w += FREEZE_WORTH * floorf(minf(float(eff.get("chill", 0.0)) * n / 3.0, 1.0))
 	return w * credited(SWING_TARGETS)

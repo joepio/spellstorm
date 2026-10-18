@@ -109,8 +109,10 @@ var _charge_ring: MeshInstance3D
 ## The swing's arc on the ground: sweeps open on a swing, and shows faintly
 ## while a bullet is close so you can see what you would knock back.
 var _zone: MeshInstance3D
-## A little light at the staff's gem that blinks with every shot.
+## A little light at the staff's gem that blooms with every shot, and how
+## far into its bloom the gem is (1 just fired, fading to 0).
 var _muzzle: OmniLight3D
+var _bloom := 0.0
 var _zone_mat: ShaderMaterial
 
 
@@ -166,7 +168,7 @@ func _ready() -> void:
 	add_child(_name_label)
 	_muzzle = OmniLight3D.new()
 	_muzzle.light_energy = 0.0
-	_muzzle.omni_range = 3.5
+	_muzzle.omni_range = 2.2
 	_muzzle.shadow_enabled = false
 	_muzzle.top_level = true
 	add_child(_muzzle)
@@ -986,12 +988,11 @@ func _enchanted_shot(dir: Vector3) -> void:
 	_spend_enchant(spend)
 
 
-## Every shot lights the staff for a blink, in the element's colour: a
-## small glow at the gem and a little light on the floor round you.
+## Every shot makes the staff's gem bloom for a moment, in the element's
+## colour: it swells a little, glows brighter and casts a soft light.
 func _muzzle_flash(c: Color) -> void:
 	_muzzle.light_color = c
-	_muzzle.light_energy = 2.2
-	Fx.flash(staff_tip(), c.lerp(Color.WHITE, 0.3), 0.7, 0.09)
+	_bloom = 1.0
 
 
 ## Take [param dmg] from the enchantment's store. As it runs low the
@@ -1133,7 +1134,6 @@ func _enchant(s: Dictionary) -> void:
 	sword.add_child(_enchant_parts)
 	_enchant_parts.emitting = true
 	Fx.burst(sword.global_position + Vector3.UP * 0.5, c, 20, 4.0, 0.2, s.primary)
-	Fx.ring(global_position, c, 1.6, 0.4)
 
 
 var _blade: Node3D
@@ -1251,9 +1251,10 @@ func _visuals(dt: float) -> void:
 	var body: Node3D = model.body
 	var target_yaw := atan2(aim_dir.x, aim_dir.z)
 	body.rotation.y = lerp_angle(body.rotation.y, target_yaw, 14.0 * dt)
-	if _muzzle.light_energy > 0.0:
+	_bloom = maxf(0.0, _bloom - dt * 7.0)
+	_muzzle.light_energy = 0.7 * _bloom
+	if _bloom > 0.0:
 		_muzzle.global_position = staff_tip()
-		_muzzle.light_energy = maxf(0.0, _muzzle.light_energy - dt * 22.0)
 	var moving := velocity.length() > 0.5
 	_walk += dt * (9.0 if moving else 0.0)
 	body.position.y = absf(sin(_walk)) * 0.07 if moving else 0.0
@@ -1324,7 +1325,11 @@ func _visuals(dt: float) -> void:
 			o.visible = false
 	# The gem wears the element its bolts will be, dark while the swing recovers.
 	if bolt_el >= 0:
-		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else 1.3)
+		# Stepped, so the bloom reuses a handful of materials.
+		var glow := snappedf(1.3 + 1.2 * _bloom, 0.2)
+		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else glow)
+		if _charging.is_empty():
+			model.gem.scale = Vector3.ONE * (1.0 + 0.3 * _bloom)
 	else:
 		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
 	# The roll: one tucked somersault forward the way you roll, turning

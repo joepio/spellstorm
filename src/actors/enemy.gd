@@ -46,7 +46,7 @@ const KINDS := {
 	# Hunts in packs and comes from behind or the side, leaping at you from
 	# a few metres and leaving fire where it pushed off. Water and frost
 	# put it out.
-	hellhound = {name = "Hellhound", hp = 38.0, speed = 5.6, dmg = 10.0, reach = 5.5, el = El.FIRE, size = 0.85, attack = "dash", dash = [13.0, 0.3], wind = 0.35, trail = El.FIRE, resist = {El.FIRE: 1.0, El.WATER: -0.5, El.FROST: -0.3}, pack = 3, spawn = "flank"},
+	hellhound = {name = "Hellhound", hp = 38.0, speed = 5.6, dmg = 10.0, reach = 5.5, el = El.FIRE, size = 0.85, attack = "dash", dash = [13.0, 0.3], wind = 0.55, trail = El.FIRE, resist = {El.FIRE: 1.0, El.WATER: -0.5, El.FROST: -0.3}, pack = 3, spawn = "flank"},
 	# Bosses: one per biome, in the arena at the end of its level.
 	gravekeeper = {name = "The Gravekeeper", model = "skeleton", hp = 1100.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.EARTH, size = 2.3, attack = "slam", mass = 8.0, undead = true, resist = {El.VOID: 0.8, El.FROST: 0.3}, boss = true, ring = 16, summon = ["skeleton", "skeleton", "watcher"], nova = El.VOID},
 	abbot = {name = "The Bloated Abbot", model = "bile", hp = 1300.0, speed = 2.0, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.4, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0}, boss = true, ring = 16, summon = ["cultist", "ghoul", "ghoul"], nova = El.MUD},
@@ -112,6 +112,15 @@ var _aim_bar: MeshInstance3D
 var _aim_lock := Vector3.ZERO
 ## While a pose tween (rising from the ground) runs, the walk bob keeps off.
 var _pose_t := 0.0
+## Every attack shows itself while the monster winds up: where it will land
+## on the floor (Telegraph), or for shots a ball of its element swelling in
+## front of it. The way it will go is followed until three quarters in,
+## then held, so a step or a roll at the last moment gets you out.
+var _warn: Telegraph
+var _orb: MeshInstance3D
+var _lock := Vector3.ZERO
+## How far to each side of where it faces a melee blow reaches.
+const MELEE_ARC := 1.1
 
 
 func setup(k: String, hp_scale: float, champion: bool) -> Enemy:
@@ -638,6 +647,7 @@ func _physics_process(dt: float) -> void:
 		if _wind > 0.0:
 			_wind -= dt
 			_tell(1.0 - _wind / _wind_time())
+			_warning(1.0 - _wind / _wind_time())
 			if _aim_bar:
 				_draw_aim(1.0 - _wind / _wind_time())
 			if _wind <= 0.0:
@@ -674,11 +684,48 @@ func _physics_process(dt: float) -> void:
 func _wind_time() -> float:
 	if cfg.has("wind"):
 		return cfg.wind
-	return 0.9 if cfg.attack == "slam" else (0.6 if cfg.attack == "ranged" else 0.45)
+	return 0.9 if cfg.attack == "slam" else 0.6
 
 
 func _begin() -> void:
 	_wind = _wind_time()
+	_lock = _aim()
+	_warn_end()
+	# A glint over the head: something is coming.
+	Fx.flash(global_position + Vector3.UP * (1.3 * float(cfg.size) + 0.4), Color(1.0, 0.85, 0.55), 0.7, 0.25)
+	var attack: String = cfg.attack
+	match attack:
+		"melee", "burrow":
+			_warn = Telegraph.slice(cfg.reach + 0.6 + radius, MELEE_ARC)
+		"slam":
+			_warn = Telegraph.slice(cfg.reach + 0.8 + radius)
+		"dash":
+			_warn = Telegraph.lane(radius * 2.0 + 0.5, cfg.dash[0] * cfg.dash[1] + radius)
+		_:
+			_orb = Fx.halo(El.COLOR[elite.get("el", cfg.el)], 0.5, 0.9, 1.0)
+			add_child(_orb)
+	_warning(0.0)
+
+
+## The wind-up shown, [param k] from 0 to 1.
+func _warning(k: float) -> void:
+	if k < 0.75:
+		_lock = _aim()
+	if _warn:
+		_warn.place(global_position, _lock)
+		_warn.set_fill(k)
+	if _orb:
+		_orb.global_position = global_position + _lock * (radius + 0.35) + Vector3.UP * 1.0
+		_orb.scale = Vector3.ONE * (0.4 + 1.1 * k)
+
+
+func _warn_end() -> void:
+	if _warn and is_instance_valid(_warn):
+		_warn.finish()
+	_warn = null
+	if _orb and is_instance_valid(_orb):
+		_orb.queue_free()
+	_orb = null
 
 
 func _tell(k: float) -> void:
@@ -693,6 +740,7 @@ func _attack_spell(el: int, dmg: float) -> Dictionary:
 
 func _strike() -> void:
 	_tell(0.0)
+	_warn_end()
 	_cool = randf_range(1.2, 1.8) if cfg.attack != "slam" else 2.2
 	if target == null:
 		return
@@ -706,7 +754,7 @@ func _strike() -> void:
 		"dash":
 			# Off it goes, straight through where the target stood.
 			_dash_t = cfg.dash[1]
-			_dash_dir = _aim()
+			_dash_dir = _lock if _lock != Vector3.ZERO else _aim()
 			_dash_hit.clear()
 			_cool = randf_range(2.2, 3.0)
 			if cfg.has("trail") and Game.I:
@@ -717,7 +765,9 @@ func _strike() -> void:
 		"melee":
 			var to := target.global_position - global_position
 			to.y = 0
-			if to.length() <= cfg.reach + target.radius + 0.6:
+			# Only where it showed: out of the slice is out of reach.
+			var side := absf(_lock.signed_angle_to(to, Vector3.UP)) if to.length() > 0.3 else 0.0
+			if to.length() <= cfg.reach + target.radius + 0.6 and side <= MELEE_ARC + atan2(target.radius, maxf(to.length(), 0.1)):
 				target.melee_hit = true
 				if cfg.get("shield", false):
 					# A shove with the shield as well as the mace.
@@ -833,28 +883,44 @@ func _boss(dt: float) -> void:
 		_special = randf_range(4.5, 6.0)
 		var pattern: String = BOSS_PATTERNS[_pattern_i % BOSS_PATTERNS.size()]
 		_pattern_i += 1
-		match pattern:
-			"spiral":
-				_spiral_t = 3.2
-				_spiral_step = 0.0
-			"rings":
-				for i in 3:
-					var off := (0.5 if i % 2 == 1 else 0.0) * TAU / 20.0
-					_later(0.55 * i, func(): _ring(20, 5.2, el, dmg, off, 0.28))
-			"fan9":
-				for i in 3:
-					_later(0.45 * i, func(): _fan(9, 90.0, 7.5, el, dmg))
-			"nova":
-				var s := _attack_spell(el, cfg.dmg * 0.7 * (Game.I.monster_damage if Game.I else 1.0))
-				var nova := NovaFx.new()
-				nova.setup(self, {counts = s.counts, payload = [], primary = el, n = {radius = 7.0, rate = s.scale}})
-				nova.only_team = 0
-				Game.I.spawn(nova, global_position)
-				Game.I.shake(0.5)
+		# Shown first like every attack: the nova's full reach on the floor,
+		# a pattern of bullets as a ring round the boss and a glint.
+		Fx.flash(global_position + Vector3.UP * (1.3 * float(cfg.size) + 0.4), Color(1.0, 0.85, 0.55), 1.2, 0.3)
+		var warn := Telegraph.slice(7.0 if pattern == "nova" else radius + 1.5)
+		warn.place(global_position, Vector3.FORWARD)
+		var tw := warn.create_tween()
+		tw.tween_method(warn.set_fill, 0.0, 1.0, BOSS_WIND)
+		tw.tween_callback(warn.finish)
+		_later(BOSS_WIND, func(): if alive: _boss_pattern(pattern, el, dmg))
 	if _summon_t <= 0.0:
 		_summon_t = randf_range(10.0, 14.0)
 		for k in cfg.summon:
 			Game.I.run.spawn_enemy(k, global_position + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), false)
+
+
+const BOSS_WIND := 0.8
+
+
+## A boss's pattern once its wind-up (BOSS_WIND) is over.
+func _boss_pattern(pattern: String, el: int, dmg: float) -> void:
+	match pattern:
+		"spiral":
+			_spiral_t = 3.2
+			_spiral_step = 0.0
+		"rings":
+			for i in 3:
+				var off := (0.5 if i % 2 == 1 else 0.0) * TAU / 20.0
+				_later(0.55 * i, func(): _ring(20, 5.2, el, dmg, off, 0.28))
+		"fan9":
+			for i in 3:
+				_later(0.45 * i, func(): _fan(9, 90.0, 7.5, el, dmg))
+		"nova":
+			var s := _attack_spell(el, cfg.dmg * 0.7 * (Game.I.monster_damage if Game.I else 1.0))
+			var nova := NovaFx.new()
+			nova.setup(self, {counts = s.counts, payload = [], primary = el, n = {radius = 7.0, rate = s.scale}})
+			nova.only_team = 0
+			Game.I.spawn(nova, global_position)
+			Game.I.shake(0.5)
 
 
 ## The aim line while drawing: it follows the target until [param k] is
@@ -901,7 +967,9 @@ func _dashing(dt: float) -> void:
 func _lob(at: Vector3, el: int, dmg: float) -> void:
 	at = Game.I.arena.clamp_inside(at) if Game.I else at
 	var flight := 0.9
-	Fx.ring(at, El.COLOR[el].lightened(0.3), 1.6, flight)
+	var warn := Telegraph.slice(1.6)
+	warn.place(at, Vector3.FORWARD)
+	warn.create_tween().tween_method(warn.set_fill, 0.0, 1.0, flight)
 	var glob := Node3D.new()
 	Fx.root.add_child(glob)
 	var from := global_position + Vector3.UP * 0.8
@@ -919,6 +987,7 @@ func _lob(at: Vector3, el: int, dmg: float) -> void:
 		if Game.I:
 			Game.I.spawn(nova, at)
 			Game.I.arena.add_field(at, El.WATER, 1.4, 5.0, null)
+		warn.finish()
 		glob.queue_free())
 
 
@@ -926,6 +995,7 @@ func _lob(at: Vector3, el: int, dmg: float) -> void:
 func _go_under(at_once := false) -> void:
 	_under = true
 	_wind = 0.0
+	_warn_end()
 	collision_layer = 0
 	_hp_bar.visible = false
 	_mound.visible = true
@@ -958,12 +1028,15 @@ func _tunnel(dt: float) -> void:
 	if to.length() < 1.2:
 		# It is right under you: the ground heaves and a ring warns you.
 		_wind = 0.7
-		Fx.ring(global_position, Color(0.5, 0.35, 0.2), 1.9, 0.7)
+		_warn = Telegraph.slice(1.9 + 0.3)
+		_warn.place(global_position, Vector3.FORWARD)
+		_warn.create_tween().tween_method(_warn.set_fill, 0.0, 1.0, 0.7)
 		return
 	drive(to.normalized() * speed * 1.35, dt)
 
 
 func _erupt() -> void:
+	_warn_end()
 	_under = false
 	invuln = 0.0
 	collision_layer = _layer
@@ -1003,6 +1076,7 @@ func _raise(dt: float) -> void:
 	_raise_t = randf_range(7.0, 9.0)
 	var mine := Game.I.enemies.filter(func(e): return e.master == self and e.alive).size()
 	_wind = 0.0
+	_warn_end()
 	for i in mini(2, 4 - mine):
 		var a := randf() * TAU
 		var at := Game.I.arena.clamp_inside(global_position + Vector3(cos(a), 0, sin(a)) * randf_range(1.8, 3.0))
@@ -1087,7 +1161,8 @@ func _animate(dt: float) -> void:
 		_model.position.y = absf(sin(_walk)) * 0.06
 	_model.rotation.z = sin(_walk) * 0.06
 	if _wind > 0.0:
-		_model.rotation.x = -0.25 * (1.0 - _wind / _wind_time())
+		# Rearing back for the blow, further the closer it comes.
+		_model.rotation.x = -0.45 * (1.0 - _wind / _wind_time())
 	else:
 		_model.rotation.x = lerpf(_model.rotation.x, 0.0, 10.0 * dt)
 	if kind == "sprite":
@@ -1134,6 +1209,7 @@ func _flinch() -> void:
 
 func die(src: Actor) -> void:
 	super.die(src)
+	_warn_end()
 	_model.position -= _flinch_off
 	_model.rotation.x -= _flinch_rot.x
 	_model.rotation.z -= _flinch_rot.z

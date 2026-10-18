@@ -62,6 +62,30 @@ func _init() -> void:
 	for k in shapes:
 		var st: Array = shapes[k]
 		print("%-10s %5.2f %5.2f %5.2f  %4d spells   %.1f to %.1f" % [k, st[0], st[2] / st[3], st[1], st[3], st[4], st[5]])
+	# Damage over time is credited less the later it comes (PATIENCE), so
+	# what a spell really deals per mana is highest where it lasts longest:
+	# poison first. Spells led by each element, averaged.
+	print("real damage per mana, spells led by each element (credited 1.0 = %.0f):" % Balance.DMG_PER_MANA)
+	var by_el := {}
+	for row in rows:
+		var sp2: Dictionary = row.spell
+		var acc: Array = by_el.get(sp2.primary, [0.0, 0])
+		acc[0] += row.w.real / maxf(row.w.total, 0.001) * row.r
+		acc[1] += 1
+		by_el[sp2.primary] = acc
+	var best_e := -1
+	var best := 0.0
+	for e in El.BASE:
+		if not by_el.has(e):
+			continue
+		var avg: float = by_el[e][0] / by_el[e][1]
+		if avg > best:
+			best = avg
+			best_e = e
+		print("     %-10s %5.2f" % [El.NAMES[e], avg])
+	if best_e != El.POISON:
+		failures += 1
+		print("FAIL poison should deal the most real damage per mana, %s does" % El.NAMES[best_e])
 	print("bolts, worth a second (budget %.0f times skill):" % Balance.BOLT_DPS)
 	print("     element     rate  speed range  skill  target  worth/s  per bolt  ammo")
 	for e in El.EFFECT:

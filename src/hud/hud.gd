@@ -164,6 +164,9 @@ var _death_black: ColorRect
 
 
 ## Everyone is down: fade to black and say so, large and alone.
+var _death_grow: Tween
+
+
 func you_died() -> void:
 	# Its own black, over everything the HUD draws too.
 	if _death_black == null:
@@ -193,13 +196,16 @@ func you_died() -> void:
 	_death.scale = Vector2.ONE * 0.94
 	var tw := _death.create_tween().set_parallel()
 	tw.tween_property(_death, "modulate:a", 1.0, 1.6).set_delay(0.5)
-	tw.tween_property(_death, "scale", Vector2.ONE * 1.04, 3.7)
+	# The words keep growing, at one even pace, until they have faded out
+	# again (you_died_end): nothing stops still on the way.
+	_death_grow = _death.create_tween()
+	_death_grow.tween_property(_death, "scale", Vector2.ONE * 1.12, 6.0)
 
 
 ## The new run is ready: the words go and the world comes back.
 func you_died_end() -> void:
 	if _death:
-		_death.create_tween().tween_property(_death, "modulate:a", 0.0, 0.4)
+		_death.create_tween().tween_property(_death, "modulate:a", 0.0, 0.7)
 	if _death_black:
 		_death_black.create_tween().tween_property(_death_black, "modulate:a", 0.0, 0.8)
 

@@ -3,10 +3,11 @@ extends Control
 ## The start menu and the pause menu, one screen. Start (Esc on the keyboard)
 ## opens it during play and pauses the game. Up and down pick a row, left and
 ## right change its value, A (Enter) confirms, B or Start closes it.
+##   Resume
+##   Start new run  start the chosen level again from its entrance
 ##   Level          which biome to play (Random by default); confirm to go there now
 ##   Friendly fire  off / half / full
 ##   Difficulty     easy / normal / hard
-##   Restart run    start the chosen level again from its entrance
 ## Next to it, every control drawn as its controller part with what it does.
 
 const FF := ["off", "half", "full"]
@@ -32,9 +33,9 @@ func _ready() -> void:
 func open(title: bool) -> void:
 	title_mode = title
 	biome = -1 if title else Game.I.run.biome_index
-	rows = ["start" if title else "resume", "level", "friendly_fire", "difficulty"]
-	if not title:
-		rows.append("restart")
+	# A new run sits right under Resume, the way every GameNight game does it.
+	rows = ["start"] if title else ["resume", "restart"]
+	rows.append_array(["level", "friendly_fire", "difficulty"])
 	if Game.I.session == "":
 		rows.append("quit")
 	sel = 0
@@ -172,7 +173,7 @@ func _label(row: String) -> Array:
 		"level": return ["Level", "Random" if biome < 0 else Arena.BIOMES[biome].name]
 		"friendly_fire": return ["Friendly fire", Game.I.ff_name.capitalize()]
 		"difficulty": return ["Difficulty", Game.I.difficulty_name.capitalize()]
-		"restart": return ["Restart run", ""]
+		"restart": return ["Start new run", ""]
 		"quit": return ["Quit", ""]
 	return [row, ""]
 

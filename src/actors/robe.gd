@@ -167,7 +167,10 @@ func _build() -> void:
 			var b := a + 1
 			var c := a + SEGS + 1
 			var d := c + 1
-			idx.append_array([a, c, b, b, c, d])
+			# Wound so the outside is the front: with culling off Godot turns
+			# the normal round on a back face, and wound the other way the
+			# lit side was the inside of the robe.
+			idx.append_array([a, b, c, b, d, c])
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
