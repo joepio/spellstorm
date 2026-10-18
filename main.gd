@@ -597,7 +597,12 @@ func _take_shot() -> void:
 		for i in wizards.size():
 			var e := El.NAMES.find(names[i % names.size()].capitalize())
 			if e >= 0:
-				wizards[i]._enchant(Grammar.compose([e, e], "enchant"))
+				# --enchant-n N: that many copies, for the blade's size.
+				var cnt := int(args[args.find("--enchant-n") + 1]) if "--enchant-n" in args else 2
+				var es: Array = []
+				for _k in cnt:
+					es.append(e)
+				wizards[i]._enchant(Grammar.compose(es, "enchant"))
 	var bolt_at: Vector3 = wizards[0].global_position
 	for f in shot_frames:
 		await get_tree().physics_frame

@@ -67,18 +67,38 @@ static func wizard(robe: Color) -> Dictionary:
 	var robe_m := Fx.solid(robe, 0.9)
 	var trim_m := Fx.solid(Color(0.75, 0.6, 0.3), 0.5)
 	var meshes: Array[GeometryInstance3D] = []
-	# The skirt of the robe is cloth (Robe); a short stiff piece under the
-	# shoulders hides where it hangs from.
-	meshes.append(part(body, cyl(0.2, 0.245, 0.2, 12), robe_m, Vector3(0, 0.93, 0)))
+	# Legs under the robe, in dark breeches and boots, that step as they walk.
+	var leg_m := Fx.solid(dark.darkened(0.3), 0.9)
+	var boot_m := Fx.solid(Color(0.22, 0.15, 0.1), 0.7)
+	var legs: Array[Node3D] = []
+	for side in [1.0, -1.0]:
+		var hip := Node3D.new()
+		hip.position = Vector3(0.11 * side, 0.62, 0)
+		body.add_child(hip)
+		meshes.append(part(hip, cyl(0.07, 0.06, 0.5, 8), leg_m, Vector3(0, -0.27, 0)))
+		meshes.append(part(hip, box(0.13, 0.1, 0.24), boot_m, Vector3(0, -0.56, 0.04)))
+		legs.append(hip)
+	# A round belly under the chest, belted, with the skirt of the robe
+	# hanging from the hips as cloth (Robe).
+	meshes.append(part(body, sphere(0.27, 12), robe_m, Vector3(0, 0.8, 0.02), Vector3.ZERO, Vector3(1.0, 0.85, 1.05)))
+	meshes.append(part(body, cyl(0.22, 0.26, 0.24, 12), robe_m, Vector3(0, 0.93, 0)))
 	var skirt := Robe.new().setup(robe, dark)
 	skirt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body.add_child(skirt)
 	meshes.append(skirt)
-	meshes.append(part(body, cyl(0.25, 0.25, 0.06, 12), trim_m, Vector3(0, 0.9, 0)))
-	# Shoulders and sleeves.
+	meshes.append(part(body, cyl(0.275, 0.275, 0.06, 14), trim_m, Vector3(0, 0.74, 0.01)))
+	part(body, box(0.09, 0.08, 0.03), Fx.solid(Color(0.9, 0.78, 0.4), 0.3), Vector3(0, 0.74, 0.285))
+	# Shoulders, and arms that swing from them: the right hand holds the staff.
 	meshes.append(part(body, sphere(0.27), robe_m, Vector3(0, 1.02, 0), Vector3.ZERO, Vector3(1.15, 0.7, 1.0)))
-	meshes.append(part(body, cyl(0.07, 0.11, 0.5, 8), robe_m, Vector3(0.3, 0.86, 0.12), Vector3(60, 0, -20)))
-	meshes.append(part(body, cyl(0.07, 0.11, 0.5, 8), robe_m, Vector3(-0.3, 0.86, 0.1), Vector3(50, 0, 20)))
+	var skin := Fx.solid(Color(0.85, 0.68, 0.55))
+	var arms: Array[Node3D] = []
+	for side in [1.0, -1.0]:
+		var sh := Node3D.new()
+		sh.position = Vector3(0.29 * side, 1.04, 0.02)
+		body.add_child(sh)
+		meshes.append(part(sh, cyl(0.07, 0.11, 0.42, 8), robe_m, Vector3(0, -0.21, 0)))
+		meshes.append(part(sh, sphere(0.065, 8), skin, Vector3(0, -0.45, 0)))
+		arms.append(sh)
 	# Head in a hood shadow, with a beard.
 	meshes.append(part(body, sphere(0.17), Fx.solid(Color(0.85, 0.68, 0.55)), Vector3(0, 1.28, 0.03)))
 	meshes.append(part(body, cyl(0.02, 0.13, 0.32, 8), Fx.solid(Color(0.85, 0.85, 0.82)), Vector3(0, 1.12, 0.12), Vector3(-15, 0, 0)))
@@ -99,7 +119,8 @@ static func wizard(robe: Color) -> Dictionary:
 	meshes.append(part(staff, cyl(0.03, 0.04, 1.7, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.1, 0)))
 	meshes.append(part(staff, cyl(0.09, 0.03, 0.18, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.97, 0)))
 	var gem := part(staff, sphere(0.11, 12), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.12, 0))
-	return {root = root, body = body, staff = staff, gem = gem, hat = hat, meshes = meshes}
+	return {root = root, body = body, staff = staff, gem = gem, hat = hat, meshes = meshes,
+		arm_r = arms[0], arm_l = arms[1], leg_r = legs[0], leg_l = legs[1]}
 
 
 static func tombstone() -> Node3D:

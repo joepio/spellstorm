@@ -10,8 +10,8 @@ extends MeshInstance3D
 
 const SEGS := 14
 const RINGS := 6
-const TOP := Vector2(0.95, 0.235)
-const BOTTOM := Vector2(0.02, 0.5)
+const TOP := Vector2(0.76, 0.27)
+const BOTTOM := Vector2(0.16, 0.46)
 const STIFF := 7.0
 const DAMP := 0.94
 const SUBSTEPS := 2
@@ -27,6 +27,7 @@ var _len_round: PackedFloat32Array
 var _last_world := Vector3.INF
 var _last_vel := Vector3.ZERO
 var _last_yaw := 0.0
+var _accel := Vector3.ZERO
 var _mesh := ArrayMesh.new()
 
 
@@ -77,8 +78,11 @@ func _physics_process(dt: float) -> void:
 	if _last_world == Vector3.INF:
 		_last_world = world
 	var vel := (world - _last_world) / dt
-	var accel := (vel - _last_vel) / dt
-	accel = accel.limit_length(60.0)
+	# Smoothed: a bump against a wall or a step of the walk is a jolt for
+	# one frame, and fed in raw it makes the whole hem shiver.
+	var raw := ((vel - _last_vel) / dt).limit_length(30.0)
+	_accel = _accel.lerp(raw, 1.0 - exp(-10.0 * dt))
+	var accel := _accel
 	_last_world = world
 	_last_vel = vel
 	var yaw := xf.basis.get_euler().y

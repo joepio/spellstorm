@@ -518,6 +518,41 @@ func _place_zone(dir: Vector3) -> void:
 	_zone.rotation = Vector3(0, atan2(dir.x, dir.z), 0)
 
 
+var _stride := 0.0
+
+
+## Legs step while walking, the free arm swings against them and reaches
+## out to cast, and the staff arm follows the hand on the staff.
+func _limbs(dt: float, moving: bool, lift: float) -> void:
+	if not model.has("leg_l"):
+		return
+	_stride = lerpf(_stride, 1.0 if moving and _roll_t <= 0.0 else 0.0, 1.0 - exp(-10.0 * dt))
+	var step := sin(_walk) * _stride
+	var leg_l: Node3D = model.leg_l
+	var leg_r: Node3D = model.leg_r
+	leg_l.rotation.x = step * 0.6
+	leg_r.rotation.x = -step * 0.6
+	# Tucked in a roll.
+	var tuck := sin((1.0 - _roll_t / ROLL_TIME) * PI) if _roll_t > 0.0 else 0.0
+	leg_l.rotation.x -= tuck * 1.2
+	leg_r.rotation.x -= tuck * 1.2
+	var arm_l: Node3D = model.arm_l
+	var want := Vector3(-step * 0.5 - 0.1, 0.0, -0.12)
+	if lift > 0.0:
+		# The free hand thrown out ahead, palm to the spell.
+		want = Vector3(-1.35, 0.25, -0.15)
+	if _swing_t > 0.0:
+		want = Vector3(-0.4, 0.0, -0.9)
+	if tuck > 0.0:
+		want = Vector3(-1.6 * tuck, 0.0, -0.2)
+	arm_l.rotation = arm_l.rotation.lerp(want, 1.0 - exp(-14.0 * dt))
+	var arm_r: Node3D = model.arm_r
+	var staff: Node3D = model.staff
+	var to_hand := staff.position - arm_r.position
+	if to_hand.length() > 0.01:
+		arm_r.basis = Basis(Quaternion(Vector3.DOWN, to_hand.normalized()))
+
+
 ## 1 when an enemy bullet is right on you, fading to 0 at six metres.
 func _bullet_near() -> float:
 	var best := 0.0
@@ -891,9 +926,12 @@ var enchant_time := 0.0
 var _enchant_parts: CPUParticles3D
 ## How hard an enchanted swing hits with its elements, per element.
 const ENCHANT_SWING := 3.0
-const ENCHANT_REACH := 0.9
-## The slash flies this much further than the staff reaches, at half strength.
-const SLASH_REACH := 2.8
+const ENCHANT_REACH := 0.7
+## Each element beyond the first makes the blade this much longer.
+const BLADE_PER_ELEMENT := 0.4
+## Where the gem sits from the wizard's middle when the staff swings flat;
+## the blade starts there.
+const GEM_REACH := 1.6
 
 
 ## How much harder an enchanted staff's bolts hit than loaded ones.
@@ -922,15 +960,25 @@ func _enchanted_shot(dir: Vector3) -> void:
 	Game.I.count("shots")
 
 
-## The enchanted swing: the staff's elements land on everything in a wider
-## arc, a slash of them flies on ahead, and each element adds its trick.
+## How far an enchanted swing reaches: the blade grows with every element
+## laid on the staff, and what you see is what it hits.
+func enchant_reach() -> float:
+	var n := 0
+	for e in enchant.counts:
+		n += int(enchant.counts[e])
+	return SWING_REACH + ENCHANT_REACH + BLADE_PER_ELEMENT * (n - 1)
+
+
+## The enchanted swing: the staff's blade of elements lands on everything
+## it sweeps through, and each element adds its trick. Bullets are still
+## knocked back only as far as the bare staff reaches (_deflect_sweep).
 func _enchanted_swing() -> void:
 	var s := enchant
 	var bases := {}
 	for e in s.counts:
 		for b in El.parts(e):
 			bases[b] = true
-	var reach := SWING_REACH + ENCHANT_REACH
+	var reach := enchant_reach()
 	var c: Color = El.COLOR[s.primary]
 	if El.VOID in bases:
 		# Void drags everything near into the arc first.
@@ -946,13 +994,11 @@ func _enchanted_swing() -> void:
 		var to: Vector3 = a.global_position - global_position
 		to.y = 0
 		var ang := absf(aim_dir.signed_angle_to(to, Vector3.UP))
-		var close: bool = to.length() <= reach + a.radius and ang <= SWING_ARC + 0.2 + atan2(a.radius, maxf(to.length(), 0.1))
-		var slashed: bool = not close and to.length() <= reach + SLASH_REACH + a.radius and ang <= 0.55
-		if not close and not slashed:
+		if to.length() > reach + a.radius or ang > SWING_ARC + 0.2 + atan2(a.radius, maxf(to.length(), 0.1)):
 			continue
 		hit += 1
 		var dir := to.normalized()
-		a.hit_spell(s, ENCHANT_SWING * (1.0 if close else 0.5), self, dir)
+		a.hit_spell(s, ENCHANT_SWING, self, dir)
 		if El.EARTH in bases:
 			a.stun = maxf(a.stun, 0.8)
 		if El.AIR in bases or El.WATER in bases:
@@ -968,10 +1014,10 @@ func _enchanted_swing() -> void:
 		f.friendly = true
 	if El.FROST in bases:
 		Game.I.arena.touch_ground(global_position + aim_dir * 2.0, 2.0, El.FROST, self)
-	# The slash: a fan of the element sweeping out ahead of the staff.
+	# The blade's path: the element sprays off along the arc it cut.
 	for i in 7:
 		var k := (i - 3) / 3.0
-		var at := global_position + aim_dir.rotated(Vector3.UP, k * 0.5) * (reach + SLASH_REACH * 0.6) + Vector3.UP * 0.9
+		var at := global_position + aim_dir.rotated(Vector3.UP, k * SWING_ARC) * reach * 0.85 + Vector3.UP * 0.9
 		Fx.burst(at, c, 10, 4.0, 0.25, s.primary)
 	Fx.light_pop(global_position + aim_dir * 2.0, c, 2.5, 6.0, 0.2)
 	if hit > 0:
@@ -983,14 +1029,32 @@ func _enchant(s: Dictionary) -> void:
 	enchant = s
 	enchant_time = s.n.duration
 	var c: Color = El.COLOR[s.primary]
-	_enchant_parts = Fx.particles(c, 36, 0.5, 0.22)
+	var n := 0
+	for e in s.counts:
+		n += int(s.counts[e])
+	# The blade: out of the gem, as long as the swing now reaches.
+	var gem_y: float = model.gem.position.y
+	var length := enchant_reach() - GEM_REACH
+	var w := 0.06 + 0.014 * n
+	_blade = Node3D.new()
+	_blade.position = Vector3(0, gem_y, 0)
+	model.staff.add_child(_blade)
+	Art.part(_blade, Art.cyl(0.0, w, length, 8), Fx.element(s.primary, 1.15), Vector3(0, length * 0.5, 0))
+	# A faint glow round it; pale elements need less to stay coloured.
+	var bright := (c.r + c.g + c.b) / 3.0
+	var shell := Art.part(_blade, Art.cyl(w * 0.5, w * 1.9, length * 1.04, 10), Fx.additive(c, lerpf(0.3, 0.12, bright)), Vector3(0, length * 0.5, 0))
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tip := Fx.halo(c, 0.6 + 0.12 * n, 0.8)
+	tip.position.y = length
+	_blade.add_child(tip)
+	_enchant_parts = Fx.particles(c, 16 + 10 * n, 0.45, 0.18 + 0.02 * n)
 	_enchant_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_enchant_parts.emission_box_extents = Vector3(0.04, 0.5, 0.04)
-	_enchant_parts.position = Vector3(0, 0.65, 0)
+	_enchant_parts.emission_box_extents = Vector3(w, length * 0.5, w)
+	_enchant_parts.position = Vector3(0, gem_y + length * 0.5, 0)
 	_enchant_parts.direction = Vector3.UP
-	_enchant_parts.spread = 30.0
+	_enchant_parts.spread = 40.0
 	_enchant_parts.initial_velocity_min = 0.2
-	_enchant_parts.initial_velocity_max = 0.8
+	_enchant_parts.initial_velocity_max = 0.6 + 0.15 * n
 	Parts.style(_enchant_parts, s.primary)
 	model.staff.add_child(_enchant_parts)
 	_enchant_parts.emitting = true
@@ -998,9 +1062,15 @@ func _enchant(s: Dictionary) -> void:
 	Fx.ring(global_position, c, 1.6, 0.4)
 
 
+var _blade: Node3D
+
+
 func _enchant_end() -> void:
 	enchant = {}
 	enchant_time = 0.0
+	if _blade:
+		_blade.queue_free()
+		_blade = null
 	if _enchant_parts:
 		_enchant_parts.emitting = false
 		var id := _enchant_parts.get_instance_id()
@@ -1116,6 +1186,7 @@ func _visuals(dt: float) -> void:
 	var point := 1.45 if not _charging.is_empty() else 0.95
 	staff.rotation.x = lerpf(staff.rotation.x, point * lift, 12.0 * dt)
 	staff.position.z = lerpf(staff.position.z, 0.18 + 0.25 * lift, 12.0 * dt)
+	_limbs(dt, moving, lift)
 	# The swing: the staff sweeps flat from one side to the other, the body
 	# twists with it, and the arc on the ground opens behind the staff.
 	var sweep := 1.0 - _swing_t / SWING_COOLDOWN if _swing_t > 0.0 else -1.0
@@ -1125,11 +1196,15 @@ func _visuals(dt: float) -> void:
 		staff.rotation.x = lerpf(staff.rotation.x, 1.35, 30.0 * dt)
 		body.rotation.y = target_yaw + lerpf(0.6, -0.6, e)
 		_zone.visible = true
+		# An enchanted blade sweeps a wider arc on the floor too.
+		var zs := (enchant_reach() + 0.3) / (SWING_REACH + 0.3) if enchant_time > 0.0 else 1.0
+		_zone.scale = Vector3(zs, 1.0, zs)
 		_zone_mat.set_shader_parameter("progress", e)
 		_zone_mat.set_shader_parameter("strength", 1.0 - smoothstep(0.55, 1.0, sweep))
 		_place_zone(_swing_dir)
 	else:
 		staff.rotation.y = 0.0
+		_zone.scale = Vector3.ONE
 		var near := _bullet_near() if _swing_cd <= 0.0 else 0.0
 		_zone.visible = near > 0.0 and alive
 		if _zone.visible:
