@@ -112,12 +112,13 @@ var _aim_bar: MeshInstance3D
 var _aim_lock := Vector3.ZERO
 ## While a pose tween (rising from the ground) runs, the walk bob keeps off.
 var _pose_t := 0.0
-## Every attack shows itself while the monster winds up: where it will land
-## on the floor (Telegraph), or for shots a ball of its element swelling in
-## front of it. The way it will go is followed until three quarters in,
-## then held, so a step or a roll at the last moment gets you out.
-var _warn: Telegraph
+## Every attack shows itself in the body while the monster winds up
+## (_windup_pose): it rears back for a blow, rises for a slam, crouches for
+## a dash, and a ball of its element swells in front of it for a shot. The
+## way it will go is followed until three quarters in, then held, so a step
+## or a roll at the last moment gets you out. Nothing is drawn on the floor.
 var _orb: MeshInstance3D
+var _base_scale := Vector3.ONE
 var _lock := Vector3.ZERO
 ## How far to each side of where it faces a melee blow reaches.
 const MELEE_ARC := 1.1
@@ -162,6 +163,7 @@ func _ready() -> void:
 	add_child(_model)
 	_build(cfg.get("model", kind))
 	_model.scale = Vector3.ONE * (cfg.size if cfg.has("model") else 1.0)
+	_base_scale = _model.scale
 	setup_status_fx()
 	if elite or cfg.get("boss", false):
 		# No name over its head (no text over characters): the aura and its
@@ -693,17 +695,9 @@ func _begin() -> void:
 	_warn_end()
 	# A glint over the head: something is coming.
 	Fx.flash(global_position + Vector3.UP * (1.3 * float(cfg.size) + 0.4), Color(1.0, 0.85, 0.55), 0.7, 0.25)
-	var attack: String = cfg.attack
-	match attack:
-		"melee", "burrow":
-			_warn = Telegraph.slice(cfg.reach + 0.6 + radius, MELEE_ARC)
-		"slam":
-			_warn = Telegraph.slice(cfg.reach + 0.8 + radius)
-		"dash":
-			_warn = Telegraph.lane(radius * 2.0 + 0.5, cfg.dash[0] * cfg.dash[1] + radius)
-		_:
-			_orb = Fx.halo(El.COLOR[elite.get("el", cfg.el)], 0.5, 0.9, 1.0)
-			add_child(_orb)
+	if cfg.attack in ["ranged", "lob"]:
+		_orb = Fx.halo(El.COLOR[elite.get("el", cfg.el)], 0.5, 0.9, 1.0)
+		add_child(_orb)
 	_warning(0.0)
 
 
@@ -711,18 +705,12 @@ func _begin() -> void:
 func _warning(k: float) -> void:
 	if k < 0.75:
 		_lock = _aim()
-	if _warn:
-		_warn.place(global_position, _lock)
-		_warn.set_fill(k)
 	if _orb:
 		_orb.global_position = global_position + _lock * (radius + 0.35) + Vector3.UP * 1.0
 		_orb.scale = Vector3.ONE * (0.4 + 1.1 * k)
 
 
 func _warn_end() -> void:
-	if _warn and is_instance_valid(_warn):
-		_warn.finish()
-	_warn = null
 	if _orb and is_instance_valid(_orb):
 		_orb.queue_free()
 	_orb = null
@@ -883,14 +871,10 @@ func _boss(dt: float) -> void:
 		_special = randf_range(4.5, 6.0)
 		var pattern: String = BOSS_PATTERNS[_pattern_i % BOSS_PATTERNS.size()]
 		_pattern_i += 1
-		# Shown first like every attack: the nova's full reach on the floor,
-		# a pattern of bullets as a ring round the boss and a glint.
+		# Shown first like every attack, in the body: a glint, and it rears
+		# up and swells (_windup_pose) before the pattern comes.
 		Fx.flash(global_position + Vector3.UP * (1.3 * float(cfg.size) + 0.4), Color(1.0, 0.85, 0.55), 1.2, 0.3)
-		var warn := Telegraph.slice(7.0 if pattern == "nova" else radius + 1.5)
-		warn.place(global_position, Vector3.FORWARD)
-		var tw := warn.create_tween()
-		tw.tween_method(warn.set_fill, 0.0, 1.0, BOSS_WIND)
-		tw.tween_callback(warn.finish)
+		_boss_wind = BOSS_WIND
 		_later(BOSS_WIND, func(): if alive: _boss_pattern(pattern, el, dmg))
 	if _summon_t <= 0.0:
 		_summon_t = randf_range(10.0, 14.0)
@@ -899,6 +883,7 @@ func _boss(dt: float) -> void:
 
 
 const BOSS_WIND := 0.8
+var _boss_wind := 0.0
 
 
 ## A boss's pattern once its wind-up (BOSS_WIND) is over.
@@ -967,9 +952,7 @@ func _dashing(dt: float) -> void:
 func _lob(at: Vector3, el: int, dmg: float) -> void:
 	at = Game.I.arena.clamp_inside(at) if Game.I else at
 	var flight := 0.9
-	var warn := Telegraph.slice(1.6)
-	warn.place(at, Vector3.FORWARD)
-	warn.create_tween().tween_method(warn.set_fill, 0.0, 1.0, flight)
+	Fx.ring(at, El.COLOR[el].lightened(0.3), 1.6, flight)
 	var glob := Node3D.new()
 	Fx.root.add_child(glob)
 	var from := global_position + Vector3.UP * 0.8
@@ -987,7 +970,6 @@ func _lob(at: Vector3, el: int, dmg: float) -> void:
 		if Game.I:
 			Game.I.spawn(nova, at)
 			Game.I.arena.add_field(at, El.WATER, 1.4, 5.0, null)
-		warn.finish()
 		glob.queue_free())
 
 
@@ -1028,9 +1010,7 @@ func _tunnel(dt: float) -> void:
 	if to.length() < 1.2:
 		# It is right under you: the ground heaves and a ring warns you.
 		_wind = 0.7
-		_warn = Telegraph.slice(1.9 + 0.3)
-		_warn.place(global_position, Vector3.FORWARD)
-		_warn.create_tween().tween_method(_warn.set_fill, 0.0, 1.0, 0.7)
+		Fx.ring(global_position, Color(0.5, 0.35, 0.2), 1.9, 0.7)
 		return
 	drive(to.normalized() * speed * 1.35, dt)
 
@@ -1160,11 +1140,12 @@ func _animate(dt: float) -> void:
 	if _pose_t <= 0.0:
 		_model.position.y = absf(sin(_walk)) * 0.06
 	_model.rotation.z = sin(_walk) * 0.06
-	if _wind > 0.0:
-		# Rearing back for the blow, further the closer it comes.
-		_model.rotation.x = -0.45 * (1.0 - _wind / _wind_time())
+	_boss_wind = maxf(0.0, _boss_wind - dt)
+	if _wind > 0.0 or _boss_wind > 0.0:
+		_windup_pose(1.0 - _wind / _wind_time() if _wind > 0.0 else 1.0 - _boss_wind / BOSS_WIND)
 	else:
 		_model.rotation.x = lerpf(_model.rotation.x, 0.0, 10.0 * dt)
+		_model.scale = _model.scale.lerp(_base_scale, 12.0 * dt)
 	if kind == "sprite":
 		var ts := Time.get_ticks_msec() / 1000.0 + float(get_instance_id() % 53)
 		_model.position.y = sin(ts * 3.3) * 0.15
@@ -1181,6 +1162,31 @@ func _animate(dt: float) -> void:
 	if _hp_bar.visible:
 		var f := hp / max_hp
 		_hp_mat.set_shader_parameter("fill", f)
+
+
+## The wind-up read from the body, [param k] 0 to 1: each kind of attack
+## its own pose, held tighter and trembling as the blow comes.
+func _windup_pose(k: float) -> void:
+	var e := k * k * (3.0 - 2.0 * k)
+	var shake := sin(Time.get_ticks_msec() / 22.0) * 0.04 * smoothstep(0.6, 1.0, k)
+	var attack: String = "slam" if cfg.get("boss", false) and _wind <= 0.0 else cfg.attack
+	match attack:
+		"slam":
+			# Up on its toes and swelling, then it comes down.
+			_model.rotation.x = -0.35 * e
+			_model.position.y = 0.35 * e
+			_model.scale = _base_scale * Vector3(1.0 + 0.08 * e, 1.0 + 0.18 * e, 1.0 + 0.08 * e)
+		"dash":
+			# Crouched low and leaning in, coiled.
+			_model.rotation.x = 0.35 * e
+			_model.scale = _base_scale * Vector3(1.0 + 0.12 * e, 1.0 - 0.25 * e, 1.0 + 0.12 * e)
+		"ranged", "lob":
+			_model.rotation.x = -0.25 * e
+		_:
+			# Rearing back for the blow, arms up.
+			_model.rotation.x = -0.6 * e
+			_model.scale = _base_scale * Vector3(1.0, 1.0 + 0.1 * e, 1.0)
+	_model.rotation.z += shake
 
 
 var _flinch_off := Vector3.ZERO
