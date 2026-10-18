@@ -126,13 +126,12 @@ async def run(godot: str, pack: str = "") -> None:
             await saw("cast Joep Flamethrower")
             print("ok: B then RT casts a Flamethrower")
 
-            await hold(frame(1 << LB), 0.15)
-            await hold(frame((1 << LB) | (1 << X)), 0.15)
+            await hold(frame(1 << Y), 0.15)
             await hold(frame(), 0.15)
             await hold(frame(0, rt=True), 0.4)
             await hold(frame(), 0.2)
             await saw("cast Joep Chain Lightning")
-            print("ok: LB+X then RT casts Chain Lightning")
+            print("ok: Y then RT casts Chain Lightning")
 
             await hold(frame(1 << START), 0.15)
             await hold(frame(), 0.2)
