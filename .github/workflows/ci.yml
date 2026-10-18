@@ -73,6 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # A publish key from the GameNight portal; without it the store step is skipped.
+      GAMENIGHT_API_TOKEN: ${{ secrets.GAMENIGHT_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -87,3 +90,15 @@ jobs:
           cd release
           sha256sum --check release-sha256.txt
           gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" spellstorm-windows.zip release-sha256.txt ../assets/gamenight/preview.mp4 ../assets/gamenight/preview.jpg ../assets/gamenight/cover.png ../assets/gamenight/icon.png ../assets/gamenight/gameplay.png --repo "$GITHUB_REPOSITORY" --title "Spellstorm $RELEASE_TAG" --notes-file ../docs/release-notes.md
+      # Fills the GameNight store page from gamenight.json and assets/gamenight.
+      - uses: actions/checkout@v4
+        if: env.GAMENIGHT_API_TOKEN != ''
+        with:
+          repository: ontola/gamenight
+          ref: d354f55e271ddf9c2f1e4f7e0fa1015befa40f98
+          path: .gamenight
+          sparse-checkout: scripts/gamenight-publish.py
+          sparse-checkout-cone-mode: false
+      - name: Update the GameNight store page
+        if: env.GAMENIGHT_API_TOKEN != ''
+        run: python3 .gamenight/scripts/gamenight-publish.py store
