@@ -150,6 +150,8 @@ func _ready() -> void:
 	trail.initial_velocity_min = 0.2
 	trail.initial_velocity_max = 0.8
 	trail.gravity = Vector3(0, _look.rise, 0)
+	if el >= 0:
+		Parts.style(trail, el)
 	add_child(trail)
 	trail.emitting = true
 	look_at(global_position + vel, Vector3.UP)
@@ -178,7 +180,7 @@ func _physics_process(dt: float) -> void:
 			continue
 		if a.hit_by(from, to, 0.18):
 			strike(a, spell, 1.0, caster, vel.normalized())
-			Fx.burst(to, _look.trail, int(3 + 6 * _size), 2.0 + 2.0 * _size, 0.12 * _size + 0.04)
+			Fx.burst(to, _look.trail, int(3 + 6 * _size), 2.0 + 2.0 * _size, 0.12 * _size + 0.04, el)
 			_end(to)
 			return
 

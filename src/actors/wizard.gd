@@ -742,6 +742,7 @@ func _charge_start(e: int) -> void:
 	_charge_parts.gravity = Vector3.UP * rise
 	_charge_parts.initial_velocity_min = 0.3
 	_charge_parts.initial_velocity_max = 2.5 if energy else 0.9
+	Parts.style(_charge_parts, e)
 	model.staff.add_child(_charge_parts)
 	_charge_parts.position = model.gem.position
 	_charge_parts.emitting = true

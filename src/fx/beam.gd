@@ -37,6 +37,7 @@ func _ready() -> void:
 	_sparks.spread = 180.0
 	_sparks.initial_velocity_min = 1.0
 	_sparks.initial_velocity_max = 4.0
+	Parts.style(_sparks, spell.primary)
 	add_child(_sparks)
 	_sparks.emitting = true
 

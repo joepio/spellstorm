@@ -36,6 +36,11 @@ func colors() -> Array:
 	return out
 
 
+## The spell's elements, lead first, matching colors().
+func elements() -> Array:
+	return [spell.primary] + spell.payload
+
+
 func targets() -> Array:
 	return Game.I.living() if Game.I else []
 

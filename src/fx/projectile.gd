@@ -58,6 +58,8 @@ func _ready() -> void:
 	_trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	_trail.emission_sphere_radius = radius
 	_trail.initial_velocity_max = 0.5
+	var es := elements()
+	Parts.style(_trail, es[1] if es.size() > 1 else es[0])
 	add_child(_trail)
 	_trail.emitting = true
 	_spin = Vector3(randf_range(4, 9), randf_range(-3, 3), 0)
@@ -88,7 +90,7 @@ func _physics_process(dt: float) -> void:
 		if a.hit_by(from, to, radius):
 			_hit.append(a)
 			a.hit_spell(spell, power * n.rate, caster, vel.normalized(), ff())
-			Fx.burst(to, color(), 10, 4.0, 0.25)
+			Fx.burst(to, color(), 10, 4.0, 0.25, spell.primary)
 			if pierce <= 0:
 				_land(to)
 				return
@@ -100,7 +102,7 @@ func _physics_process(dt: float) -> void:
 func _land(at: Vector3) -> void:
 	set_physics_process(false)
 	var c := color()
-	Fx.burst(at, c, 26, 6.0)
+	Fx.burst(at, c, 26, 6.0, 0.35, spell.primary)
 	Fx.light_pop(at, c, 2.5, 5.0)
 	var splash: float = n.get("splash", 0.0)
 	if splash > 0.0:

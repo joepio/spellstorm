@@ -581,8 +581,24 @@ func _take_shot() -> void:
 			var k: int = {"fire": El.FIRE, "magma": El.MAGMA, "air": El.AIR, "water": El.WATER, "frost": El.FROST,
 				"steam": El.STEAM, "mud": El.MUD, "poison": El.POISON}.get(names[i], El.FIRE)
 			arena.add_field(c + Vector3(cos(ang), 0, sin(ang)) * 5.0, k, 2.6, 999.0, null)
+	# --bolts fire,water,... streams full bolts of each element across the
+	# view, one row each, for comparing how the elements look in flight.
+	var bo_i := args.find("--bolts")
+	var bolt_els: Array = []
+	if bo_i >= 0 and bo_i + 1 < args.size():
+		for nm in args[bo_i + 1].split(","):
+			var i := El.NAMES.find(nm.capitalize())
+			if i >= 0:
+				bolt_els.append(i)
+	var bolt_at: Vector3 = wizards[0].global_position
 	for f in shot_frames:
 		await get_tree().physics_frame
+		if not bolt_els.is_empty() and f % 5 == 0:
+			for i in bolt_els.size():
+				var e: int = bolt_els[i]
+				var s := {counts = {e: 3}, payload = [], primary = e, n = {}, scales = {e: 0.0}}
+				var b := BoltFx.new().setup(wizards[0], s, Vector3.RIGHT)
+				Game.I.spawn(b, bolt_at + Vector3(-7.0, 0, -4.0 + i * 1.6))
 		if how != "" and f == shot_frames - 70:
 			for w in wizards:
 				w.last_el = {"burn": El.FIRE, "freeze": El.FROST, "shock": El.LIGHTNING, "void": El.VOID, "blown": El.AIR}.get(how, -1)

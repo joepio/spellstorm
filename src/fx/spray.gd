@@ -30,6 +30,7 @@ func _ready() -> void:
 		p.gravity = Vector3.UP * (1.5 if spell.primary in [El.FIRE, El.STEAM] else -1.0)
 		if spell.primary == El.AIR:
 			p.color_ramp = Fx.ramp(Color(c.r, c.g, c.b, 0.35))
+		Parts.style(p, elements()[i])
 		add_child(p)
 		p.emitting = true
 		_parts.append(p)

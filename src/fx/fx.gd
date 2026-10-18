@@ -158,7 +158,8 @@ static func _spawn(n: Node3D, at: Vector3) -> void:
 
 
 ## A one-shot spray of sparks.
-static func burst(at: Vector3, c: Color, amount := 24, speed := 5.0, size := 0.35) -> void:
+## With an element [param e] the sparks take its look (Parts.style).
+static func burst(at: Vector3, c: Color, amount := 24, speed := 5.0, size := 0.35, e := -1) -> void:
 	var p := particles(c, amount, 0.6, size)
 	p.one_shot = true
 	p.explosiveness = 0.95
@@ -169,6 +170,8 @@ static func burst(at: Vector3, c: Color, amount := 24, speed := 5.0, size := 0.3
 	p.gravity = Vector3(0, -6, 0)
 	p.damping_min = 2.0
 	p.damping_max = 4.0
+	if e >= 0:
+		Parts.style(p, e)
 	_spawn(p, at)
 	p.emitting = true
 	p.finished.connect(p.queue_free)

@@ -28,6 +28,7 @@ func _ready() -> void:
 	p.damping_min = radius * 2.0
 	p.damping_max = radius * 3.0
 	p.position = Vector3.UP * 0.5
+	Parts.style(p, spell.primary)
 	add_child(p)
 	p.emitting = true
 	Fx.light_pop(at, cs[0], 3.5, radius * 2.5, 0.4)
