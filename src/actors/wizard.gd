@@ -829,8 +829,11 @@ func _enchant_end() -> void:
 	enchant_time = 0.0
 	if _enchant_parts:
 		_enchant_parts.emitting = false
-		var p := _enchant_parts
-		get_tree().create_timer(0.8).timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+		var id := _enchant_parts.get_instance_id()
+		get_tree().create_timer(0.8).timeout.connect(func():
+			var p := instance_from_id(id)
+			if p:
+				p.queue_free())
 		_enchant_parts = null
 
 

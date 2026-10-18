@@ -1,6 +1,13 @@
 class_name OverloadFx
 extends SpellFx
-## Five of one base element cast ahead: that element's big one.
+## A full queue cast ahead: a cataclysm. Its lead element decides the big
+## one (meteor, blizzard, tidal wave, thunderstorm, earthquake, tornado,
+## plague, black hole); every other element in the queue rides along and
+## adds itself wherever it lands (_ride): water floods the ground, fire
+## sets it alight, frost freezes, poison pools, earth stuns and throws
+## rock, air blows monsters away, void drags them in, lightning shocks.
+## Lightning and water make a Tempest: rain and a flooded field that
+## every strike electrifies.
 
 var target := Vector3.ZERO
 var _thing: Node3D
@@ -8,11 +15,18 @@ var _thing: Node3D
 const METEOR_FROM := Vector3(4, 22, -4)
 var _strikes := 0
 var _field: Field
+var riders: Array = []
+## The thunderstorm's cloud, drifting after monsters near the target.
+var _cloud: Node3D
+const STORM_TIME := 3.2
+const STORM_EVERY := 0.22
+var _ride_t := 0.0
 
 
 func _ready() -> void:
 	var c := color()
 	target = global_position
+	riders = spell.get("riders", [])
 	if Game.I:
 		Game.I.shake(0.5)
 	match spell.primary:
@@ -32,6 +46,18 @@ func _ready() -> void:
 			_thing.add_child(l)
 			add_child(_thing)
 			_thing.position = METEOR_FROM
+			# With earth in it, a shower: more rocks rain down round the first.
+			if El.EARTH in riders:
+				for i in 4:
+					var more := spell.duplicate()
+					more.riders = []
+					var off := Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 4.0 + randf() * 0.8) * randf_range(3.0, 5.0)
+					var at := Game.I.arena.clamp_inside(target + off)
+					var who := caster.get_instance_id()
+					get_tree().create_timer(0.25 + i * 0.2).timeout.connect(func():
+						var w := instance_from_id(who) as Actor
+						if w and Game.I:
+							Game.I.spawn(OverloadFx.new().setup(w, more), at))
 		El.FROST:
 			_field = Game.I.arena.add_field(target, El.FROST, 5.5, 9.0, caster)
 			_field.spell = {counts = {El.FROST: 3}, payload = [], primary = El.FROST, n = {rate = 0.8}}
@@ -46,6 +72,7 @@ func _ready() -> void:
 			snow.local_coords = true
 			add_child(snow)
 			snow.emitting = true
+			_ride(target, 5.0)
 		El.WATER:
 			_thing = Node3D.new()
 			var m := StandardMaterial3D.new()
@@ -68,7 +95,7 @@ func _ready() -> void:
 			_thing.global_position = caster.global_position + dir * 1.5
 			_thing.look_at(_thing.global_position + dir, Vector3.UP)
 		El.LIGHTNING:
-			pass
+			_storm_cloud()
 		El.EARTH:
 			var nova := NovaFx.new().setup(caster, spell) as NovaFx
 			nova.n = {radius = 8.5, rate = 1.6}
@@ -79,17 +106,21 @@ func _ready() -> void:
 					a.stun = maxf(a.stun, 2.2)
 			for i in 14:
 				var p := caster.global_position + Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 14.0) * randf_range(3, 8)
-				Fx.burst(p, El.COLOR[El.EARTH], 12, 6.0, 0.4)
+				Fx.burst(p, El.COLOR[El.EARTH], 12, 6.0, 0.4, El.EARTH)
+			_ride(caster.global_position, 6.0)
 			Game.I.shake(1.0)
 		El.AIR:
 			_field = Game.I.arena.add_field(target, El.AIR, 2.4, 8.0, caster)
 			_field.spell = {counts = {El.AIR: 2}, payload = [], primary = El.AIR, n = {rate = 0.6}}
+			if not riders.is_empty():
+				_field.spell.counts.merge(spell.counts)
 		El.POISON:
 			# Plague: a wide cloud of poison that your own side walks through.
 			_field = Game.I.arena.add_field(target, El.POISON, 5.0, 8.0, caster)
 			_field.spell = {counts = {El.POISON: 2}, payload = [], primary = El.POISON, n = {rate = 0.7}}
 			_field.friendly = true
-			Fx.burst(target + Vector3.UP * 0.5, c, 40, 6.0, 0.3)
+			_ride(target, 4.5)
+			Fx.burst(target + Vector3.UP * 0.5, c, 40, 6.0, 0.3, El.POISON)
 			Fx.ring(target, c, 5.0, 0.6)
 		El.VOID:
 			_thing = Node3D.new()
@@ -121,6 +152,8 @@ func _physics_process(dt: float) -> void:
 					nova.n = {radius = 5.0, rate = 1.6}
 					Game.I.spawn(nova, target)
 					Game.I.arena.add_field(target, El.FIRE, 3.2, 8.0, caster)
+					Fx.burst(target + Vector3.UP * 0.5, El.COLOR[El.FIRE], 40, 9.0, 0.5, El.FIRE)
+					_ride(target, 4.5)
 					Game.I.shake(1.2)
 			if t > 1.2:
 				finish()
@@ -139,15 +172,12 @@ func _physics_process(dt: float) -> void:
 					a.hit_spell(spell, dt * 1.2, caster, dir, ff())
 			if t > 1.3:
 				Game.I.arena.add_field(_thing.global_position, El.WATER, 3.0, 10.0, caster)
+				_ride(_thing.global_position, 4.0)
 				finish()
 			elif w == null:
 				pass
 		El.LIGHTNING:
-			if t > _strikes * 0.28 and _strikes < 3:
-				_strikes += 1
-				_bolt()
-			if t > 1.0:
-				finish()
+			_storm(dt)
 		El.VOID:
 			for a in targets():
 				if a.team == caster.team:
@@ -162,6 +192,7 @@ func _physics_process(dt: float) -> void:
 				nova.n = {radius = 4.5, rate = 1.4}
 				nova.only_team = 1
 				Game.I.spawn(nova, global_position)
+				_ride(global_position, 4.5)
 				Game.I.shake(0.8)
 				finish()
 		El.FROST, El.AIR, El.POISON:
@@ -178,6 +209,11 @@ func _physics_process(dt: float) -> void:
 								best = a
 					if best:
 						_field.global_position = _field.global_position.move_toward(best.global_position, 3.5 * dt)
+					# What rides on the tornado is flung out of it now and then.
+					_ride_t -= dt
+					if _ride_t <= 0.0 and not riders.is_empty():
+						_ride_t = 1.2
+						_ride(_field.global_position, 2.6)
 			else:
 				finish()
 			if t > 9.0:
@@ -187,25 +223,151 @@ func _physics_process(dt: float) -> void:
 				finish()
 
 
-func _bolt() -> void:
+## A dark cloud gathers over the target; in a Tempest it rains and the
+## ground below floods first, so every strike lights up the water.
+func _storm_cloud() -> void:
+	_cloud = Node3D.new()
+	# See-through, so the camera above still sees the fight under it.
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.1, 0.1, 0.15, 0.32)
+	dark.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for i in 9:
+		var off := Vector3(randf_range(-4, 4), randf_range(-0.4, 0.4), randf_range(-4, 4))
+		var puff := Art.part(_cloud, Art.sphere(randf_range(1.6, 2.6), 10), dark, off)
+		puff.scale = Vector3(1.0, 0.3, 1.0)
+		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Its shadow darkens the ground under it.
+	var shade := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2.ONE * 13.0
+	shade.mesh = pm
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color(0.0, 0.0, 0.03, 0.55)
+	sm.albedo_texture = Field._edge()
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shade.material_override = sm
+	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cloud.add_child(shade)
+	shade.position = Vector3.DOWN * 8.93
+	var glow := Fx.halo(El.COLOR[El.LIGHTNING], 9.0, 0.5, 1.0)
+	_cloud.add_child(glow)
+	add_child(_cloud)
+	_cloud.global_position = target + Vector3.UP * 9.0
+	_cloud.scale = Vector3.ONE * 0.2
+	_cloud.create_tween().tween_property(_cloud, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if El.WATER in riders:
+		_field = Game.I.arena.add_field(target, El.WATER, 5.5, STORM_TIME + 6.0, caster)
+		_field.friendly = true
+		var rain := Fx.particles(El.COLOR[El.WATER], 260, 0.7, 0.3)
+		rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		rain.emission_box_extents = Vector3(5.0, 0.2, 5.0)
+		rain.direction = Vector3.DOWN
+		rain.spread = 4.0
+		rain.initial_velocity_min = 13.0
+		rain.initial_velocity_max = 16.0
+		Parts.style(rain, El.WATER)
+		rain.gravity = Vector3.DOWN * 9.0
+		_cloud.add_child(rain)
+		rain.position = Vector3.DOWN * 0.6
+		rain.emitting = true
+	if Game.I:
+		Game.I.shake(0.4)
+
+
+func _storm(dt: float) -> void:
+	if not _cloud:
+		return
+	# The cloud drifts after the nearest monster, but stays near the target.
+	var best := _nearest(_cloud.global_position, 9.0)
+	if best:
+		var want := best.global_position
+		if want.distance_to(target) > 6.0:
+			want = target + (want - target).normalized() * 6.0
+		var at := Vector3(want.x, _cloud.global_position.y, want.z)
+		_cloud.global_position = _cloud.global_position.move_toward(at, 4.0 * dt)
+	if _field and is_instance_valid(_field):
+		_field.global_position = _field.global_position.move_toward(Vector3(_cloud.global_position.x, 0, _cloud.global_position.z), 4.0 * dt)
+	if t > 0.45 and t < STORM_TIME and t > 0.45 + _strikes * STORM_EVERY:
+		_strikes += 1
+		_bolt()
+	if t > STORM_TIME:
+		_cloud.create_tween().tween_property(_cloud, "scale", Vector3.ONE * 0.05, 0.4)
+		_cloud = null
+		get_tree().create_timer(0.5).timeout.connect(finish)
+
+
+func _nearest(from: Vector3, reach: float) -> Actor:
 	var best: Actor = null
-	var bd := INF
+	var bd := reach
 	for a in targets():
-		if a.team == caster.team:
+		if a.team == caster.team or not a.alive:
 			continue
-		var d: float = a.global_position.distance_to(target)
-		if d < bd and d < 10.0:
+		var d: float = Vector3(a.global_position.x, 0, a.global_position.z).distance_to(Vector3(from.x, 0, from.z))
+		if d < bd:
 			bd = d
 			best = a
-	var at := best.global_position if best else target + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+	return best
+
+
+func _bolt() -> void:
+	var under := Vector3(_cloud.global_position.x, 0, _cloud.global_position.z) if _cloud else target
+	# Most strikes find a monster under the cloud, the rest hit the ground.
+	var best := _nearest(under, 5.5) if randf() < 0.7 else null
+	var at := best.global_position if best else under + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
 	var arc := ArcFx.new().setup(caster, spell) as ArcFx
 	arc.fixed = true
-	arc.n = {range = 3.0, hops = 3, hop_range = 5.0, interval = 9.0, duration = 1.0, rate = 1.6}
+	arc.spare_friends = true
+	arc.n = {range = 2.5, hops = 2, hop_range = 4.0, interval = 9.0, duration = 0.5, rate = 0.55}
 	Game.I.spawn(arc, at)
-	arc.from_point = at + Vector3.UP * 25.0
-	Fx.light_pop(at, El.COLOR[El.LIGHTNING], 6.0, 14.0, 0.3)
+	arc.from_point = Vector3(at.x, 0, at.z) + Vector3.UP * 9.0
+	Fx.light_pop(at, El.COLOR[El.LIGHTNING], 6.0, 10.0, 0.2)
+	Fx.burst(at + Vector3.UP * 0.3, El.COLOR[El.LIGHTNING], 14, 6.0, 0.25, El.LIGHTNING)
 	Game.I.arena.touch_ground(at, 2.5, El.LIGHTNING, caster)
-	Game.I.shake(0.6)
+	if _strikes % 3 == 0:
+		_ride(at, 2.5)
+	Game.I.shake(0.3)
 	var tw := arc.create_tween()
 	tw.tween_interval(0.5)
 	tw.tween_callback(arc.queue_free)
+
+
+## Every element riding on the cataclysm adds itself at [param at].
+func _ride(at: Vector3, r: float) -> void:
+	if not Game.I:
+		return
+	var ground := Vector3(at.x, 0, at.z)
+	for e in riders:
+		var c: Color = El.COLOR[e]
+		Fx.burst(ground + Vector3.UP * 0.5, c, 24, 7.0, 0.35, e)
+		match e:
+			El.WATER, El.FIRE, El.FROST:
+				if not (e == El.WATER and spell.primary == El.LIGHTNING):
+					var wf: Field = Game.I.arena.add_field(ground, e, r * 0.7, 6.0, caster)
+					wf.friendly = true
+			El.POISON:
+				var f: Field = Game.I.arena.add_field(ground, El.POISON, r * 0.7, 7.0, caster)
+				f.friendly = true
+			El.LIGHTNING:
+				Game.I.arena.touch_ground(ground, r, El.LIGHTNING, caster)
+				Fx.light_pop(ground, c, 4.0, r * 3.0, 0.25)
+			El.EARTH, El.AIR, El.VOID:
+				for a in targets():
+					if a.team == caster.team:
+						continue
+					var d: Vector3 = a.global_position - ground
+					d.y = 0
+					if d.length() > r + 1.5:
+						continue
+					match e:
+						El.EARTH:
+							a.stun = maxf(a.stun, 1.2)
+						El.AIR:
+							a.push += d.normalized() * 14.0
+						El.VOID:
+							a.push += -d.normalized() * 9.0
+				if e == El.EARTH:
+					Fx.ring(ground, c, r, 0.4)
+				elif e == El.VOID:
+					Fx.ring(ground, c, r * 1.3, 0.5)

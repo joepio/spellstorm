@@ -53,8 +53,25 @@ const SENTRY_NOUN := {
 const SENTRY_SLOTS := 5
 const OVERLOAD_NOUN := {
 	El.FIRE: "Meteor", El.FROST: "Blizzard", El.WATER: "Tidal Wave",
-	El.LIGHTNING: "Thunderbolt", El.EARTH: "Earthquake", El.AIR: "Tornado",
+	El.LIGHTNING: "Thunderstorm", El.EARTH: "Earthquake", El.AIR: "Tornado",
 	El.POISON: "Plague", El.VOID: "Black Hole",
+}
+## A full queue cast ahead is always a cataclysm: the big one of its
+## strongest base element, with every other element in it riding along
+## (OverloadFx). A fused element counts as this base, its other part rides.
+const FUSED_BASE := {El.STEAM: El.WATER, El.ICE: El.FROST, El.MUD: El.EARTH, El.MAGMA: El.FIRE, El.STORM: El.LIGHTNING}
+## Some mixes have a name of their own.
+const CATACLYSM_NAME := {
+	Vector2i(El.LIGHTNING, El.WATER): "Tempest",
+	Vector2i(El.WATER, El.LIGHTNING): "Tempest",
+	Vector2i(El.FIRE, El.AIR): "Firestorm",
+	Vector2i(El.AIR, El.FIRE): "Firestorm",
+	Vector2i(El.FIRE, El.EARTH): "Meteor Shower",
+	Vector2i(El.EARTH, El.FIRE): "Eruption",
+	Vector2i(El.FROST, El.AIR): "Whiteout",
+	Vector2i(El.WATER, El.FROST): "Frozen Sea",
+	Vector2i(El.VOID, El.LIGHTNING): "Event Horizon",
+	Vector2i(El.POISON, El.WATER): "Blight Tide",
 }
 const ADJ := {
 	El.POISON: "Venomous", El.VOID: "Cursed", El.FIRE: "Burning", El.FROST: "Freezing",
@@ -73,7 +90,7 @@ const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "arc", El.Kind
 const FORMS := ["cast", "nova", "plant", "enchant"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
 ## by trying every sequence of button presses and fails if this drifts.
-const TOTAL := 3985
+const TOTAL := 4400
 
 
 ## [param slots] in queue order, [param form] one of FORMS. [param mods] are
@@ -121,9 +138,8 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 
 	match form:
 		"cast":
-			if counts[primary] >= 5 and primary in El.BASE and payload.is_empty():
-				spell.shape = "overload"
-				spell.name = OVERLOAD_NOUN[primary]
+			if slots.size() >= SpellQueue.SIZE:
+				_cataclysm(spell, slots)
 			else:
 				spell.name = _adjectives(payload) + CAST_NOUN[primary]
 		"nova":
@@ -147,6 +163,32 @@ static func compose(slots: Array, form: String, mods: Dictionary = {}) -> Dictio
 
 ## The element with the highest count among [param pool]; ties go to the one
 ## conjured first.
+## Turn a full queue into a cataclysm: the base element with the most
+## slots leads (fused slots count as their FUSED_BASE), the rest ride.
+static func _cataclysm(spell: Dictionary, slots: Array) -> void:
+	var base := {}
+	for e in slots:
+		var b: int = FUSED_BASE.get(e, e)
+		base[b] = int(base.get(b, 0)) + 2
+		for part in El.parts(e):
+			if part != b:
+				base[part] = int(base.get(part, 0)) + 1
+	var lead := -1
+	for b in base:
+		if lead < 0 or base[b] > base[lead] or (base[b] == base[lead] and El.KIND[b] < El.KIND[lead]):
+			lead = b
+	var riders: Array = base.keys().filter(func(b): return b != lead)
+	riders.sort_custom(func(a, b): return base[a] > base[b] if base[a] != base[b] else a < b)
+	spell.shape = "overload"
+	spell.primary = lead
+	spell.riders = riders
+	var key := Vector2i(lead, riders[0]) if not riders.is_empty() else Vector2i(-1, -1)
+	if CATACLYSM_NAME.has(key):
+		spell.name = CATACLYSM_NAME[key]
+	else:
+		spell.name = _adjectives(riders) + OVERLOAD_NOUN[lead]
+
+
 static func _most(slots: Array, counts: Dictionary, pool: Array) -> int:
 	var best: int = pool[0]
 	for e in pool:

@@ -3,6 +3,8 @@ extends SpellFx
 ## Lightning that jumps from target to target. Wet targets conduct further,
 ## and a wet friend standing close is a conductor too.
 
+## A cataclysm's strikes never jump to the caster's side, wet or not.
+var spare_friends := false
 var _mesh: MeshInstance3D
 var _im: ImmediateMesh
 var _zap_t := 0.0
@@ -59,7 +61,7 @@ func zap(origin: Vector3, dir: Vector3) -> int:
 			if a == caster or a in chain or not a.alive:
 				continue
 			# Lightning jumps between enemies of the caster, and through anyone wet.
-			if a.team == caster.team and a.wet <= 0.0:
+			if a.team == caster.team and (spare_friends or a.wet <= 0.0):
 				continue
 			var d: float = a.global_position.distance_to(last.global_position)
 			if d < reach and d < best_d:

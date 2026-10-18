@@ -601,6 +601,20 @@ func _take_shot() -> void:
 	var bolt_at: Vector3 = wizards[0].global_position
 	for f in shot_frames:
 		await get_tree().physics_frame
+		# --cataclysm el,el,el,el,el: the first wizard casts that full queue
+		# --cata-at frames before the shot (default 40).
+		var ca_i := args.find("--cataclysm")
+		if ca_i >= 0 and ca_i + 1 < args.size():
+			var lead := int(args[args.find("--cata-at") + 1]) if "--cata-at" in args else 40
+			if f == shot_frames - lead:
+				var slots: Array = []
+				for nm in args[ca_i + 1].split(","):
+					slots.append(El.NAMES.find(nm.capitalize()))
+				var cs := Grammar.compose(slots, "cast")
+				var w: Wizard = wizards[0]
+				var to := w.global_position + w.aim_dir * Wizard.OVERLOAD_REACH
+				Game.I.spawn(OverloadFx.new().setup(w, cs), arena.clamp_inside(w.global_position if w._overload_here(cs) else to))
+				print("cataclysm ", cs.name)
 		if not bolt_els.is_empty() and f % 5 == 0:
 			for i in bolt_els.size():
 				var e: int = bolt_els[i]
