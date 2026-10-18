@@ -17,8 +17,8 @@ static var _meshes := {}
 
 var kind := ""
 var hp := 6.0
-## What breaking it lets out: "souls" (mana), "globe" (health), "fire"
-## (burning oil).
+## What breaking it lets out: "souls" (mana), "globe" (maybe blood),
+## "blood" (always blood), "fire" (a powder keg).
 var spill := ""
 var _chunks: Array[Dictionary] = []
 var _broken := false
@@ -29,7 +29,8 @@ func prepare() -> void:
 	_chunks.clear()
 	for m in find_children("*", "MeshInstance3D", true, false):
 		var mi := m as MeshInstance3D
-		if mi.mesh == null:
+		# Glows are light, not pieces.
+		if mi.mesh == null or mi.mesh is QuadMesh:
 			continue
 		var xf := _local(mi)
 		var mat := mi.material_override
@@ -165,6 +166,8 @@ func _spill() -> void:
 		"globe":
 			if randf() < 0.6:
 				Globe.drop(global_position)
+		"blood":
+			Globe.drop(global_position, 2)
 		"fire":
 			# Burning oil splashes out: it scorches whoever stands close and
 			# sets the ground alight, and the blast breaks what is next to it.

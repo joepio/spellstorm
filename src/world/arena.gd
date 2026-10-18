@@ -118,15 +118,19 @@ func build(biome_index: int, seed_value: int) -> void:
 		_nave_props()
 	# The rest of the land: thick with the zone's things, so the level reads
 	# as ground you cross along a way, not an empty field.
-	var count := int(half.x * half.y * 4.0 / 34.0)
+	var count := int(half.x * half.y * 4.0 / 46.0)
 	if corridor:
-		count = int(_inside_area() / 24.0)
+		count = int(_inside_area() / 33.0)
 	for i in count:
 		var spot := _free_spot(2.6)
 		if spot == Vector3.INF:
 			continue
 		var zone_props: Array = biome.zones[zone_at(spot)]
 		_prop(zone_props[_rng.randi() % zone_props.size()], spot)
+	# Jars of blood along the way, in every biome: the only health besides
+	# what monsters bleed.
+	for _b in int(half.y / 15.0):
+		_prop("blood_urn")
 	for _r in int(half.y / 9.0):
 		for k in biome.fields:
 			var fp := _free_spot(3.0)
@@ -388,24 +392,83 @@ func _band_walls() -> void:
 			continue
 		var chain: Array[Vector2] = [pts[start]]
 		used[start] = true
-		var grow := true
-		while grow:
-			grow = false
-			var tip: Vector2 = chain[chain.size() - 1]
-			var best := -1
-			var bd := 2.4
-			for k in pts.size():
-				if used.has(k):
-					continue
-				var d := pts[k].distance_to(tip)
-				if d < bd:
-					bd = d
-					best = k
-			if best >= 0:
-				used[best] = true
-				chain.append(pts[best])
-				grow = true
+		# Grow from both ends: a chain that starts mid-edge would otherwise
+		# leave a gap where its other half begins.
+		for _end in 2:
+			var grow := true
+			while grow:
+				grow = false
+				var tip: Vector2 = chain[chain.size() - 1]
+				var best := -1
+				var bd := 2.4
+				for k in pts.size():
+					if used.has(k):
+						continue
+					var d := pts[k].distance_to(tip)
+					if d < bd:
+						bd = d
+						best = k
+				if best >= 0:
+					used[best] = true
+					chain.append(pts[best])
+					grow = true
+			chain.reverse()
 		chains.append(chain)
+	# Where two chains end close together, join them, so no edge of the
+	# band is left without a wall in front of it.
+	var ends: Array[Vector2] = []
+	for chain: Array in chains:
+		ends.append(chain[0])
+		ends.append(chain[chain.size() - 1])
+	for ci in chains.size():
+		var ch: Array = chains[ci]
+		for at_end in 2:
+			var e: Vector2 = ch[ch.size() - 1] if at_end == 1 else ch[0]
+			var best_p := Vector2.INF
+			var best_d := 3.2
+			for ei in ends.size():
+				if ei / 2 == ci:
+					continue
+				var d := ends[ei].distance_to(e)
+				if d > 0.05 and d < best_d:
+					best_d = d
+					best_p = ends[ei]
+			if best_p != Vector2.INF:
+				if at_end == 1:
+					ch.append(best_p)
+				else:
+					ch.insert(0, best_p)
+	# Any stretch of the band's edge still without a wall in front of it
+	# (pinches the thinned points skipped) gets a short piece of its own:
+	# where you cannot walk on, there is always a wall to see.
+	var segs: Array = []
+	for chain: Array in chains:
+		for k in chain.size() - 1:
+			segs.append([chain[k], chain[k + 1]])
+	for iz in _sdf_h - 1:
+		for ix in _sdf_w - 1:
+			var i := iz * _sdf_w + ix
+			for nb: Vector2i in [Vector2i(1, 0), Vector2i(0, 1)]:
+				var v := _sdf[i]
+				var w := _sdf[i + nb.x + nb.y * _sdf_w]
+				if (v < 0.0) == (w < 0.0):
+					continue
+				var q := _sdf_o + Vector2(ix + nb.x * v / (v - w), iz + nb.y * v / (v - w))
+				var covered := false
+				for sg: Array in segs:
+					var a2: Vector2 = sg[0]
+					var ab: Vector2 = sg[1] - a2
+					var tt := clampf((q - a2).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+					if (a2 + ab * tt).distance_to(q) < 0.8:
+						covered = true
+						break
+				if covered:
+					continue
+				var out := _bound_out(q)
+				var tan := Vector2(-out.y, out.x) * 0.7
+				var stub: Array[Vector2] = [q - tan, q + tan]
+				chains.append(stub)
+				segs.append([stub[0], stub[1]])
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	add_child(body)
@@ -599,9 +662,9 @@ func _nave_props() -> void:
 			while z < z_end:
 				for x: float in [3.2, 6.0]:
 					for sgn: float in [-1.0, 1.0]:
-						if _rng.randf() < 0.8:
+						if _rng.randf() < 0.5:
 							_prop("pew", Vector3(x0 + sgn * (x + 0.4) + _rng.randf_range(-0.2, 0.2), 0, z), PI + _rng.randf_range(-0.15, 0.15) + (0.6 if _rng.randf() < 0.12 else 0.0))
-				if _rng.randf() < 0.45:
+				if _rng.randf() < 0.22:
 					var sgn2 := 1.0 if _rng.randf() < 0.5 else -1.0
 					_prop("urn" if _rng.randf() < 0.6 else "oil_jar", Vector3(x0 + sgn2 * _rng.randf_range(8.6, 10.0), 0, z + 1.2))
 				z += 2.2
@@ -1110,14 +1173,44 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			body.spill = "souls"
 			r = 0.3
 		"oil_jar":
-			# A squat jar of lamp oil, red-banded: breaking it sets the ground
-			# alight and blasts what stands beside it.
-			var jar := Fx.solid(Color(0.24, 0.16, 0.1), 0.6)
-			Art.part(body, Art.cyl(0.28, 0.24, 0.6, 10), jar, Vector3(0, 0.3, 0))
-			Art.part(body, Art.cyl(0.29, 0.29, 0.1, 10), Fx.solid(Color(0.55, 0.1, 0.05), 0.6), Vector3(0, 0.42, 0))
-			Art.part(body, Art.cyl(0.1, 0.14, 0.12, 8), jar, Vector3(0, 0.66, 0))
+			# A powder keg: an orange-painted barrel with dark hoops and a
+			# lit fuse spitting sparks. Breaking it blows up (Prop._spill).
+			var stave := Fx.solid(Color(0.85, 0.38, 0.07), 0.7)
+			var hoop := Fx.solid(Color(0.12, 0.1, 0.09), 0.4)
+			Art.part(body, Art.cyl(0.26, 0.24, 0.3, 12), stave, Vector3(0, 0.15, 0))
+			Art.part(body, Art.cyl(0.24, 0.27, 0.3, 12), stave, Vector3(0, 0.45, 0))
+			for hy: float in [0.06, 0.3, 0.56]:
+				Art.part(body, Art.cyl(0.275, 0.275, 0.05, 12), hoop, Vector3(0, hy, 0))
+			Art.part(body, Art.cyl(0.24, 0.24, 0.02, 12), Fx.solid(Color(0.3, 0.18, 0.08), 0.8), Vector3(0, 0.61, 0))
+			# A black blast mark painted on the side.
+			Art.part(body, Art.sphere(0.09, 8), Fx.solid(Color(0.08, 0.06, 0.05), 0.6), Vector3(0, 0.32, 0.25), Vector3.ZERO, Vector3(1, 1, 0.25))
+			Art.part(body, Art.cyl(0.012, 0.012, 0.16, 5), Fx.solid(Color(0.75, 0.7, 0.55), 0.9), Vector3(0.06, 0.69, 0), Vector3(0, 0, -20))
+			var spark := Fx.particles(Color(1.0, 0.7, 0.2), 10, 0.3, 0.07)
+			spark.position = Vector3(0.09, 0.77, 0)
+			spark.direction = Vector3.UP
+			spark.spread = 60.0
+			spark.initial_velocity_min = 0.6
+			spark.initial_velocity_max = 1.4
+			spark.gravity = Vector3.DOWN * 2.0
+			body.add_child(spark)
+			spark.emitting = true
+			var glow := Fx.halo(Color(1.0, 0.55, 0.15), 0.6, 0.9, 1.0)
+			glow.position = Vector3(0.09, 0.77, 0)
+			body.add_child(glow)
 			body.spill = "fire"
 			r = 0.35
+		"blood_urn":
+			# A dark jar brimming with blood, glowing red: break it and drink.
+			var glaze := Fx.solid(Color(0.3, 0.05, 0.05), 0.4)
+			Art.part(body, Art.cyl(0.2, 0.15, 0.42, 10), glaze, Vector3(0, 0.21, 0))
+			Art.part(body, Art.cyl(0.13, 0.2, 0.14, 10), glaze, Vector3(0, 0.49, 0))
+			Art.part(body, Art.cyl(0.15, 0.13, 0.06, 10), Fx.solid(Color(0.75, 0.6, 0.3), 0.4), Vector3(0, 0.58, 0))
+			Art.part(body, Art.cyl(0.12, 0.12, 0.02, 10), Fx.glow(Globe.COLOR, 1.6), Vector3(0, 0.6, 0))
+			var bloom := Fx.halo(Globe.COLOR, 0.9, 0.6, 0.3)
+			bloom.position.y = 0.62
+			body.add_child(bloom)
+			body.spill = "blood"
+			r = 0.3
 		"coffin":
 			var wood := Fx.solid(Color(0.2, 0.13, 0.08), 0.85)
 			Art.part(body, Art.box(0.7, 0.4, 1.9), wood, Vector3(0, 0.2, 0))
@@ -1160,7 +1253,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 ## How much a prop takes before it breaks; a bolt does 2.
 const PROP_HP := {
 	grave = 6.0, dead_tree = 6.0, rock = 16.0, pillar = 22.0, sarcophagus = 16.0, stalagmite = 12.0,
-	ice = 6.0, basalt = 20.0, brazier = 8.0, urn = 2.0, oil_jar = 2.0, coffin = 6.0, statue = 16.0, pew = 5.0,
+	ice = 6.0, basalt = 20.0, brazier = 8.0, urn = 2.0, oil_jar = 2.0, blood_urn = 2.0, coffin = 6.0, statue = 16.0, pew = 5.0,
 }
 
 

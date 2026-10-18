@@ -12,7 +12,7 @@ const ALL := [
 	{"name": "Storm Sigil", "text": "Lightning +40%, arcs jump to 2 more", "el_5": 1.4, "el_12": 1.4, "hops": 2},
 	{"name": "Stone Heart", "text": "Earth, Mud and Magma +40%", "el_6": 1.4, "el_10": 1.4, "el_11": 1.4},
 	{"name": "Zephyr Feather", "text": "Air pushes 80% harder, you walk 15% faster", "el_7": 1.8, "speed": 1.15},
-	{"name": "Red Chalice", "text": "Health globes heal 60% more", "heal": 1.6},
+	{"name": "Red Chalice", "text": "Blood heals 60% more", "heal": 1.6},
 	{"name": "Black Grimoire", "text": "Void +50%", "el_1": 1.5},
 	{"name": "Viper Fang", "text": "Poison +50%", "el_0": 1.5},
 	{"name": "Long Nozzle", "text": "Sprays reach 35% further", "spray_range": 1.35},

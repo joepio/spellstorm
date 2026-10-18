@@ -303,13 +303,13 @@ func on_enemy_died(e: Enemy, _src: Actor) -> void:
 	run.kills += 1
 	count("kills")
 	enemies.erase(e)
-	# Health only comes from globes (no spell heals): bosses leave a few,
-	# elites always one, the rest now and then.
+	# Health only comes from blood (no spell heals): bosses spill a lot,
+	# elites always some, the rest fairly often.
 	if e.cfg.get("boss", false):
-		Globe.drop(e.global_position, 4)
+		Globe.drop(e.global_position, 6)
 	elif e.elite:
-		Globe.drop(e.global_position, 2 if randf() < 0.4 else 1)
-	elif randf() < 0.22:
+		Globe.drop(e.global_position, 2 if randf() < 0.5 else 1)
+	elif randf() < 0.34:
 		Globe.drop(e.global_position)
 
 
@@ -581,6 +581,18 @@ func _take_shot() -> void:
 			var k: int = {"fire": El.FIRE, "magma": El.MAGMA, "air": El.AIR, "water": El.WATER, "frost": El.FROST,
 				"steam": El.STEAM, "mud": El.MUD, "poison": El.POISON}.get(names[i], El.FIRE)
 			arena.add_field(c + Vector3(cos(ang), 0, sin(ang)) * 5.0, k, 2.6, 999.0, null)
+	# --props a,b,c stands those props in a ring round the wizards, and
+	# --blood N leaves that much blood beside them.
+	var pr_i := args.find("--props")
+	if pr_i >= 0 and pr_i + 1 < args.size():
+		var kinds2: PackedStringArray = args[pr_i + 1].split(",")
+		var c2: Vector3 = wizards[0].global_position
+		for i in kinds2.size():
+			var ang := TAU * i / kinds2.size() + 0.3
+			arena._prop(kinds2[i], c2 + Vector3(cos(ang), 0, sin(ang)) * 3.2)
+	if "--blood" in args:
+		for i in int(args[args.find("--blood") + 1]):
+			Globe.drop(wizards[0].global_position + Vector3(-2.5 + i * 1.2, 0, 2.5))
 	# --bolts fire,water,... streams full bolts of each element across the
 	# view, one row each, for comparing how the elements look in flight.
 	var bo_i := args.find("--bolts")

@@ -50,8 +50,8 @@ everything it is likely to hit:
   shock are combo enablers (shock does double on wet), so they count, but
   not as much as damage.
 - **Poison:** each unit of scale adds five seconds, at most ten past the last
-  hit, at 4 damage a second. No spell heals: health comes from the red globes
-  monsters drop.
+  hit, at 4 damage a second. No spell heals: health comes from blood that
+  monsters spill and jars hold.
 
 ### How many monsters a shape hits
 
