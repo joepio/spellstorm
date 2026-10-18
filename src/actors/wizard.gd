@@ -957,7 +957,7 @@ func _enchanted_shot(dir: Vector3) -> void:
 ## laid on the staff, and what you see is what it hits.
 func enchant_reach() -> float:
 	var n := 0
-	for e in enchant.counts:
+	for e in enchant.get("counts", {}):
 		n += int(enchant.counts[e])
 	if n <= 0:
 		return SWING_REACH
