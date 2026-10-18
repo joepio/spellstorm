@@ -255,13 +255,18 @@ class WizardPanel:
 		var step := -22.0 if mirrored else 22.0
 		while _socket_balls.size() < 6:
 			_ball(_socket_balls)
+		# Short of mana, a cast falls back to the front elements it can pay
+		# for (Wizard.preview): the ones it would leave out sit dimmed.
+		var pays := _pays()
 		for i in _socket_balls.size():
 			var oc := Vector2(sx0 + i * step, 36)
 			if i < wizard.queue.size:
 				draw_circle(oc, 9.5, Color(0.2, 0.16, 0.12, 0.8))
 			if i < slots.size():
 				var e: int = slots[i]
-				_socket_balls[i].show_at(e, oc, 8.5)
+				var left_out := pays > 0 and i >= pays
+				_socket_balls[i].show_at(e, oc, 8.5, 0.45 if left_out else 1.0)
+				_socket_balls[i].modulate.a = 0.45 if left_out else 1.0
 				if El.is_fused(e):
 					draw_arc(oc, 10.5, 0, TAU, 20, Color(1, 0.9, 0.6), 1.2)
 			else:
@@ -300,8 +305,20 @@ class WizardPanel:
 
 	## Under the panel's top row: each cast button and what the queue makes
 	## on it, small, two by two. Nothing while the queue is empty.
+	## How many queued elements an RT cast can pay for, worked out again only
+	## when the queue or the whole mana changes.
+	func _pays() -> int:
+		var key := "%s|%d" % [",".join(wizard.queue.slots.map(func(e): return str(e))), int(wizard.mana)]
+		if key != _pays_for:
+			_pays_for = key
+			_pays_n = wizard.affordable("cast")
+		return _pays_n
+
+	var _pays_for := ""
+	var _pays_n := 0
+
 	func _spells(f: Font) -> void:
-		var key := ",".join(wizard.queue.slots.map(func(e): return str(e)))
+		var key := "%s|%d" % [",".join(wizard.queue.slots.map(func(e): return str(e))), _pays()]
 		if key != _names_for:
 			_names_for = key
 			_names.clear()

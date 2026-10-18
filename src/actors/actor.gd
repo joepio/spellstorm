@@ -56,6 +56,14 @@ var push := Vector3.ZERO
 ## and whether a hit in that time found a weakness or a resistance.
 var shown := {dmg = 0.0, heal = 0.0, weak = false, resist = false}
 var flash := 0.0
+## A hit lands: for HURT_TIME the body flashes white and jerks away from
+## [member hurt_dir] (enemies, Enemy._flinch), [member hurt_k] as hard.
+const HURT_TIME := 0.14
+var hurt_t := 0.0
+var hurt_dir := Vector3.ZERO
+var hurt_k := 0.0
+## Damage from a stream (sprays, beams) adds up until it is worth a flinch.
+var _hurt_acc := 0.0
 var haste := 1.0
 ## Seconds left of a dodge roll's invulnerability: monsters cannot touch you.
 var invuln := 0.0
@@ -165,11 +173,22 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 		last_dir = dir
 		last_melee = melee_hit
 		take(dmg, src)
+		_hurt(dmg, dir)
 		if shock_hit:
 			flash = 0.12
 	if src and src.has_method("on_dealt") and dmg > 0.0 and not ally:
 		src.on_dealt(dmg, spell)
 	return dmg
+
+
+func _hurt(dmg: float, dir: Vector3) -> void:
+	_hurt_acc += dmg
+	if _hurt_acc < 1.0 or hurt_t > HURT_TIME * 0.35:
+		return
+	hurt_k = clampf(0.45 + _hurt_acc / 12.0, 0.45, 1.3) / sqrt(maxf(mass, 1.0))
+	_hurt_acc = 0.0
+	hurt_t = HURT_TIME
+	hurt_dir = Vector3(dir.x, 0, dir.z).normalized()
 
 
 func _status(eff: Dictionary, n: float) -> void:
@@ -345,10 +364,16 @@ func tick_status(delta: float) -> void:
 	slow = maxf(0.0, slow - delta)
 	slick = maxf(0.0, slick - delta)
 	flash = maxf(0.0, flash - delta)
+	hurt_t = maxf(0.0, hurt_t - delta)
+	_hurt_acc = maxf(0.0, _hurt_acc - delta * 2.0)
 	invuln = maxf(0.0, invuln - delta)
 	if _overlay:
 		var c := Color(1, 1, 1, 0)
-		if frozen > 0.0:
+		if hurt_t > 0.0 and alive:
+			# The hit flash: white, gone again in a blink.
+			var k := hurt_t / HURT_TIME
+			c = Color(1, 0.97, 0.92, 0.8 * k * k)
+		elif frozen > 0.0:
 			c = Color(0.6, 0.9, 1.0, 0.55)
 		elif flash > 0.0:
 			c = Color(1, 0.35, 0.3, 0.4)

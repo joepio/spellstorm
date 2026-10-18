@@ -424,8 +424,23 @@ func bolt_spell() -> Dictionary:
 	return {counts = counts, payload = [], primary = queue.slots[0], n = {}, scales = scales}
 
 
+## What an enchanted staff fires: the enchantment's elements, harder than
+## a loaded bolt, costing nothing from the queue while it lasts.
+func enchanted_bolt() -> Dictionary:
+	var scales := {}
+	var split := 1.0 / sqrt(float(enchant.counts.size()))
+	for e in enchant.counts:
+		scales[e] = BOLT[e] * (0.6 + 0.4 * enchant.counts[e]) * split * ENCHANT_BOLT
+	return {counts = enchant.counts, payload = [], primary = enchant.primary, n = {}, scales = scales}
+
+
 func shoot() -> void:
 	var dir := aim_dir.rotated(Vector3.UP, randf_range(-0.03, 0.03))
+	# Fired steadily, the staff stays up instead of bobbing with every shot.
+	_cast_anim = maxf(_cast_anim, 1.0 / BOLT_RATE + 0.1)
+	if enchant_time > 0.0:
+		_enchanted_shot(dir)
+		return
 	var b := BoltFx.new().setup(self, bolt_spell(), dir)
 	Game.I.spawn(b, staff_tip() + dir * 0.1)
 	if not queue.is_empty():
@@ -434,7 +449,6 @@ func shoot() -> void:
 			var gone: int = queue.slots.pop_front()
 			ammo = BOLTS_PER_ELEMENT if not queue.is_empty() else 0
 			Fx.burst(global_position + Vector3.UP * 2.1, El.COLOR[gone], 8, 2.0, 0.2)
-	_cast_anim = maxf(_cast_anim, 0.12)
 	_trace_once("shoot")
 	Game.I.count("shots")
 
@@ -558,7 +572,6 @@ func roll() -> void:
 		channel = null
 	_trace_once("dodge")
 	Game.I.count("rolls")
-	Fx.puff(global_position + Vector3.UP * 0.4, Color(0.6, 0.6, 0.65, 0.5), 0.8)
 
 
 ## Load one element for mana. Cancelling with an opposite is free.
@@ -613,8 +626,25 @@ func _conjure_fx() -> void:
 	pass
 
 
+## What [param form] would cast now. Short of mana for the whole queue it
+## falls back to the biggest spell you can pay for: the front of the queue,
+## the last elements left out (the HUD dims those). With no mana even for
+## one element it is the whole queue again, and casting says no.
 func preview(form: String) -> Dictionary:
-	return Grammar.compose(queue.copy(), form, mods())
+	var slots := queue.copy()
+	var n := affordable(form)
+	return Grammar.compose(slots.slice(0, n) if n > 0 else slots, form, mods())
+
+
+## How many of the queued elements, from the front, a [param form] cast can
+## pay for right now.
+func affordable(form: String) -> int:
+	var slots := queue.copy()
+	for n in range(slots.size(), 0, -1):
+		var s := Grammar.compose(slots.slice(0, n), form, mods())
+		if mana >= cost(s) - 0.01:
+			return n
+	return 0
 
 
 ## Cast what is queued in [param form]. [param button] is held to channel.
@@ -639,9 +669,15 @@ func cast(form: String, button: int) -> void:
 		return
 	mana -= price
 	ammo = 0
-	if not queue.is_empty():
-		last_cast = queue.copy()
+	# What the spell did not use stays loaded, front first.
+	var used: int = s.slots.size()
+	var rest := queue.copy().slice(used)
+	if used > 0:
+		last_cast = queue.copy().slice(0, used)
 	queue.clear()
+	if not rest.is_empty():
+		queue.set_slots(rest)
+		ammo = BOLTS_PER_ELEMENT
 	_cast_anim = 0.3
 	if Game.I:
 		Game.I.on_cast(self, s)
@@ -745,9 +781,55 @@ func _charge_start(e: int) -> void:
 	model.staff.add_child(_charge_parts)
 	_charge_parts.position = model.gem.position
 	_charge_parts.emitting = true
+	if _charging.shape in REMOTE and Fx.root:
+		_cast_mark = CastMark.new().setup(e, _mark_radius(_charging))
+		Fx.root.add_child(_cast_mark)
+		_cast_mark.global_position = _cast_point(_charging)
+
+
+## Spells that strike away from you show where while they charge.
+const REMOTE := ["projectile", "beam", "arc", "overload"]
+var _cast_mark: CastMark
+
+
+func _mark_radius(s: Dictionary) -> float:
+	match s.shape:
+		"overload":
+			return 2.6
+		"projectile":
+			return maxf(0.9, float(s.n.get("splash", 0.0)) * 0.8)
+	return 0.9
+
+
+## Where the charging spell would strike if let go now: an overload's
+## spot, otherwise the first monster in line, a wall, or as far as it goes.
+func _cast_point(s: Dictionary) -> Vector3:
+	var at: Vector3
+	if s.shape == "overload":
+		at = global_position if _overload_here(s) else global_position + aim_dir * OVERLOAD_REACH
+		return Game.I.arena.clamp_inside(at) * Vector3(1, 0, 1)
+	var reach: float = 12.0 if s.shape == "projectile" else float(s.n.get("range", 10.0))
+	var from := global_position + Vector3.UP * 1.1
+	var best := reach
+	for a in Game.I.enemies:
+		if not is_instance_valid(a) or not a.alive:
+			continue
+		var to: Vector3 = a.global_position - global_position
+		to.y = 0.0
+		var along := to.dot(aim_dir)
+		if along > 0.0 and along < best and (to - aim_dir * along).length() < a.radius + 0.5:
+			best = along
+	var wall: Dictionary = Game.I.arena.ray(from, from + aim_dir * best)
+	if wall:
+		best = minf(best, (wall.position - from).length() - 0.3)
+	at = global_position + aim_dir * maxf(best, 1.0)
+	return Vector3(at.x, 0.0, at.z)
 
 
 func _charge_stop() -> void:
+	if _cast_mark:
+		_cast_mark.finish()
+		_cast_mark = null
 	if _charge_halo:
 		_charge_halo.queue_free()
 		_charge_halo = null
@@ -772,6 +854,11 @@ func _charge_look(dt: float) -> void:
 	model.gem.material_override = Fx.element(_charging.primary, 1.3 + 3.0 * k)
 	_charge_halo.scale = Vector3.ONE * (0.35 + 1.1 * k + beat * 2.0)
 	_charge_parts.speed_scale = 0.6 + 0.8 * k
+	if _cast_mark:
+		var want := _cast_point(_charging)
+		# Glides after the aim instead of snapping between monsters.
+		_cast_mark.global_position = _cast_mark.global_position.lerp(want, minf(1.0, 18.0 * dt))
+		_cast_mark.set_charge(k)
 	_charge_parts.emission_sphere_radius = 0.1 + 0.12 * k
 	if full:
 		_crackle_t -= dt
@@ -797,7 +884,7 @@ func _throw(s: Dictionary) -> void:
 ## the swing (RB) into an element weapon, close up and risky but strong:
 ## it reaches further, hits with the enchantment's elements, throws a slash
 ## of them ahead, and each element adds its own trick (_enchanted_swing).
-## Bolts are not touched. The staff shows it: the element pours off the
+## The bolts change too (_enchanted_shot). The staff shows it: the element pours off the
 ## shaft. Nothing heals you.
 var enchant := {}
 var enchant_time := 0.0
@@ -807,6 +894,32 @@ const ENCHANT_SWING := 3.0
 const ENCHANT_REACH := 0.9
 ## The slash flies this much further than the staff reaches, at half strength.
 const SLASH_REACH := 2.8
+
+
+## How much harder an enchanted staff's bolts hit than loaded ones.
+const ENCHANT_BOLT := 1.5
+
+
+## An enchanted staff shoots its element's own way (BoltFx.charmed): fire
+## bolts burst, frost shards pierce, water sprays three, lightning jumps on,
+## earth stuns, air hurls, void drags in, poison leaves a puddle.
+func _enchanted_shot(dir: Vector3) -> void:
+	var s := enchanted_bolt()
+	var bases := {}
+	for e in s.counts:
+		for b in El.parts(e):
+			bases[b] = true
+	var dirs := [dir]
+	if El.WATER in bases:
+		dirs = [dir.rotated(Vector3.UP, -0.13), dir, dir.rotated(Vector3.UP, 0.13)]
+		for e in s.scales:
+			s.scales[e] *= 0.5
+	for d: Vector3 in dirs:
+		var b := BoltFx.new().setup(self, s, d)
+		b.charmed = bases
+		Game.I.spawn(b, staff_tip() + d * 0.1)
+	_trace_once("enchanted shot")
+	Game.I.count("shots")
 
 
 ## The enchanted swing: the staff's elements land on everything in a wider
@@ -1043,12 +1156,22 @@ func _visuals(dt: float) -> void:
 		model.gem.material_override = Fx.element(bolt_el, 0.3 if _swing_cd > 0.0 else 1.3)
 	else:
 		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
-	# The roll: squashed low, spinning on the spot.
+	# The roll: one tucked somersault forward the way you roll, turning
+	# round the middle of the body, quick at first and landing softly.
 	if _roll_t > 0.0:
 		var k := 1.0 - _roll_t / ROLL_TIME
-		body.scale = Vector3(1.15, 0.62, 1.15)
-		body.rotation.y += k * TAU
+		var ang := TAU * (1.0 - pow(1.0 - k, 2.0))
+		var mid := 0.55
+		var tuck := sin(k * PI)
+		body.rotation = Vector3(ang, atan2(_roll_dir.x, _roll_dir.z), 0.0)
+		var off := Vector3(0.0, mid * (1.0 - cos(ang)), -mid * sin(ang))
+		# Lifted while upside down, so the hat clears the floor.
+		body.position = off.rotated(Vector3.UP, body.rotation.y) + Vector3.UP * 0.5 * sin(ang * 0.5)
+		body.scale = Vector3(1.0 + 0.08 * tuck, 1.0 - 0.35 * tuck, 1.0 + 0.08 * tuck)
 	else:
+		body.rotation.x = 0.0
+		body.position.x = 0.0
+		body.position.z = 0.0
 		body.scale = body.scale.lerp(Vector3.ONE, 14.0 * dt)
 	var bursting := _rb_t > 0.12 and pad and pad.down(Pad.RB)
 	_charge_ring.visible = bursting

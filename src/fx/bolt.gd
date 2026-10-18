@@ -4,7 +4,8 @@ extends Node3D
 ## the wizard's whole loaded queue (see Wizard.bolt_spell), so each element in
 ## it brings its status: fire burns, frost chills, water soaks, lightning
 ## shocks, poison sickens. Bolts fly through friends; an empty queue shoots
-## plain golden bolts.
+## plain golden bolts. From an enchanted staff ([member charmed]) a bolt is
+## bigger and each base element in it adds its own trick (_charm).
 
 const SPEED := 22.0
 const LIFE := 0.85
@@ -16,6 +17,10 @@ var el := -1
 var vel := Vector3.ZERO
 var spell: Dictionary
 var t := 0.0
+## The base elements of the enchantment this bolt was fired with, if any.
+var charmed := {}
+## Who a piercing frost shard already went through.
+var _pierced: Array = []
 
 
 func setup(w: Wizard, s: Dictionary, dir: Vector3) -> BoltFx:
@@ -118,13 +123,19 @@ func _ready() -> void:
 	for e in spell.counts:
 		loaded += spell.counts[e]
 	_size = 0.45 if loaded == 0 else 0.6 + 0.13 * (loaded - 1)
+	if not charmed.is_empty():
+		_size = 1.1
+		if El.AIR in charmed:
+			vel *= 1.5
+		elif El.EARTH in charmed:
+			vel *= 0.8
 	global_position.y = 1.1
 	reset_physics_interpolation()
 	_body = MeshInstance3D.new()
 	_body.mesh = _mesh_for(el)
 	_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Element bolts wear the same element material as the orbs and the HUD.
-	_body.material_override = _material(el) if el < 0 else Fx.element(el, 1.4)
+	_body.material_override = _material(el) if el < 0 else Fx.element(el, 1.1 if _look.get("jitter", false) else 1.4)
 	if _look.get("shard", false):
 		_body.rotation_degrees.x = -90.0
 		_body.scale = Vector3.ONE * _size
@@ -133,7 +144,9 @@ func _ready() -> void:
 	add_child(_body)
 	# The bloom round it: faint on a plain spark, a real glow on a full one.
 	var glow_c: Color = _look.edge
-	add_child(Fx.halo(Color(glow_c.r, glow_c.g, glow_c.b), 1.1 * _size * _look.size + 0.3, 0.35 + 0.25 * _size, 1.0 if _look.flicker > 0.5 else 0.0))
+	# Lightning keeps a smaller glow, so its dark body and white veins show.
+	var bloom := 0.5 if _look.get("jitter", false) else 1.0
+	add_child(Fx.halo(Color(glow_c.r, glow_c.g, glow_c.b), (1.1 * _size * _look.size + 0.3) * (0.8 if bloom < 1.0 else 1.0), (0.35 + 0.25 * _size) * bloom, 1.0 if _look.flicker > 0.5 else 0.0))
 	if el < 0:
 		# A smaller white-hot heart inside the glow.
 		var heart := MeshInstance3D.new()
@@ -176,17 +189,115 @@ func _physics_process(dt: float) -> void:
 		return
 	global_position = to
 	for a in (Game.I.living() if Game.I else []):
-		if a == caster or not affects(a, spell, caster):
+		if a == caster or a in _pierced or not affects(a, spell, caster):
 			continue
-		if a.hit_by(from, to, 0.18):
+		if a.hit_by(from, to, 0.18 if charmed.is_empty() else 0.3):
 			strike(a, spell, 1.0, caster, vel.normalized())
 			Fx.burst(to, _look.trail, int(3 + 6 * _size), 2.0 + 2.0 * _size, 0.12 * _size + 0.04, el)
+			if not charmed.is_empty():
+				_charm_hit(a, to)
+				# A frost shard goes on through, up to three.
+				if (El.FROST in charmed) and _pierced.size() < 2:
+					_pierced.append(a)
+					continue
 			_end(to)
 			return
 
 
+## What an enchanted bolt's elements do where it hits [param a].
+func _charm_hit(a: Actor, at: Vector3) -> void:
+	var dir := vel.normalized()
+	if El.EARTH in charmed:
+		a.stun = maxf(a.stun, 0.35)
+		a.push += dir * 7.0 / a.mass
+	if El.AIR in charmed:
+		a.push += dir * 12.0 / a.mass
+	if El.WATER in charmed:
+		a.push += dir * 4.0 / a.mass
+	if El.LIGHTNING in charmed:
+		# The hit jumps on to the two nearest.
+		var from := at
+		var done: Array = [a]
+		for i in 2:
+			var best: Actor = null
+			var best_d := 4.0
+			for b in Game.I.enemies:
+				if is_instance_valid(b) and b.alive and not b in done:
+					var d: float = b.global_position.distance_to(from)
+					if d < best_d:
+						best = b
+						best_d = d
+			if best == null:
+				break
+			var p := best.global_position + Vector3.UP * 0.9
+			best.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, Wizard.BOLT[El.LIGHTNING] * 1.2, caster, (p - from).normalized())
+			_zap(from, p)
+			done.append(best)
+			from = p
+
+
+## A quick jagged flash from [param a] to [param b] for a jumping hit.
+static func _zap(a: Vector3, b: Vector3) -> void:
+	if Fx.root == null:
+		return
+	var im := ImmediateMesh.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	var c: Color = El.COLOR[El.LIGHTNING]
+	mi.material_override = Fx.shader("zap", {core = c.lerp(Color.WHITE, 0.8), edge = c})
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var steps := maxi(3, int(a.distance_to(b) / 0.5))
+	var prev := a
+	for s in range(1, steps + 1):
+		var p := a.lerp(b, float(s) / steps)
+		if s < steps:
+			p += Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * 0.45
+		var side := (p - prev).cross(Vector3.UP).normalized() * 0.18
+		for off in [side, Vector3.UP * 0.18]:
+			for v in [[prev - off, 0.0], [p - off, 0.0], [p + off, 1.0], [prev - off, 0.0], [p + off, 1.0], [prev + off, 1.0]]:
+				im.surface_set_color(Color.WHITE)
+				im.surface_set_uv(Vector2(v[1], 0.0))
+				im.surface_add_vertex(v[0])
+		prev = p
+	im.surface_end()
+	Fx.root.add_child(mi)
+	Fx.flash(b, c, 1.4, 0.14)
+	mi.get_tree().create_timer(0.1).timeout.connect(mi.queue_free)
+
+
+func _charm_end(at: Vector3) -> void:
+	if not Game.I:
+		return
+	var ground := Vector3(at.x, 0, at.z)
+	if El.FIRE in charmed:
+		# Each fireball bursts: a small blast that burns whoever stands by.
+		BlastFx.boom(ground, 0.5, false)
+		for a in Game.I.enemies:
+			if not is_instance_valid(a) or not a.alive:
+				continue
+			var d: Vector3 = a.global_position - ground
+			d.y = 0.0
+			if d.length() < 1.8 + a.radius:
+				a.hit_spell({counts = {El.FIRE: 1}, payload = [], primary = El.FIRE, n = {}}, Wizard.BOLT[El.FIRE] * 1.4, caster, d.normalized())
+		Game.I.shake(0.06)
+	if El.VOID in charmed:
+		for a in Game.I.enemies:
+			if is_instance_valid(a) and a.alive:
+				var d: Vector3 = ground - a.global_position
+				d.y = 0.0
+				if d.length() < 3.0 and d.length() > 0.3:
+					a.push += d.normalized() * 8.0 / a.mass
+		Fx.burst(at, El.COLOR[El.VOID], 14, -4.0, 0.25, El.VOID)
+	if El.POISON in charmed:
+		var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(ground), El.POISON, 0.9, 2.5, caster)
+		f.friendly = true
+
+
 func _end(at: Vector3) -> void:
 	set_physics_process(false)
+	if not charmed.is_empty():
+		_charm_end(at)
 	# A bolt that lands still touches the ground: fire bolts boil puddles.
 	if Game.I and Game.I.arena:
 		for e in spell.counts:

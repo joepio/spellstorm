@@ -1076,6 +1076,10 @@ func _separation() -> Vector3:
 
 
 func _animate(dt: float) -> void:
+	# Last frame's flinch comes off before the pose is worked out again.
+	_model.position -= _flinch_off
+	_model.rotation.x -= _flinch_rot.x
+	_model.rotation.z -= _flinch_rot.z
 	var moving := velocity.length() > 0.4
 	_walk += dt * (8.0 if moving else 0.0) * speed / 3.0
 	_pose_t = maxf(0.0, _pose_t - dt)
@@ -1097,14 +1101,44 @@ func _animate(dt: float) -> void:
 		var tt := Time.get_ticks_msec() / 1000.0 + float(get_instance_id() % 97)
 		_model.position.y = 0.25 + sin(tt * 2.1) * 0.15
 		_model.rotation.z = sin(tt * 1.3) * 0.08
+	_flinch()
 	_hp_bar.visible = hp < max_hp and alive
 	if _hp_bar.visible:
 		var f := hp / max_hp
 		_hp_mat.set_shader_parameter("fill", f)
 
 
+var _flinch_off := Vector3.ZERO
+var _flinch_rot := Vector3.ZERO
+
+
+## A hit snaps the body back from where it came and lets it spring upright:
+## a quick jerk away, a lean, then a small overshoot back.
+func _flinch() -> void:
+	_flinch_off = Vector3.ZERO
+	_flinch_rot = Vector3.ZERO
+	if hurt_t <= 0.0 or not alive:
+		return
+	var u := 1.0 - hurt_t / HURT_TIME
+	# Out fast, back slower, a touch past upright at the end.
+	var a := sin(minf(u * 1.6, 1.0) * PI * 0.5) * (1.0 - u) - 0.15 * sin(u * PI) * u
+	var local := global_basis.inverse() * hurt_dir
+	local.y = 0.0
+	var k := a * hurt_k
+	_flinch_off = local * 0.18 * k
+	_flinch_rot = Vector3(local.z * 0.45 * k, 0.0, -local.x * 0.45 * k)
+	_model.position += _flinch_off
+	_model.rotation.x += _flinch_rot.x
+	_model.rotation.z += _flinch_rot.z
+
+
 func die(src: Actor) -> void:
 	super.die(src)
+	_model.position -= _flinch_off
+	_model.rotation.x -= _flinch_rot.x
+	_model.rotation.z -= _flinch_rot.z
+	_flinch_off = Vector3.ZERO
+	_flinch_rot = Vector3.ZERO
 	if _aim_bar:
 		_aim_bar.visible = false
 	if cfg.has("raise") and Game.I:

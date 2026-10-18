@@ -169,8 +169,8 @@ func _spill() -> void:
 			# Burning oil splashes out: it scorches whoever stands close and
 			# sets the ground alight, and the blast breaks what is next to it.
 			var at := Vector3(global_position.x, 0, global_position.z)
-			Fx.flash(at + Vector3.UP * 0.6, El.COLOR[El.FIRE], 3.0, 0.3)
-			Fx.burst(at + Vector3.UP * 0.5, El.COLOR[El.FIRE], 24, 6.0, 0.25)
+			BlastFx.boom(at, 2.2)
+			Fx.burst(at + Vector3.UP * 0.5, El.COLOR[El.FIRE], 30, 8.0, 0.3, El.FIRE)
 			Game.I.arena.add_field(at, El.FIRE, 2.4, 6.0, null)
 			for a in Game.I.living():
 				var dd: Vector3 = a.global_position - at

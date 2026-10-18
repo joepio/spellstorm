@@ -620,7 +620,24 @@ func _take_shot() -> void:
 				var e: int = bolt_els[i]
 				var s := {counts = {e: 3}, payload = [], primary = e, n = {}, scales = {e: 0.0}}
 				var b := BoltFx.new().setup(wizards[0], s, Vector3.RIGHT)
+				# --charmed: the bolts an enchanted staff fires instead.
+				if "--charmed" in args:
+					b.charmed = {e: true}
 				Game.I.spawn(b, bolt_at + Vector3(-7.0, 0, -4.0 + i * 1.6))
+		# --boom N: a barrel's blast in front of the wizards N frames before.
+		if "--boom" in args and f == shot_frames - int(args[args.find("--boom") + 1]):
+			BlastFx.boom(wizards[0].global_position + Vector3(4, 0, -2), 2.2)
+		# --mark el: where a charging spell of that element would land.
+		if "--mark" in args and f == 0:
+			var me := El.NAMES.find(args[args.find("--mark") + 1].capitalize())
+			var m := CastMark.new().setup(me, 1.2)
+			Fx.root.add_child(m)
+			m.global_position = wizards[0].global_position + Vector3(4, 0, 1) * Vector3(1, 0, 1)
+			m.global_position.y = 0.0
+			m.set_charge(0.8)
+		# --roll N: the first wizard dodges N frames before the shot.
+		if "--roll" in args and f == shot_frames - int(args[args.find("--roll") + 1]):
+			wizards[0].roll()
 		if how != "" and f == shot_frames - 70:
 			for w in wizards:
 				w.last_el = {"burn": El.FIRE, "freeze": El.FROST, "shock": El.LIGHTNING, "void": El.VOID, "blown": El.AIR}.get(how, -1)

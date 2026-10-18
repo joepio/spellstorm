@@ -81,6 +81,14 @@ vec4 element_look(int el, vec3 base, vec3 p, float light, float t) {
 		vec3 body = el == 12 ? mix(vec3(0.12, 0.14, 0.3), base, sn_fbm(p * 2.0 + t * 0.5)) : base * (0.55 + 0.35 * light);
 		vec3 spark = el == 12 ? vec3(1.0, 0.92, 0.4) : vec3(1.0, 1.0, 0.9);
 		c = body + spark * bolt * 1.6;
+		if (el == 5) {
+			// Lightning sits dark, a deep charged amber, so the white veins
+			// stand out from across the room; a yellow glow hugs each vein.
+			float thick = 1.0 - smoothstep(0.0, 0.12, v);
+			float near = 1.0 - smoothstep(0.0, 0.32, v);
+			body = base * vec3(0.42, 0.3, 0.12) * (0.55 + 0.6 * light);
+			c = body + base * near * 0.9 + vec3(1.0, 1.0, 0.95) * thick * 2.2;
+		}
 	} else if (el == 6) {
 		// Earth: rough stone in plates, dark cracks between, lit from above.
 		vec2 v = el_cells(p * 2.4);
