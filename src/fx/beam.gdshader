@@ -21,6 +21,8 @@ void fragment() {
 	float centre = pow(facing, 6.0);
 	float sheath = facing * (0.25 + 0.75 * smoothstep(0.2, 0.75, n)) * (0.55 + 0.6 * pulse);
 	vec3 c = edge.rgb * sheath + core.rgb * centre * (0.4 + 0.3 * pulse);
+	// The sheath swells out of the staff instead of starting as a flat end.
+	sheath *= smoothstep(0.0, 1.2, d);
 	float a = clamp((sheath * 0.8 + centre * 0.5) * strength, 0.0, 1.0);
 	ALBEDO = c * strength;
 	ALPHA = a;

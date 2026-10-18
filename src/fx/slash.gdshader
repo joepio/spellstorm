@@ -8,12 +8,15 @@ render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabl
 uniform vec4 color : source_color = vec4(1.0, 0.85, 0.5, 1.0);
 uniform float progress = 1.0;
 uniform float strength = 1.0;
+// Opens from the other side: the sword sweeps right to left.
+uniform bool mirror = false;
 
 void fragment() {
 	// UV.x runs across the arc, UV.y from the inner edge out.
-	float shown = step(UV.x, progress);
+	float u = mirror ? 1.0 - UV.x : UV.x;
+	float shown = step(u, progress);
 	// Brightest at the leading edge of the sweep and at the rim.
-	float lead = exp(-abs(UV.x - progress) * 10.0) * step(progress, 0.999);
+	float lead = exp(-abs(u - progress) * 10.0) * step(progress, 0.999);
 	float rim = smoothstep(0.75, 1.0, UV.y) + 0.35 * smoothstep(0.25, 0.0, UV.y);
 	float body = 0.25 + 0.75 * UV.y * UV.y;
 	float a = (body * 0.55 + rim * 0.8 + lead * 1.2) * shown * strength;

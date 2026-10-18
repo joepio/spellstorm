@@ -646,6 +646,18 @@ func _take_shot() -> void:
 				if "--charmed" in args:
 					b.charmed = {e: true}
 				Game.I.spawn(b, bolt_at + Vector3(-7.0, 0, -4.0 + i * 1.6))
+		# --beam el,el,el --beam-at N: the first wizard lights that beam N
+		# frames before the shot (default 6), to see it snap out of the staff.
+		var bm_i := args.find("--beam")
+		if bm_i >= 0 and bm_i + 1 < args.size():
+			var lead := int(args[args.find("--beam-at") + 1]) if "--beam-at" in args else 6
+			if f == shot_frames - lead:
+				var slots: Array = []
+				for nm in args[bm_i + 1].split(","):
+					slots.append(El.NAMES.find(nm.capitalize()))
+				var bs := Grammar.compose(slots, "cast")
+				print("beam ", bs.name, " ", bs.shape)
+				wizards[0]._channel(BeamFx.new().setup(wizards[0], bs), Pad.RT, wizards[0].staff_tip())
 		# --strike N: a thunderbolt of three lightning in front of the
 		# wizards N frames before the shot.
 		if "--strike" in args and f == shot_frames - int(args[args.find("--strike") + 1]):

@@ -10,6 +10,12 @@ var _muzzle: MeshInstance3D
 var _end_light: OmniLight3D
 var _sparks: CPUParticles3D
 var _touch_t := 0.0
+var _core_mat: StandardMaterial3D
+var _muzzle_light: OmniLight3D
+
+## Lit, the beam snaps out of the staff as a thin needle of light, far
+## brighter than it settles to, then swells to its full width.
+const IGNITE := 0.3
 
 
 func _ready() -> void:
@@ -17,7 +23,8 @@ func _ready() -> void:
 	var mixed := color()
 	for c in colors():
 		mixed = mixed.lerp(c, 0.3)
-	_core = _tube(n.width * 0.18, Fx.glow(color().lerp(Color.WHITE, 0.5), 1.6))
+	_core_mat = Fx.glow(color().lerp(Color.WHITE, 0.5), 1.6).duplicate()
+	_core = _tube(n.width * 0.18, _core_mat)
 	# The sheath: pulses running down a coloured glow (src/fx/beam.gdshader).
 	_halo_mat = Fx.shader("beam", {core = color().lerp(Color.WHITE, 0.6), edge = mixed,
 		speed = 14.0 if spell.primary == El.VOID else 9.0})
@@ -33,6 +40,11 @@ func _ready() -> void:
 	_end_light.light_energy = 2.5
 	_end_light.omni_range = 5.0
 	add_child(_end_light)
+	_muzzle_light = OmniLight3D.new()
+	_muzzle_light.light_color = color().lerp(Color.WHITE, 0.4)
+	_muzzle_light.omni_range = 4.0
+	_muzzle_light.top_level = true
+	add_child(_muzzle_light)
 	_sparks = Fx.particles(mixed, 40, 0.5, 0.3)
 	_sparks.spread = 180.0
 	_sparks.initial_velocity_min = 1.0
@@ -42,9 +54,12 @@ func _ready() -> void:
 	_sparks.emitting = true
 
 
+## A unit-long open tube: no flat disc at either end.
 func _tube(r: float, mat: Material) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
 	var c := Art.cyl(r, r, 1.0, 10)
+	c.cap_top = false
+	c.cap_bottom = false
 	m.mesh = c
 	m.material_override = mat
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -88,13 +103,24 @@ func _physics_process(dt: float) -> void:
 		tube.global_position = (from + to_pos) * 0.5
 		tube.global_basis = Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, PI / 2)
 		tube.scale = Vector3(1, length, 1)
-	var pulse := 1.0 + 0.12 * sin(t * 30.0)
+	# 0 when lit, 1 once settled: thin and blinding, then full and steady.
+	var lit := smoothstep(0.0, IGNITE, t)
+	var thin := lerpf(0.22, 1.0, lit)
+	var bright := lerpf(3.0, 1.0, lit)
+	var pulse := (1.0 + 0.12 * sin(t * 30.0) * lit) * thin
 	_halo.scale.x = pulse
 	_halo.scale.z = pulse
+	_core.scale.x = lerpf(0.6, 1.0, lit)
+	_core.scale.z = _core.scale.x
+	_halo_mat.set_shader_parameter("strength", bright)
+	_core_mat.emission_energy_multiplier = 1.6 * bright
+	_muzzle_light.global_position = from
+	_muzzle_light.light_energy = lerpf(5.0, 1.2, lit)
 	_halo_mat.set_shader_parameter("length", length)
 	_end_light.global_position = to_pos
 	_end_glow.global_position = to_pos
 	_muzzle.global_position = from
+	_muzzle.scale = Vector3.ONE * lerpf(1.6, 1.0, lit)
 	_end_glow.scale = Vector3.ONE * (2.4 if first else 1.4) * pulse
 	_sparks.global_position = to_pos
 	if first and caster.can_act():

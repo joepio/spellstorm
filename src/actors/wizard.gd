@@ -109,6 +109,8 @@ var _charge_ring: MeshInstance3D
 ## The swing's arc on the ground: sweeps open on a swing, and shows faintly
 ## while a bullet is close so you can see what you would knock back.
 var _zone: MeshInstance3D
+## A little light at the staff's gem that blinks with every shot.
+var _muzzle: OmniLight3D
 var _zone_mat: ShaderMaterial
 
 
@@ -162,6 +164,12 @@ func _ready() -> void:
 	_name_label.position = Vector3(0, -0.35, 0.6)
 	_name_label.text = player_name
 	add_child(_name_label)
+	_muzzle = OmniLight3D.new()
+	_muzzle.light_energy = 0.0
+	_muzzle.omni_range = 3.5
+	_muzzle.shadow_enabled = false
+	_muzzle.top_level = true
+	add_child(_muzzle)
 	_zone = MeshInstance3D.new()
 	_zone.mesh = _arc_mesh(0.55, SWING_REACH + 0.3, SWING_ARC)
 	_zone_mat = ShaderMaterial.new()
@@ -444,8 +452,10 @@ func shoot() -> void:
 	if enchant_time > 0.0:
 		_enchanted_shot(dir)
 		return
-	var b := BoltFx.new().setup(self, bolt_spell(), dir)
+	var bs := bolt_spell()
+	var b := BoltFx.new().setup(self, bs, dir)
 	Game.I.spawn(b, staff_tip() + dir * 0.1)
+	_muzzle_flash(El.COLOR[bs.primary] if bs.primary >= 0 else Color.WHITE)
 	if not queue.is_empty():
 		ammo -= 1
 		if ammo <= 0:
@@ -970,9 +980,18 @@ func _enchanted_shot(dir: Vector3) -> void:
 		var b := BoltFx.new().setup(self, s, d)
 		b.charmed = bases
 		Game.I.spawn(b, staff_tip() + d * 0.1)
+	_muzzle_flash(El.COLOR[s.primary] if s.primary >= 0 else Color.WHITE)
 	_trace_once("enchanted shot")
 	Game.I.count("shots")
 	_spend_enchant(spend)
+
+
+## Every shot lights the staff for a blink, in the element's colour: a
+## small glow at the gem and a little light on the floor round you.
+func _muzzle_flash(c: Color) -> void:
+	_muzzle.light_color = c
+	_muzzle.light_energy = 2.2
+	Fx.flash(staff_tip(), c.lerp(Color.WHITE, 0.3), 0.7, 0.09)
 
 
 ## Take [param dmg] from the enchantment's store. As it runs low the
@@ -1232,6 +1251,9 @@ func _visuals(dt: float) -> void:
 	var body: Node3D = model.body
 	var target_yaw := atan2(aim_dir.x, aim_dir.z)
 	body.rotation.y = lerp_angle(body.rotation.y, target_yaw, 14.0 * dt)
+	if _muzzle.light_energy > 0.0:
+		_muzzle.global_position = staff_tip()
+		_muzzle.light_energy = maxf(0.0, _muzzle.light_energy - dt * 22.0)
 	var moving := velocity.length() > 0.5
 	_walk += dt * (9.0 if moving else 0.0)
 	body.position.y = absf(sin(_walk)) * 0.07 if moving else 0.0
@@ -1260,8 +1282,10 @@ func _visuals(dt: float) -> void:
 		_zone.visible = true
 		# An enchanted blade sweeps a wider arc on the floor too.
 		var zs := (enchant_reach() + 0.3) / (SWING_REACH + 0.3) if enchant_time > 0.0 else 1.0
-		# Mirrored, so the arc opens the way the blade sweeps.
-		_zone.scale = Vector3(-zs, 1.0, zs)
+		# The arc opens the way the blade sweeps. Mirrored in the shader, not
+		# by a negative scale, which turns the whole arc round behind you.
+		_zone.scale = Vector3(zs, 1.0, zs)
+		_zone_mat.set_shader_parameter("mirror", true)
 		_zone_mat.set_shader_parameter("progress", e)
 		_zone_mat.set_shader_parameter("strength", (1.0 - smoothstep(0.55, 1.0, sweep)) * (0.45 if enchant_time > 0.0 else 1.0))
 		_place_zone(_swing_dir)
@@ -1282,6 +1306,7 @@ func _visuals(dt: float) -> void:
 			_zone_mat.set_shader_parameter("color", Color(1.0, 0.9, 0.6))
 			_zone_mat.set_shader_parameter("progress", 1.0)
 			_zone_mat.set_shader_parameter("strength", 0.22 * near)
+			_zone_mat.set_shader_parameter("mirror", false)
 			_place_zone(aim_dir)
 	# Orbs circle the hat, one per queued element.
 	var slots := queue.slots
