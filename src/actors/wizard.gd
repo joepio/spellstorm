@@ -819,6 +819,9 @@ func _charge_start(e: int) -> void:
 		_cast_mark = CastMark.new().setup(e, _mark_radius(_charging))
 		Fx.root.add_child(_cast_mark)
 		_cast_mark.global_position = _cast_point(_charging)
+		if _rolls(_charging):
+			_cast_mark.set_lane(OverloadFx.WAVE_WIDTH, OverloadFx.WAVE_RUN)
+			_cast_mark.look_at(_cast_mark.global_position + aim_dir, Vector3.UP)
 
 
 ## Spells that strike away from you show where while they charge.
@@ -829,7 +832,7 @@ var _cast_mark: CastMark
 func _mark_radius(s: Dictionary) -> float:
 	match s.shape:
 		"overload":
-			return 2.6
+			return OverloadFx.REACH.get(s.primary, 4.5)
 		"projectile":
 			return maxf(0.9, float(s.n.get("splash", 0.0)) * 0.8)
 		"strike":
@@ -837,11 +840,20 @@ func _mark_radius(s: Dictionary) -> float:
 	return 0.9
 
 
+## A tidal wave rolls forward from you instead of landing on a spot.
+func _rolls(s: Dictionary) -> bool:
+	return s.shape == "overload" and s.primary == El.WATER
+
+
 ## Where the charging spell would strike if let go now: an overload's
 ## spot, otherwise the first monster in line, a wall, or as far as it goes.
 func _cast_point(s: Dictionary) -> Vector3:
 	var at: Vector3
 	if s.shape == "overload":
+		if _rolls(s):
+			# The middle of the strip the wave will sweep.
+			at = global_position + aim_dir * (OverloadFx.WAVE_START + OverloadFx.WAVE_RUN * 0.5)
+			return at * Vector3(1, 0, 1)
 		at = global_position if _overload_here(s) else global_position + aim_dir * OVERLOAD_REACH
 		return Game.I.arena.clamp_inside(at) * Vector3(1, 0, 1)
 	var reach: float = 12.0 if s.shape == "projectile" else float(s.n.get("range", 10.0))
@@ -894,6 +906,9 @@ func _charge_look(dt: float) -> void:
 		var want := _cast_point(_charging)
 		# Glides after the aim instead of snapping between monsters.
 		_cast_mark.global_position = _cast_mark.global_position.lerp(want, minf(1.0, 18.0 * dt))
+		if _rolls(_charging):
+			_cast_mark.global_position = want
+			_cast_mark.look_at(want + aim_dir, Vector3.UP)
 		_cast_mark.set_charge(k)
 	_charge_parts.emission_sphere_radius = 0.1 + 0.12 * k
 	if full:

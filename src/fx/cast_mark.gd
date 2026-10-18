@@ -47,6 +47,18 @@ func set_radius(r: float) -> void:
 	_parts.emission_ring_inner_radius = r * 0.3
 
 
+## Make it a lane instead of a circle: the strip [param width] wide and
+## [param length] long that a rolling spell will sweep, centred on this
+## node and facing along its -Z (turn it with look_at).
+func set_lane(width: float, length: float) -> void:
+	_mat.set_shader_parameter("lane", 1.0)
+	_mat.set_shader_parameter("aspect", length / width)
+	_disc.scale = Vector3(width, 1.0, length)
+	_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_parts.emission_box_extents = Vector3(width * 0.45, 0.0, length * 0.45)
+	_parts.amount = 48
+
+
 func set_charge(k: float) -> void:
 	_mat.set_shader_parameter("charge", k)
 	_parts.speed_scale = 0.5 + 0.7 * k

@@ -579,7 +579,7 @@ func _take_shot() -> void:
 		for i in names.size():
 			var ang := TAU * i / names.size()
 			var k: int = {"fire": El.FIRE, "magma": El.MAGMA, "air": El.AIR, "water": El.WATER, "frost": El.FROST,
-				"steam": El.STEAM, "mud": El.MUD, "poison": El.POISON}.get(names[i], El.FIRE)
+				"steam": El.STEAM, "mud": El.MUD, "poison": El.POISON, "ice": El.ICE, "void": El.VOID, "earth": El.EARTH}.get(names[i], El.FIRE)
 			arena.add_field(c + Vector3(cos(ang), 0, sin(ang)) * 5.0, k, 2.6, 999.0, null)
 	# --props a,b,c stands those props in a ring round the wizards, and
 	# --blood N leaves that much blood beside them.
@@ -662,6 +662,12 @@ func _take_shot() -> void:
 			m.global_position = wizards[0].global_position + Vector3(4, 0, 1) * Vector3(1, 0, 1)
 			m.global_position.y = 0.0
 			m.set_charge(0.8)
+			# --lane: the strip a tidal wave would sweep, instead of a circle.
+			if "--lane" in args:
+				m.set_lane(OverloadFx.WAVE_WIDTH, OverloadFx.WAVE_RUN)
+				m.global_position = wizards[0].global_position + Vector3(0, 0, -(OverloadFx.WAVE_START + OverloadFx.WAVE_RUN * 0.5))
+				m.global_position.y = 0.0
+				m.look_at(m.global_position + Vector3.FORWARD, Vector3.UP)
 		# --swing N: every wizard swings its sword N frames before the shot.
 		if "--swing" in args and f == shot_frames - int(args[args.find("--swing") + 1]):
 			for w in wizards:

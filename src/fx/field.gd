@@ -17,7 +17,7 @@ var rate := 0.55
 var friendly := false
 
 var _disc: MeshInstance3D
-var _mat: StandardMaterial3D
+var _mat: ShaderMaterial
 var _parts: CPUParticles3D
 var _light: OmniLight3D
 var _spark_t := 0.0
@@ -32,13 +32,11 @@ static func simple(k: int) -> Dictionary:
 
 func _ready() -> void:
 	_disc = MeshInstance3D.new()
-	var c := Art.cyl(1.0, 1.0, 0.02, 28)
-	_disc.mesh = c
-	_mat = StandardMaterial3D.new()
-	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat.roughness = 0.15
-	_mat.metallic_specular = 0.2
-	_mat.albedo_texture = _edge()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(2.0, 2.0)
+	_disc.mesh = pm
+	# A ragged patch with the element's own life in it (ground_field.gdshader).
+	_mat = Fx.shader("ground_field", {seed = randf() * 40.0})
 	_disc.material_override = _mat
 	_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_disc.position.y = 0.03 + randf() * 0.01
@@ -49,7 +47,8 @@ func _ready() -> void:
 static var _edge_tex: Texture2D
 
 
-## A disc that is solid in the middle and fades out at the rim.
+## A disc that is solid in the middle and fades out at the rim (the storm
+## cloud's shadow).
 static func _edge() -> Texture2D:
 	if _edge_tex:
 		return _edge_tex
@@ -96,18 +95,11 @@ func _build() -> void:
 	_disc.visible = true
 	_disc.scale = Vector3(radius, 1, radius)
 	var c: Color = El.COLOR[kind]
-	_mat.emission_enabled = false
-	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	_mat.set_shader_parameter("kind", kind)
+	_mat.set_shader_parameter("base", c)
+	_mat.set_shader_parameter("radius", radius)
+	_mat.set_shader_parameter("shock", 0.0)
 	match kind:
-		El.WATER:
-			_mat.albedo_color = Color(0.08, 0.18, 0.35, 0.75)
-			_mat.metallic = 0.4
-			_mat.roughness = 0.05
-		El.FROST, El.ICE:
-			_mat.albedo_color = Color(0.55, 0.72, 0.85, 0.55)
-			_mat.roughness = 0.2
-		El.MUD:
-			_mat.albedo_color = Color(0.2, 0.14, 0.08, 0.92)
 		El.FIRE, El.MAGMA:
 			_disc.visible = false
 			_fire(kind == El.MAGMA)
@@ -122,7 +114,6 @@ func _build() -> void:
 			_light.omni_range = radius * 2.5
 			_light.position = Vector3.UP * 0.8
 		El.STEAM:
-			_mat.albedo_color = Color(0.8, 0.8, 0.85, 0.12)
 			_parts = Fx.particles(Color(0.75, 0.75, 0.8, 0.5), int(8 * radius * radius), 2.0, 1.6)
 			_parts.direction = Vector3.UP
 			_parts.gravity = Vector3.UP * 0.2
@@ -153,8 +144,6 @@ func _build() -> void:
 			_parts.gravity = Vector3.UP * 0.15
 			_parts.initial_velocity_min = 0.05
 			_parts.initial_velocity_max = 0.3
-		_:
-			_mat.albedo_color = Color(c.r, c.g, c.b, 0.4)
 	if _parts:
 		_parts.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 		_parts.emission_sphere_radius = radius * 0.85
@@ -249,11 +238,9 @@ func _physics_process(dt: float) -> void:
 			_spark_t = 0.15
 			var p := global_position + Vector3(randf_range(-1, 1), 0.1, randf_range(-1, 1)) * radius * 0.8
 			Fx.burst(p, El.COLOR[El.LIGHTNING], 5, 3.0, 0.2)
-		_mat.emission_enabled = true
-		_mat.emission = El.COLOR[El.LIGHTNING]
-		_mat.emission_energy_multiplier = 0.2 + randf() * 0.3
+		_mat.set_shader_parameter("shock", 0.6 + randf() * 0.4)
 	elif kind == El.WATER:
-		_mat.emission_enabled = false
+		_mat.set_shader_parameter("shock", 0.0)
 	if not Game.I:
 		return
 	var ff: float = Game.I.ff
@@ -288,8 +275,7 @@ func fade() -> void:
 		_parts.emitting = false
 	var tw := create_tween()
 	tw.set_parallel()
-	tw.tween_property(_disc, "transparency", 1.0, 0.6)
-	var mats := {}
+	var mats := {_mat: true}
 	for m in _looks:
 		mats[m.material_override] = true
 	for mat: ShaderMaterial in mats:
