@@ -22,7 +22,8 @@ void fragment() {
 	vec3 p = normalize(lp + vec3(0.0001));
 	vec4 look = element_look(element, base.rgb, p, light, TIME * 1.5);
 	float rim = pow(1.0 - light, 2.2);
-	vec3 col = look.rgb * energy * 0.85 + base.rgb * rim * 1.4;
+	// Pulled towards its own colour so hot elements glow orange, not white.
+	vec3 col = mix(look.rgb, base.rgb * 1.1, 0.4) * energy * 0.85 + base.rgb * rim * 1.4;
 	col = mix(col, vec3(1.0, 0.82, 0.35) * 1.8, hot * (0.4 + 0.6 * rim));
 	ALBEDO = col;
 	ALPHA = clamp(look.a + rim, 0.0, 1.0);

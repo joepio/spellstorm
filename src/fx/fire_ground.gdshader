@@ -44,8 +44,10 @@ void fragment() {
 		float heat = clamp(seams * flick * (0.4 + 0.8 * mask), 0.0, 1.0);
 		vec3 c = mix(char, vec3(0.9, 0.18, 0.02), smoothstep(0.05, 0.45, heat));
 		c = mix(c, vec3(1.0, 0.7, 0.25), smoothstep(0.45, 0.85, heat));
-		c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.85, 1.0, heat));
-		ALBEDO = c * (0.8 + heat * 0.7);
+		c = mix(c, vec3(1.0, 0.95, 0.7), smoothstep(0.92, 1.0, heat));
+		// Mostly dark crust; only the seams run hot.
+		c = mix(char * 0.5, c, smoothstep(0.1, 0.5, heat));
+		ALBEDO = c * (0.6 + heat * 0.6);
 		ALPHA = clamp(mask * 0.95 + heat, 0.0, 1.0) * fade;
 	}
 }
