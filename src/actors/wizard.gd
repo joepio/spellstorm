@@ -207,12 +207,6 @@ func mods() -> Dictionary:
 	return m
 
 
-func reset_relics() -> void:
-	relics.clear()
-	give_relic({})
-	relics.clear()
-
-
 func give_relic(r: Dictionary) -> void:
 	if not r.is_empty():
 		relics.append(r)
@@ -1196,6 +1190,55 @@ func die(src: Actor) -> void:
 	var tw := _tomb.create_tween()
 	tw.tween_interval(1.2)
 	tw.tween_property(_tomb, "position:y", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_grave_lights()
+
+
+## The grave calls out: a pillar of light up out of it you can find from
+## anywhere, a glow on the stone, and motes that only rise while a friend
+## stands close enough to raise you (Joep: clear where you are, and clear
+## when it is working).
+func _grave_lights() -> void:
+	_grave_in = 0.0
+	_grave_mat = Fx.shader("grave_beam", {color = GRAVE_CALM, strength = 0.0})
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 1.0
+	cyl.bottom_radius = 0.7
+	cyl.height = GRAVE_BEAM
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	cyl.radial_segments = 20
+	beam.mesh = cyl
+	beam.material_override = _grave_mat
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beam.position.y = GRAVE_BEAM * 0.5
+	_tomb.add_child(beam)
+	# A soft pool of the same light on the ground round the stone.
+	_grave_pool = Fx.halo(GRAVE_CALM, 4.5, 0.5)
+	_grave_pool.material_override = _grave_pool.material_override.duplicate()
+	_grave_pool.position.y = 0.3
+	_tomb.add_child(_grave_pool)
+	_grave_light = OmniLight3D.new()
+	_grave_light.light_color = GRAVE_CALM
+	_grave_light.light_energy = 0.0
+	_grave_light.omni_range = 7.0
+	_grave_light.position.y = 1.4
+	_tomb.add_child(_grave_light)
+	_grave_motes = Fx.particles(GRAVE_WARM, 24, 1.6, 0.14)
+	_grave_motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	_grave_motes.emission_ring_axis = Vector3.UP
+	_grave_motes.emission_ring_radius = 1.2
+	_grave_motes.emission_ring_inner_radius = 0.9
+	_grave_motes.emission_ring_height = 0.1
+	_grave_motes.direction = Vector3.UP
+	_grave_motes.spread = 10.0
+	_grave_motes.gravity = Vector3.ZERO
+	_grave_motes.initial_velocity_min = 1.5
+	_grave_motes.initial_velocity_max = 3.0
+	_grave_motes.radial_accel_min = -1.6
+	_grave_motes.radial_accel_max = -1.0
+	_grave_motes.emitting = false
+	_tomb.add_child(_grave_motes)
 
 
 ## A friend standing at your grave raises you: REVIVE_NEED in about three
@@ -1203,6 +1246,15 @@ func die(src: Actor) -> void:
 const REVIVE_RATE := 14.0
 const REVIVE_REACH := 1.9
 var _raise_fx := 0.0
+const GRAVE_BEAM := 16.0
+const GRAVE_CALM := Color(0.62, 0.8, 1.0)
+const GRAVE_WARM := Color(1.0, 0.82, 0.45)
+var _grave_mat: ShaderMaterial
+var _grave_light: OmniLight3D
+var _grave_pool: MeshInstance3D
+var _grave_motes: CPUParticles3D
+## Ramps up once the stone has risen, so the pillar fades in.
+var _grave_in := 0.0
 
 
 func _raise(dt: float) -> void:
@@ -1210,8 +1262,9 @@ func _raise(dt: float) -> void:
 		return
 	var n := 0
 	for w in Game.I.wizards:
-		if w != self and w.alive and w.global_position.distance_to(global_position) < REVIVE_REACH:
+		if w != self and w.alive and _grave_dist(w.global_position) < REVIVE_REACH:
 			n += 1
+	_grave_look(n > 0, dt)
 	if n == 0:
 		_revive = maxf(0.0, _revive - REVIVE_RATE * 0.5 * dt)
 		return
@@ -1220,6 +1273,35 @@ func _raise(dt: float) -> void:
 		_raise_fx = 0.35
 		Fx.ring(global_position + Vector3.UP * 0.04, Color(1.0, 0.85, 0.5), REVIVE_REACH * (1.0 - _revive / REVIVE_NEED * 0.7), 0.35)
 	revive_progress(REVIVE_RATE * n * dt)
+
+
+## How far from the grave: the stone or the body beside it, whichever is nearer.
+func _grave_dist(at: Vector3) -> float:
+	var d := at.distance_to(global_position)
+	if _tomb:
+		d = minf(d, at.distance_to(_tomb.global_position))
+	return d
+
+
+## The pillar burns warmer and wider as you are raised, the stone lights up
+## and motes stream in; walking away lets it all settle back.
+func _grave_look(near: bool, dt: float) -> void:
+	if _grave_mat == null or _tomb == null:
+		return
+	var k := clampf(_revive / REVIVE_NEED, 0.0, 1.0)
+	var warm := 1.0 if near else k
+	_grave_mat.set_shader_parameter("color", GRAVE_CALM.lerp(GRAVE_WARM, warm))
+	if _tomb.position.y > -0.05:
+		_grave_in = move_toward(_grave_in, 1.0, dt * 1.2)
+	_grave_mat.set_shader_parameter("strength", _grave_in * (1.0 + (0.6 if near else 0.0) + 1.6 * k))
+	_grave_light.light_color = GRAVE_CALM.lerp(GRAVE_WARM, warm)
+	var pool := _grave_pool.material_override as ShaderMaterial
+	pool.set_shader_parameter("color", GRAVE_CALM.lerp(GRAVE_WARM, warm))
+	pool.set_shader_parameter("strength", _grave_in * (0.6 + (0.3 if near else 0.0) + 0.6 * k))
+	var want := _grave_in * (1.5 + (1.5 if near else 0.0) + 3.0 * k)
+	_grave_light.light_energy = lerpf(_grave_light.light_energy, want, minf(1.0, 6.0 * dt))
+	_grave_motes.emitting = near
+	_grave_motes.speed_scale = 1.0 + 1.5 * k
 
 
 func revive_progress(amount: float) -> void:
@@ -1237,6 +1319,14 @@ func revive(frac: float) -> void:
 	if _tomb:
 		var tomb := _tomb
 		_tomb = null
+		if _grave_mat:
+			# One last flare up the pillar as you stand, then it goes out.
+			Fx.light_pop(tomb.global_position, GRAVE_WARM, 4.0, 8.0, 0.6)
+			var fl := tomb.create_tween()
+			fl.tween_property(_grave_mat, "shader_parameter/strength", 5.0, 0.12)
+			fl.tween_property(_grave_mat, "shader_parameter/strength", 0.0, 0.45)
+			_grave_motes.emitting = false
+			_grave_mat = null
 		var tw := tomb.create_tween()
 		tw.tween_property(tomb, "position:y", -1.3, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.tween_callback(tomb.queue_free)

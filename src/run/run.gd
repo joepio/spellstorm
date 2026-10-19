@@ -14,7 +14,10 @@ const PORTAL_R := 1.7
 ## Everyone stands in the portal's ring this long to go on.
 const PORTAL_TIME := 1.2
 ## Metres along the path between the packs that come at you on the way.
-const WAVE_GAP := 34.0
+const WAVE_GAP := 30.0
+## How far in the first pack waits: a little further on the very first level.
+const FIRST_WAVE := 8.0
+const FIRST_CALM := 22.0
 
 var biome_index := 0
 var state := "fight"   # fight, cleared, travel, dead, won
@@ -51,8 +54,9 @@ func start(s: int) -> void:
 	rng.seed = s
 	biome_index = 0
 	kills = 0
+	# A roguelite: the tomes you found stay with you into the next run, even
+	# after dying (Joep). Only new players start without any.
 	for w in Game.I.wizards:
-		w.reset_relics()
 		for m in w.get_meta_list():
 			if String(m).begins_with("took_"):
 				w.remove_meta(m)
@@ -80,21 +84,28 @@ func enter_level() -> void:
 		w.push = Vector3.ZERO
 		w.aim_dir = Vector3.FORWARD
 		i += 1
-	# Packs along the way, every WAVE_GAP metres from a few steps in; the two
-	# clearings' packs where they are; the boss at the arena's edge.
+	# Packs along the way, evenly spread between the clearings so no stretch
+	# of path stays empty for long; the two clearings' packs where they are;
+	# the boss at the arena's edge. The first level starts quiet for a bit,
+	# to learn the controls (Joep).
 	var guards: Array = []
 	for k in 2:
 		guards.append({at = arena.clearing_at[k] - arena.clearings[k].z * 0.6, kind = "guard", shrine = k})
 	var boss_at: float = arena.clearing_at[2] - arena.clearings[2].z * 0.8
-	var at_run := 8.0
-	while at_run < boss_at - 12.0:
-		var near_guard := false
-		for g in guards:
-			if absf(g.at - at_run) < 12.0:
-				near_guard = true
-		if not near_guard:
-			encounters.append({at = at_run, kind = "wave"})
-		at_run += WAVE_GAP * rng.randf_range(0.85, 1.15)
+	var first := FIRST_CALM if biome_index == 0 else FIRST_WAVE
+	var stops: Array = [first]
+	for g in guards:
+		if g.at > first + 12.0:
+			stops.append(g.at)
+	stops.append(boss_at)
+	encounters.append({at = first, kind = "wave"})
+	for j in stops.size() - 1:
+		var a: float = stops[j]
+		var b: float = stops[j + 1]
+		var n := maxi(0, ceili((b - a) / WAVE_GAP) - 1)
+		for m in n:
+			var t := (m + 1.0 + rng.randf_range(-0.15, 0.15)) / (n + 1.0)
+			encounters.append({at = lerpf(a, b, t), kind = "wave"})
 	encounters.append_array(guards)
 	encounters.append({at = boss_at, kind = "boss"})
 	encounters.sort_custom(func(a, b): return a.at < b.at)

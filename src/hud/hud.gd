@@ -167,6 +167,9 @@ var _death_black: ColorRect
 var _death_grow: Tween
 
 
+const DEATH_WORDS := ["YOU DONE GOOFED", "RIP IN PEACE", "YOU DIED TO DEATH", "MISSION FAILED\nWE'LL GET 'EM NEXT TIME"]
+
+
 func you_died() -> void:
 	# Its own black, over everything the HUD draws too.
 	if _death_black == null:
@@ -180,9 +183,8 @@ func you_died() -> void:
 	_death_black.create_tween().tween_property(_death_black, "modulate:a", 1.0, 1.4)
 	if _death == null:
 		_death = Label.new()
-		_death.text = "YOU DIED"
 		_death.add_theme_font_override("font", Art.title_font())
-		_death.add_theme_font_size_override("font_size", 170)
+		_death.add_theme_font_size_override("font_size", 140)
 		_death.add_theme_color_override("font_color", Color(0.62, 0.04, 0.03))
 		_death.add_theme_constant_override("outline_size", 0)
 		_death.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -191,6 +193,9 @@ func you_died() -> void:
 		_death.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_death)
 	move_child(_death, -1)
+	# Never a plain "you died" (Joep): one of these, a different one each time.
+	_death.text = DEATH_WORDS[randi() % DEATH_WORDS.size()]
+	_death.add_theme_font_size_override("font_size", 140 if _death.text.length() < 20 else 100)
 	_death.modulate.a = 0.0
 	_death.pivot_offset = get_viewport().get_visible_rect().size * 0.5
 	_death.scale = Vector2.ONE * 0.94

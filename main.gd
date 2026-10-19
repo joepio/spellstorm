@@ -6,6 +6,7 @@ extends Node3D
 ## Command line (after `--`):
 ##   --shot out.png   render one frame after --frames N and quit
 ##   --die STYLE [--revive]  kill every wizard that way just before the shot
+##   --grave N [--alone]    kill the first wizard N frames before the shot
 ##   --demo           bots play every seat (default for --shot)
 ##   --players N      how many wizards in standalone or demo (default 3)
 ##   --biome N --at M (start M metres along the level) --seed N --recipe N (bots always cast recipe N)
@@ -695,6 +696,15 @@ func _take_shot() -> void:
 				w.last_dir = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
 				w.invuln = 0.0
 				w.take(w.hp + (40.0 if how == "gore" else 1.0))
+		# --grave N kills the first wizard N frames before the shot: for
+		# checking the grave's pillar and its raising.
+		if "--grave" in args and f == shot_frames - int(args[args.find("--grave") + 1]):
+			wizards[0].invuln = 0.0
+			wizards[0].take(wizards[0].hp + 1.0)
+			# --alone: the others stand stunned, so nobody comes to raise them.
+			if "--alone" in args:
+				for w in wizards.slice(1):
+					w.stun = 99.0
 		if how != "" and "--revive" in args and f == shot_frames - 25:
 			for w in wizards:
 				w.revive(1.0)
