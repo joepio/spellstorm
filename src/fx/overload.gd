@@ -72,7 +72,10 @@ func _ready() -> void:
 		El.FROST:
 			_field = Game.I.arena.add_field(target, El.FROST, 5.5, 9.0, caster)
 			_field.spell = {counts = {El.FROST: 3}, payload = [], primary = El.FROST, n = {rate = 0.8}}
-			var snow := Fx.particles(Color(0.9, 0.95, 1.0), 220, 2.0, 0.25)
+			var snow := Fx.particles(Color(0.9, 0.95, 1.0), 260, 2.0, 0.25)
+			# Fine driven snow that catches the light, not glowing blobs.
+			snow.mesh = Parts._quad(0.11, "puff", false)
+			snow.color_ramp = Fx.ramp(Color(0.85, 0.9, 0.95))
 			snow.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 			snow.emission_box_extents = Vector3(5.5, 0.2, 5.5)
 			snow.position = Vector3.UP * 6.0

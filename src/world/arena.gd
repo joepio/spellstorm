@@ -12,28 +12,28 @@ var half := Vector2(34.0, 105.0)
 const LEVEL_HALF := Vector2(34.0, 105.0)
 
 const BIOMES := [
-	{id = "chapel", zones = [["grave", "grave", "grave", "dead_tree", "rock", "urn", "coffin"], ["grave", "candles", "dead_tree", "bones", "urn", "oil_jar", "statue"], ["dead_tree", "dead_tree", "rock", "grave", "coffin", "oil_jar"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
+	{id = "chapel", moss = 0.6, zones = [["grave", "grave", "grave", "dead_tree", "rock", "urn", "coffin"], ["grave", "candles", "dead_tree", "bones", "urn", "oil_jar", "statue"], ["dead_tree", "dead_tree", "rock", "grave", "coffin", "oil_jar"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2, bone_archer = 2, necromancer = 1}, boss = "gravekeeper", fields = [],
 		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave",
 		corridor = true, outside = ["dead_tree", "dead_tree", "dead_tree", "grave", "rock"]},
-	{id = "catacombs", zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
+	{id = "catacombs", moss = 0.25, zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1, bone_archer = 2, necromancer = 1, shieldbearer = 2}, boss = "abbot", fields = [],
 		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave"},
-	{id = "isles", zones = [["reeds", "reeds", "rock", "dead_tree"], ["reeds", "reeds", "lantern", "rock"], ["dead_tree", "dead_tree", "reeds", "rock"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
+	{id = "isles", moss = 0.7, zones = [["reeds", "reeds", "rock", "dead_tree"], ["reeds", "reeds", "lantern", "rock"], ["dead_tree", "dead_tree", "reeds", "rock"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
 		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4,
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 1, bile = 1, wraith = 1, toad = 3, sprite = 3}, boss = "drowned_king", fields = [],
 		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true},
-	{id = "caves", zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
+	{id = "caves", moss = 0.5, moss_c = Color(0.08, 0.18, 0.16), zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
 		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.2, 0.34, 0.38), moon = Color(0.35, 0.62, 0.66), moon_energy = 0.3,
 		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 2, bile = 2, ghoul = 2, lurker = 3, toad = 1, sprite = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
 		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16)},
-	{id = "keep", zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
+	{id = "keep", moss = 0.7, moss_c = Color(0.85, 0.9, 0.95), zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
 		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3,
 		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1, shieldbearer = 2, necromancer = 1, bone_archer = 2}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
 		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave"},
-	{id = "pit", zones = [["basalt", "basalt", "bones"], ["brazier", "basalt", "bones"], ["basalt", "basalt", "brazier", "bones"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
+	{id = "pit", moss = 0.5, moss_c = Color(0.05, 0.03, 0.03), zones = [["basalt", "basalt", "bones"], ["brazier", "basalt", "bones"], ["basalt", "basalt", "brazier", "bones"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
 		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2,
 		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1, hellhound = 2, lurker = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
 		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04)},
@@ -479,8 +479,8 @@ func _band_walls() -> void:
 	body.collision_layer = 1
 	add_child(body)
 	var tools := {}
-	var lit := Fx.solid(biome.wall, 0.95)
-	var dark := Fx.solid(biome.wall.darkened(0.3), 0.95)
+	var lit := Art.stone(biome.wall, biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
+	var dark := Art.stone(biome.wall.darkened(0.3), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	var last_torch: Array[Vector2] = []
 	for chain: Array in chains:
 		if chain.size() < 2:
@@ -737,7 +737,7 @@ var _next_lamp := 3.0
 ## Dress one straight span of the path, [param run] metres along it.
 func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
 	var wood := Fx.solid(Color(0.2, 0.14, 0.09))
-	var stone := Fx.solid(biome.wall.darkened(0.1), 0.95)
+	var stone := Art.stone(biome.wall.darkened(0.1), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	var built: bool = biome.get("layout", "") == "nave"
 	var len := a.distance_to(b)
 	var dir := (b - a) / len
@@ -774,18 +774,26 @@ func _dress_span(a: Vector2, b: Vector2, run: float) -> void:
 		t += 0.25
 
 
-## A post with a hanging lantern beside the path.
+## A post with a hanging lantern beside the path: wrought iron, a caged
+## flame behind smoky amber glass.
 func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 	var n := Node3D.new()
 	n.position = Vector3(at.x, 0, at.y)
 	# The arm reaches out over the path.
 	if toward != Vector2.ZERO:
 		n.rotation.y = atan2(-toward.y, toward.x)
+	else:
+		n.rotation.y = _rng.randf() * TAU
 	add_child(n)
-	var iron := Fx.solid(Color(0.12, 0.11, 0.1), 0.6)
-	Art.part(n, Art.cyl(0.05, 0.07, 1.8, 6), iron, Vector3(0, 0.9, 0))
-	Art.part(n, Art.box(0.5, 0.05, 0.05), iron, Vector3(0.22, 1.78, 0))
-	Art.part(n, Art.box(0.18, 0.24, 0.18), Fx.glow(Color(1.0, 0.75, 0.4), 3.0), Vector3(0.42, 1.6, 0))
+	var kit := _lamp_kit()
+	Art.part(n, kit.iron, _iron())
+	var glass := Art.part(n, kit.glass, kit.glass_mat)
+	glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var flame := Art.part(n, kit.flame, Fx.glow(Color(1.0, 0.72, 0.4), 5.0))
+	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var halo := Fx.halo(Color(1.0, 0.6, 0.28), 0.8, 0.75)
+	halo.position = Vector3(0.42, 1.53, 0)
+	n.add_child(halo)
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.7, 0.4)
 	l.light_energy = 1.4
@@ -798,7 +806,7 @@ func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 
 ## An open archway in the back wall where the path leads out.
 func _gate() -> void:
-	var stone := Fx.solid(biome.wall.lightened(0.05), 0.95)
+	var stone := Art.stone(biome.wall.lightened(0.05), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	var z := -half.y - 0.6
 	for sgn: float in [-1.0, 1.0]:
 		Art.part(self, Art.box(0.9, 4.2, 1.5), stone, Vector3(sgn * 1.7, 2.1, z))
@@ -913,8 +921,8 @@ func _floor() -> void:
 
 
 func _walls() -> void:
-	var mat := Fx.solid(biome.wall, 0.95)
-	var dark := Fx.solid(biome.wall.darkened(0.35), 0.95)
+	var mat := Art.stone(biome.wall, biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
+	var dark := Art.stone(biome.wall.darkened(0.35), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	# Back and sides are tall; the wall nearest the camera is low so it never
 	# hides a wizard. Out on the water the sides are a low, broken sea wall.
 	var low: bool = biome.get("low_walls", false)
@@ -1058,6 +1066,17 @@ func _crowded(p: Vector3, clear: float) -> bool:
 
 ## A prop of [param kind] at a free spot, or at [param at] facing
 ## [param yaw] when a layout places it.
+static var _boulders: Array[Mesh] = []
+
+
+## One of a few lumpy boulders, shared: rocks used to be six-sided spheres.
+static func _boulder(i: int) -> Mesh:
+	while _boulders.size() < 6:
+		var k := _boulders.size()
+		_boulders.append(Shape.blob(Vector3(1.0, 0.6, 0.85), 0.2, k * 3.7 + 1.0, 9, 14))
+	return _boulders[i]
+
+
 func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 	var p := at if at != Vector3.INF else _free_spot(2.6)
 	if p == Vector3.INF:
@@ -1072,7 +1091,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 	body.rotation.y = yaw if yaw != INF else _rng.randf() * TAU
 	add_child(body)
 	var r := 0.4
-	var stone := Fx.solid(biome.wall.lightened(0.1), 0.95)
+	var stone := Art.stone(biome.wall.lightened(0.1), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	match kind:
 		"grave":
 			var g := Art.tombstone()
@@ -1081,20 +1100,26 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			body.add_child(g)
 			r = 0.4
 		"dead_tree":
-			var bark := Fx.solid(Color(0.13, 0.1, 0.08))
-			Art.part(body, Art.cyl(0.1, 0.22, 2.6, 7), bark, Vector3(0, 1.3, 0), Vector3(_rng.randf_range(-6, 6), 0, _rng.randf_range(-6, 6)))
-			for i in 4:
-				Art.part(body, Art.cyl(0.02, 0.08, 1.3, 5), bark, Vector3(0, 1.6 + i * 0.3, 0), Vector3(_rng.randf_range(35, 65), i * 95.0, 0)).translate_object_local(Vector3(0, 0.6, 0))
+			var tree := _tree_kit(_rng.randi() % 5)
+			var ts := _rng.randf_range(0.85, 1.15)
+			_put(body, tree[0], _bark(), ts)
+			_put(body, tree[1], _bark(), ts)
 			r = 0.35
 		"rock":
-			Art.part(body, Art.sphere(0.8, 6), stone, Vector3(0, 0.3, 0), Vector3(_rng.randf() * 40, 0, 0), Vector3(1.2, 0.7, 1.0))
+			Art.part(body, _boulder(_rng.randi() % 6), stone, Vector3(0, 0.25, 0), Vector3(_rng.randf() * 30, 0, 0), Vector3.ONE * _rng.randf_range(0.85, 1.15))
 			r = 0.8
 		"candles":
-			for i in 5:
-				var cp := Vector3(_rng.randf_range(-0.5, 0.5), 0, _rng.randf_range(-0.5, 0.5))
-				var h := _rng.randf_range(0.15, 0.45)
-				Art.part(body, Art.cyl(0.04, 0.04, h, 6), Fx.solid(Color(0.85, 0.8, 0.65)), cp + Vector3(0, h * 0.5, 0))
-				Art.part(body, Art.sphere(0.03, 4), Fx.glow(Color(1, 0.7, 0.3), 5.0), cp + Vector3(0, h + 0.04, 0))
+			var ck := _candle_kit(_rng.randi() % 4)
+			if ck.has("slab"):
+				Art.part(body, ck.slab, Art.stone(biome.wall.darkened(0.25), biome.get("moss", 0.0) * 0.5, biome.get("moss_c", Color(0.12, 0.16, 0.08))))
+			Art.part(body, ck.wax, Shape.material(Color(0.5, 0.43, 0.32), Color(0.4, 0.33, 0.23), 6.0, 0.5, 0.25, 0.0, 51))
+			Art.part(body, ck.wick, Fx.solid(Color(0.04, 0.03, 0.03)))
+			var fm := Art.part(body, ck.flame, Fx.glow(Color(1.0, 0.62, 0.28), 4.0))
+			fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			for tp: Vector3 in ck.tops:
+				var hl := Fx.halo(Color(1.0, 0.55, 0.22), 0.2, 0.55)
+				hl.position = tp
+				body.add_child(hl)
 			var l := OmniLight3D.new()
 			l.light_color = Color(1.0, 0.65, 0.35)
 			l.light_energy = 0.9
@@ -1105,35 +1130,44 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			body.collision_layer = 0
 			return body
 		"pillar":
-			Art.part(body, Art.cyl(0.45, 0.45, 3.2, 8), stone, Vector3(0, 1.6, 0))
+			Art.part(body, Art.cyl(0.45, 0.45, 3.2, 18), stone, Vector3(0, 1.6, 0))
 			Art.part(body, Art.box(1.1, 0.3, 1.1), stone, Vector3(0, 0.15, 0))
 			Art.part(body, Art.box(1.1, 0.3, 1.1), stone, Vector3(0, 3.1, 0))
 			r = 0.55
 		"bones":
-			var bone := Fx.solid(Color(0.75, 0.72, 0.62))
-			for i in 6:
-				Art.part(body, Art.cyl(0.03, 0.03, 0.5, 5), bone, Vector3(_rng.randf_range(-0.4, 0.4), 0.04, _rng.randf_range(-0.4, 0.4)), Vector3(90, _rng.randf() * 180, 0))
-			Art.part(body, Art.sphere(0.12, 6), bone, Vector3(0.1, 0.1, 0.1))
+			var bk := _bones_kit(_rng.randi() % 6)
+			Art.part(body, bk[0], Shape.material(Color(0.46, 0.42, 0.34), Color(0.25, 0.21, 0.15), 5.0, 0.75, 0.6, 0.0, 41))
+			if bk[1] != null:
+				Art.part(body, bk[1], Fx.solid(Color(0.025, 0.02, 0.018)))
 			body.collision_layer = 0
 			return body
 		"sarcophagus":
-			Art.part(body, Art.box(1.0, 0.8, 2.2), stone, Vector3(0, 0.4, 0))
-			Art.part(body, Art.box(1.1, 0.15, 2.3), stone.duplicate(), Vector3(0, 0.85, 0))
+			Art.part(body, Art.box(1.15, 0.12, 2.35), stone, Vector3(0, 0.06, 0))
+			Art.part(body, Art.box(1.0, 0.7, 2.2), stone, Vector3(0, 0.45, 0))
+			Art.part(body, Art.box(1.12, 0.1, 2.32), stone, Vector3(0, 0.85, 0))
+			Art.part(body, Art.box(0.98, 0.07, 2.16), stone, Vector3(0, 0.935, 0))
+			var eff := _effigy()
+			Art.part(body, eff[0], stone, eff[1] + Vector3(0, 0.97, 0))
 			r = 0.9
 		"stalagmite":
-			var h2 := _rng.randf_range(1.2, 2.8)
-			Art.part(body, Art.cyl(0.0, 0.5, h2, 6), stone, Vector3(0, h2 * 0.5, 0))
-			Art.part(body, Art.cyl(0.0, 0.3, h2 * 0.6, 6), stone, Vector3(0.45, h2 * 0.3, 0.2))
+			var sk := _stalag_kit(_rng.randi() % 4)
+			var ss := _rng.randf_range(0.85, 1.15)
+			_put(body, sk[0], stone, ss)
+			_put(body, sk[1], stone, ss)
 			r = 0.55
 		"mushroom":
-			var c := Color(0.2, 0.9, 0.75) if _rng.randf() < 0.5 else Color(0.6, 0.35, 1.0)
-			for i in 3:
-				var mp := Vector3(_rng.randf_range(-0.4, 0.4), 0, _rng.randf_range(-0.4, 0.4))
-				var mh := _rng.randf_range(0.2, 0.6)
-				Art.part(body, Art.cyl(0.04, 0.06, mh, 6), Fx.solid(Color(0.7, 0.7, 0.6)), mp + Vector3(0, mh * 0.5, 0))
-				Art.part(body, Art.sphere(0.18, 8), Fx.glow(c, 1.5), mp + Vector3(0, mh, 0), Vector3.ZERO, Vector3(1, 0.45, 1))
+			var c := Color(0.2, 0.52, 0.48) if _rng.randf() < 0.5 else Color(0.42, 0.3, 0.58)
+			var mk := _shroom_kit(_rng.randi() % 4)
+			Art.part(body, mk[0], Shape.material(Color(0.4, 0.38, 0.33), Color(0.2, 0.19, 0.16), 6.0, 0.8, 0.4, 0.0, 121))
+			var capm: StandardMaterial3D = _cached("mcap" + c.to_html(), func() -> StandardMaterial3D:
+				var m: StandardMaterial3D = Shape.material(Color(0.3, 0.28, 0.25).lerp(c, 0.3), Color(0.14, 0.13, 0.12).lerp(c, 0.2), 5.0, 0.6, 0.6, 0.0, 122).duplicate()
+				m.emission_enabled = true
+				m.emission = c
+				m.emission_energy_multiplier = 0.35
+				return m)
+			Art.part(body, mk[1], capm)
 			var l2 := OmniLight3D.new()
-			l2.light_color = c
+			l2.light_color = c.lightened(0.2)
 			l2.light_energy = 0.8
 			l2.omni_range = 3.5
 			l2.position.y = 0.6
@@ -1141,24 +1175,21 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			body.collision_layer = 0
 			return body
 		"ice":
-			var m := StandardMaterial3D.new()
-			m.albedo_color = Color(0.6, 0.85, 1.0, 0.75)
-			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			m.roughness = 0.05
-			m.emission_enabled = true
-			m.emission = Color(0.2, 0.4, 0.6)
-			for i in 4:
-				var ih := _rng.randf_range(0.8, 2.2)
-				Art.part(body, Art.cyl(0.0, 0.25, ih, 5), m, Vector3(_rng.randf_range(-0.3, 0.3), ih * 0.4, _rng.randf_range(-0.3, 0.3)), Vector3(_rng.randf_range(-25, 25), 0, _rng.randf_range(-25, 25)))
+			var n := _rng.randi_range(4, 6)
+			for i in n:
+				var ih := _rng.randf_range(0.6, 1.8) * (1.0 if i > 0 else 1.2)
+				var a := TAU * i / n + _rng.randf_range(-0.4, 0.4)
+				var off := Vector3(cos(a), 0, sin(a)) * (0.0 if i == 0 else _rng.randf_range(0.15, 0.35))
+				# Leaning out from the middle of the cluster.
+				var tilt := Basis(Vector3(-sin(a), 0, cos(a)), 0.0 if i == 0 else _rng.randf_range(0.15, 0.4))
+				var w := _rng.randf_range(0.8, 1.2) * (1.3 if i == 0 else 1.0)
+				var sm := Art.part(body, _shard(_rng.randi() % 6), _ice_mat(), off)
+				sm.transform.basis = tilt * Basis.from_scale(Vector3(w, ih, w))
 			r = 0.5
 		"reeds":
-			var reed := Fx.solid(Color(0.35, 0.4, 0.2))
-			for i in 9:
-				var rp := Vector3(_rng.randf_range(-0.6, 0.6), 0, _rng.randf_range(-0.6, 0.6))
-				var rh := _rng.randf_range(0.6, 1.4)
-				Art.part(body, Art.cyl(0.0, 0.03, rh, 4), reed, rp + Vector3(0, rh * 0.5, 0), Vector3(_rng.randf_range(-12, 12), 0, _rng.randf_range(-12, 12)))
-				if i % 3 == 0:
-					Art.part(body, Art.cyl(0.04, 0.04, 0.22, 5), Fx.solid(Color(0.3, 0.18, 0.1)), rp + Vector3(0, rh * 0.8, 0))
+			var rk := _reed_kit(_rng.randi() % 4)
+			Art.part(body, rk[0], Shape.material(Color(0.27, 0.29, 0.15), Color(0.12, 0.13, 0.07), 6.0, 0.85, 0.4, 0.0, 111))
+			Art.part(body, rk[1], Shape.material(Color(0.22, 0.14, 0.08), Color(0.1, 0.06, 0.04), 8.0, 0.9, 0.6, 0.0, 112))
 			body.collision_layer = 0
 			return body
 		"lantern":
@@ -1166,14 +1197,21 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			_lamp(Vector2(p.x, p.z))
 			return null
 		"basalt":
-			var bm := Fx.solid(Color(0.09, 0.07, 0.07), 0.8)
-			for i in 3:
-				var bh := _rng.randf_range(0.8, 2.4)
-				Art.part(body, Art.cyl(0.3, 0.32, bh, 6), bm, Vector3(_rng.randf_range(-0.35, 0.35), bh * 0.5, _rng.randf_range(-0.35, 0.35)))
+			var bm := Shape.material(Color(0.13, 0.12, 0.12), Color(0.045, 0.04, 0.04), 2.5, 0.7, 1.1, 0.0, 101)
+			var cols := _rng.randi_range(3, 5)
+			for i in cols:
+				# Packed six-sided columns, as lava cracks when it cools.
+				var bh := _rng.randf_range(0.6, 2.4)
+				var off2 := Vector3.ZERO if i == 0 else Vector3(cos(TAU * i / 6.0 + PI / 6.0), 0, sin(TAU * i / 6.0 + PI / 6.0)) * 0.5
+				var br := _rng.randf_range(0.24, 0.29)
+				Art.part(body, Art.cyl(br, br * 1.05, bh, 6), bm, off2 + Vector3(0, bh * 0.5, 0), Vector3(_rng.randf_range(-4, 4), 0, _rng.randf_range(-4, 4)))
 			r = 0.6
 		"brazier":
-			Art.part(body, Art.cyl(0.1, 0.25, 0.9, 8), Fx.solid(Color(0.2, 0.18, 0.16), 0.5), Vector3(0, 0.45, 0))
-			Art.part(body, Art.cyl(0.45, 0.25, 0.3, 10), Fx.solid(Color(0.25, 0.2, 0.18), 0.5), Vector3(0, 1.0, 0))
+			var bz := _brazier_kit()
+			_put(body, bz[0], bz[4])
+			_put(body, bz[1], bz[4])
+			_put(body, bz[2], Shape.material(Color(0.07, 0.05, 0.045), Color(0.02, 0.015, 0.015), 6.0, 0.9, 0.8, 0.0, 34))
+			_put(body, bz[3], Fx.glow(Color(1.0, 0.38, 0.1), 2.5))
 			var fl := Fx.particles(Color(1.0, 0.45, 0.1), 30, 0.7, 0.5)
 			fl.direction = Vector3.UP
 			fl.gravity = Vector3.UP * 2.5
@@ -1192,27 +1230,32 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			r = 0.5
 		"urn":
 			# A clay urn with a faint blue light in its mouth: mana inside.
-			var clay := Fx.solid(Color(0.42, 0.26, 0.17), 0.9)
-			Art.part(body, Art.cyl(0.2, 0.15, 0.45, 9), clay, Vector3(0, 0.22, 0))
-			Art.part(body, Art.cyl(0.12, 0.2, 0.18, 9), clay, Vector3(0, 0.52, 0))
-			Art.part(body, Art.cyl(0.08, 0.08, 0.02, 8), Fx.glow(Soul.COLOR, 2.0), Vector3(0, 0.62, 0))
+			var uk := _urn_kit(_rng.randi() % 3, false)
+			var clay := Shape.material(Color(0.36, 0.23, 0.15), Color(0.15, 0.1, 0.07), 3.0, 0.9, 0.5, 0.0, 61)
+			for pc: Array in uk.pieces:
+				_put(body, pc, clay)
+			Art.part(body, uk.band, Shape.material(Color(0.12, 0.08, 0.06), Color(0.06, 0.04, 0.03), 4.0, 0.9, 0.4, 0.0, 62))
+			# Sunk a little inside the neck, so it wells up out of the urn.
+			Art.part(body, Art.cyl(uk.mouth_r * 0.85, uk.mouth_r * 0.85, 0.02, 10), Fx.glow(Soul.COLOR, 1.4), Vector3(0, uk.mouth - 0.07, 0))
+			var mana := Fx.halo(Soul.COLOR, 0.7, 0.5, 0.3)
+			mana.position.y = uk.mouth + 0.02
+			body.add_child(mana)
 			body.spill = "souls"
 			r = 0.3
 		"oil_jar":
 			# A powder keg: an orange-painted barrel with dark hoops and a
 			# lit fuse spitting sparks. Breaking it blows up (Prop._spill).
-			var stave := Fx.solid(Color(0.85, 0.38, 0.07), 0.7)
-			var hoop := Fx.solid(Color(0.12, 0.1, 0.09), 0.4)
-			Art.part(body, Art.cyl(0.26, 0.24, 0.3, 12), stave, Vector3(0, 0.15, 0))
-			Art.part(body, Art.cyl(0.24, 0.27, 0.3, 12), stave, Vector3(0, 0.45, 0))
-			for hy: float in [0.06, 0.3, 0.56]:
-				Art.part(body, Art.cyl(0.275, 0.275, 0.05, 12), hoop, Vector3(0, hy, 0))
-			Art.part(body, Art.cyl(0.24, 0.24, 0.02, 12), Fx.solid(Color(0.3, 0.18, 0.08), 0.8), Vector3(0, 0.61, 0))
+			var kk := _keg_kit()
+			var paint := _grain("keg", Color(0.66, 0.3, 0.08), Color(0.25, 0.11, 0.04), Vector3(16, 1.8, 16), 0.8, 1.0, 81)
+			_put(body, kk[0], paint)
+			_put(body, kk[1], paint)
+			_put(body, kk[2], _iron())
+			_put(body, kk[3], _grain("kegtop", Color(0.24, 0.15, 0.08), Color(0.1, 0.06, 0.03), Vector3(14, 14, 1.8), 0.9, 0.9, 82))
 			# A black blast mark painted on the side.
-			Art.part(body, Art.sphere(0.09, 8), Fx.solid(Color(0.08, 0.06, 0.05), 0.6), Vector3(0, 0.32, 0.25), Vector3.ZERO, Vector3(1, 1, 0.25))
-			Art.part(body, Art.cyl(0.012, 0.012, 0.16, 5), Fx.solid(Color(0.75, 0.7, 0.55), 0.9), Vector3(0.06, 0.69, 0), Vector3(0, 0, -20))
+			Art.part(body, Art.sphere(0.09, 8), Fx.solid(Color(0.07, 0.05, 0.04), 0.8), Vector3(0, 0.32, 0.25), Vector3.ZERO, Vector3(1, 1, 0.25))
+			Art.part(body, Art.cyl(0.012, 0.012, 0.16, 5), Fx.solid(Color(0.5, 0.45, 0.35), 0.9), Vector3(0.06, 0.66, 0), Vector3(0, 0, -20))
 			var spark := Fx.particles(Color(1.0, 0.7, 0.2), 10, 0.3, 0.07)
-			spark.position = Vector3(0.09, 0.77, 0)
+			spark.position = Vector3(0.09, 0.74, 0)
 			spark.direction = Vector3.UP
 			spark.spread = 60.0
 			spark.initial_velocity_min = 0.6
@@ -1221,43 +1264,60 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			body.add_child(spark)
 			spark.emitting = true
 			var glow := Fx.halo(Color(1.0, 0.55, 0.15), 0.6, 0.9, 1.0)
-			glow.position = Vector3(0.09, 0.77, 0)
+			glow.position = Vector3(0.09, 0.74, 0)
 			body.add_child(glow)
 			body.spill = "fire"
 			r = 0.35
 		"blood_urn":
 			# A dark jar brimming with blood, glowing red: break it and drink.
-			var glaze := Fx.solid(Color(0.3, 0.05, 0.05), 0.4)
-			Art.part(body, Art.cyl(0.2, 0.15, 0.42, 10), glaze, Vector3(0, 0.21, 0))
-			Art.part(body, Art.cyl(0.13, 0.2, 0.14, 10), glaze, Vector3(0, 0.49, 0))
-			Art.part(body, Art.cyl(0.15, 0.13, 0.06, 10), Fx.solid(Color(0.75, 0.6, 0.3), 0.4), Vector3(0, 0.58, 0))
-			Art.part(body, Art.cyl(0.12, 0.12, 0.02, 10), Fx.glow(Globe.COLOR, 1.6), Vector3(0, 0.6, 0))
+			var bu := _urn_kit(_rng.randi() % 3, true)
+			var glaze := Shape.material(Color(0.26, 0.05, 0.04), Color(0.09, 0.02, 0.02), 3.0, 0.3, 0.35, 0.05, 71)
+			for pc: Array in bu.pieces:
+				_put(body, pc, glaze)
+			Art.part(body, bu.band, Shape.material(Color(0.42, 0.32, 0.18), Color(0.18, 0.13, 0.07), 4.0, 0.45, 0.5, 0.6, 72))
+			Art.part(body, Art.cyl(bu.mouth_r, bu.mouth_r, 0.02, 10), Fx.glow(Globe.COLOR, 1.2), Vector3(0, bu.mouth - 0.06, 0))
 			var bloom := Fx.halo(Globe.COLOR, 0.9, 0.6, 0.3)
-			bloom.position.y = 0.62
+			bloom.position.y = bu.mouth + 0.02
 			body.add_child(bloom)
 			body.spill = "blood"
 			r = 0.3
 		"coffin":
-			var wood := Fx.solid(Color(0.2, 0.13, 0.08), 0.85)
-			Art.part(body, Art.box(0.7, 0.4, 1.9), wood, Vector3(0, 0.2, 0))
-			Art.part(body, Art.box(0.76, 0.08, 1.96), Fx.solid(Color(0.15, 0.1, 0.06), 0.85), Vector3(0.06, 0.44, -0.05), Vector3(0, 6, 0))
+			var ck2 := _coffin_kit()
+			var wood := _grain("coffin", Color(0.2, 0.13, 0.08), Color(0.07, 0.045, 0.03), Vector3(7, 7, 1.2), 0.85, 0.8, 21)
+			Art.part(body, ck2.floor, wood)
+			var n2 := _COFFIN.size()
+			for i in n2:
+				# Six planks for sides, so it breaks into boards.
+				var a2: Vector2 = _COFFIN[i]
+				var b2: Vector2 = _COFFIN[(i + 1) % n2]
+				var mid := (a2 + b2) * 0.5
+				var e := b2 - a2
+				Art.part(body, Art.box(0.045, 0.36, e.length() + 0.03), wood, Vector3(mid.x - mid.normalized().x * 0.02, 0.21, mid.y - mid.normalized().y * 0.02), Vector3(0, rad_to_deg(atan2(e.x, e.y)), 0))
+			Art.part(body, ck2.hollow, Fx.solid(Color(0.02, 0.015, 0.012)))
+			Art.part(body, ck2.handles, _iron())
+			var lid_wood := _grain("coffinlid", Color(0.17, 0.11, 0.07), Color(0.06, 0.04, 0.025), Vector3(7, 7, 1.2), 0.85, 0.8, 22)
+			Art.part(body, ck2.lid, lid_wood, Vector3(0.09, 0.39, -0.14), Vector3(3, 9, -4))
 			body.spill = "globe"
 			r = 0.6
 		"statue":
 			# A weeping angel on a plinth.
-			var marble := Fx.solid(Color(0.46, 0.46, 0.48), 0.8)
-			Art.part(body, Art.box(1.0, 0.6, 1.0), stone, Vector3(0, 0.3, 0))
-			Art.part(body, Art.cyl(0.18, 0.34, 1.4, 8), marble, Vector3(0, 1.3, 0))
-			Art.part(body, Art.sphere(0.17, 8), marble, Vector3(0, 2.15, 0.04))
-			for sgn: float in [-1.0, 1.0]:
-				Art.part(body, Art.box(0.08, 1.1, 0.5), marble, Vector3(sgn * 0.3, 1.6, -0.22), Vector3(-15, sgn * 25, sgn * 18))
+			var marble := Shape.material(Color(0.33, 0.33, 0.31), Color(0.24, 0.24, 0.22), 4.0, 0.8, 0.7, 0.0, 131)
+			Art.part(body, Art.box(1.12, 0.14, 1.12), stone, Vector3(0, 0.07, 0))
+			Art.part(body, Art.box(0.96, 0.46, 0.96), stone, Vector3(0, 0.37, 0))
+			Art.part(body, Art.box(1.06, 0.1, 1.06), stone, Vector3(0, 0.65, 0))
+			for pc: Array in _angel_kit():
+				_put(body, pc, marble)
 			r = 0.55
 		"pew":
-			var oak := Fx.solid(Color(0.24, 0.15, 0.09), 0.8)
-			Art.part(body, Art.box(2.4, 0.08, 0.45), oak, Vector3(0, 0.45, 0))
-			Art.part(body, Art.box(2.4, 0.55, 0.07), oak, Vector3(0, 0.75, -0.22), Vector3(-8, 0, 0))
+			var oak := _grain("pew", Color(0.21, 0.13, 0.08), Color(0.07, 0.045, 0.03), Vector3(1.4, 14, 14), 0.75, 0.9, 91)
+			var oak_end := _grain("pewend", Color(0.18, 0.11, 0.07), Color(0.06, 0.04, 0.025), Vector3(14, 1.4, 14), 0.75, 0.9, 92)
+			Art.part(body, Art.box(2.3, 0.07, 0.42), oak, Vector3(0, 0.45, 0.02))
+			Art.part(body, Art.box(2.3, 0.5, 0.05), oak, Vector3(0, 0.77, -0.2), Vector3(-8, 0, 0))
+			Art.part(body, Art.box(2.3, 0.06, 0.08), oak, Vector3(0, 1.03, -0.24), Vector3(-8, 0, 0))
+			Art.part(body, Art.box(2.3, 0.12, 0.03), oak, Vector3(0, 0.33, 0.2))
 			for sgn: float in [-1.0, 1.0]:
-				Art.part(body, Art.box(0.08, 0.9, 0.5), oak, Vector3(sgn * 1.16, 0.45, -0.02))
+				Art.part(body, Art.box(0.08, 0.95, 0.5), oak_end, Vector3(sgn * 1.17, 0.475, -0.02))
+				Art.part(body, Art.box(0.1, 0.06, 0.54), oak_end, Vector3(sgn * 1.17, 0.97, -0.02))
 			r = 0.0
 	var cs := CollisionShape3D.new()
 	if kind == "pew":
@@ -1472,3 +1532,564 @@ func spawn_point(away_from: Array) -> Vector3:
 			best_d = d
 			best = p
 	return best
+
+
+# The props' meshes: built in code once, a few variants of each, shared by
+# every prop of that kind (a level places hundreds). Weathered materials,
+# shaded darker towards the floor, so they sit in the light and don't read
+# as painted toys.
+
+static var _kit := {}
+
+
+## [param make]'s result under [param key], made the first time it is asked.
+static func _cached(key: String, make: Callable) -> Variant:
+	if not _kit.has(key):
+		_kit[key] = make.call()
+	return _kit[key]
+
+
+## A noise material stretched along a grain: [param axis] is noise tiles per
+## metre in x, y and z, low along the grain (planks, staves, bark).
+static func _grain(key: String, base: Color, dark: Color, axis: Vector3, rough := 0.85, bump := 0.9, seed := 1) -> StandardMaterial3D:
+	return _cached("m" + key, func() -> StandardMaterial3D:
+		var m: StandardMaterial3D = Shape.material(base, dark, 1.0, rough, bump, 0.0, seed).duplicate()
+		m.uv1_scale = axis
+		return m)
+
+
+static func _iron() -> StandardMaterial3D:
+	return Shape.material(Color(0.15, 0.14, 0.13), Color(0.05, 0.045, 0.04), 5.0, 0.55, 0.8, 0.55, 31)
+
+
+static func _bark() -> StandardMaterial3D:
+	return _grain("bark", Color(0.19, 0.16, 0.13), Color(0.06, 0.05, 0.045), Vector3(9, 1.6, 9), 0.95, 1.6, 11)
+
+
+static func _moved(mesh: ArrayMesh, xf: Transform3D) -> ArrayMesh:
+	return Shape.warp(mesh, func(p: Vector3) -> Vector3: return xf * p)
+
+
+static func _at(mesh: ArrayMesh, off: Vector3) -> ArrayMesh:
+	return Shape.warp(mesh, func(p: Vector3) -> Vector3: return p + off)
+
+
+## Puts a [Shape.centered] piece back where it was made, scaled by
+## [param scl]: as debris it tumbles round its own middle.
+static func _put(parent: Node3D, piece: Array, mat: Material, scl := 1.0) -> MeshInstance3D:
+	return Art.part(parent, piece[0], mat, (piece[1] as Vector3) * scl, Vector3.ZERO, Vector3.ONE * scl)
+
+
+## A point [param t] (0 to 1) of the way along the polyline [param pts].
+static func _along(pts: PackedVector3Array, t: float) -> Vector3:
+	var f := clampf(t, 0.0, 1.0) * (pts.size() - 1)
+	var i := mini(int(f), pts.size() - 2)
+	return pts[i].lerp(pts[i + 1], f - i)
+
+
+## Flat-shaded triangles of a convex solid round [param mid], turned to face
+## outwards: cut stone, crystal, planks.
+static func _faceted(tris: PackedVector3Array, mid: Vector3) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
+	for i in range(0, tris.size(), 3):
+		var a := tris[i]
+		var b := tris[i + 1]
+		var c := tris[i + 2]
+		if (c - a).cross(b - a).dot((a + b + c) / 3.0 - mid) < 0.0:
+			var t := b
+			b = c
+			c = t
+		st.add_vertex(a)
+		st.add_vertex(b)
+		st.add_vertex(c)
+	st.generate_normals()
+	return st.commit()
+
+
+## [param outline] (convex, in xz) stood up from [param y0] to [param y1],
+## its top edge chamfered [param bevel] in: a lid, a plank, a slab.
+static func _prism(outline: PackedVector2Array, y0: float, y1: float, bevel := 0.0) -> ArrayMesh:
+	var c := Vector2.ZERO
+	for p in outline:
+		c += p
+	c /= outline.size()
+	var n := outline.size()
+	var ym := y1 - bevel
+	var tris := PackedVector3Array()
+	for i in n:
+		var a := outline[i]
+		var b := outline[(i + 1) % n]
+		var qa := a + (c - a).normalized() * bevel
+		var qb := b + (c - b).normalized() * bevel
+		tris.append_array(PackedVector3Array([Vector3(c.x, y0, c.y), Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y)]))
+		tris.append_array(PackedVector3Array([Vector3(c.x, y1, c.y), Vector3(qa.x, y1, qa.y), Vector3(qb.x, y1, qb.y)]))
+		tris.append_array(PackedVector3Array([Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y), Vector3(b.x, ym, b.y)]))
+		tris.append_array(PackedVector3Array([Vector3(a.x, y0, a.y), Vector3(b.x, ym, b.y), Vector3(a.x, ym, a.y)]))
+		if bevel > 0.0:
+			tris.append_array(PackedVector3Array([Vector3(a.x, ym, a.y), Vector3(b.x, ym, b.y), Vector3(qb.x, y1, qb.y)]))
+			tris.append_array(PackedVector3Array([Vector3(a.x, ym, a.y), Vector3(qb.x, y1, qb.y), Vector3(qa.x, y1, qa.y)]))
+	return _faceted(tris, Vector3(c.x, (y0 + y1) * 0.5, c.y))
+
+
+## A gnarled dead tree: [trunk and roots, branches], each centred.
+static func _tree_kit(i: int) -> Array:
+	return _cached("tree%d" % i, func() -> Array:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1009 + i * 77
+		var h := rng.randf_range(2.3, 3.2)
+		var lean := Vector3(rng.randf_range(0.3, 0.7), 0, 0).rotated(Vector3.UP, rng.randf() * TAU)
+		var pts := PackedVector3Array()
+		var rad := PackedFloat32Array()
+		var n := 6
+		for k in n:
+			var t := float(k) / (n - 1)
+			var wob := Vector3(rng.randf_range(-0.14, 0.14), 0, rng.randf_range(-0.14, 0.14)) * (0.3 + t) if k > 0 else Vector3.ZERO
+			pts.append(Vector3(0, t * h, 0) + lean * t * t + wob)
+			rad.append(lerpf(0.25, 0.05, pow(t, 0.75)))
+		pts[0].y = -0.15
+		var trunk := [Shape.limb(pts, rad, 9, 3)]
+		# Roots flaring into the ground.
+		var roots := rng.randi_range(4, 5)
+		for k in roots:
+			var a := TAU * k / roots + rng.randf_range(-0.35, 0.35)
+			var d := Vector3(cos(a), 0, sin(a))
+			var l := rng.randf_range(0.45, 0.85)
+			trunk.append(Shape.limb(PackedVector3Array([d * 0.04 + Vector3.UP * 0.5, d * 0.24 + Vector3.UP * 0.12, d * l + Vector3.DOWN * 0.06]), PackedFloat32Array([0.13, 0.09, 0.02]), 5, 3))
+		var tm := Shape.merge(trunk)
+		# Knots and twists in the bark.
+		var sd := rng.randf() * 10.0
+		tm = Shape.warp(tm, func(p: Vector3) -> Vector3:
+			return p + Vector3(sin(p.y * 7.0 + sd) * 0.025, 0, cos(p.y * 5.3 + sd) * 0.025))
+		var limbs := []
+		var nb := rng.randi_range(3, 5)
+		for k in nb + 2:
+			var top := k >= nb
+			var t := 0.97 if top else rng.randf_range(0.4, 0.88)
+			var o := _along(pts, t)
+			var a := TAU * k / nb + rng.randf_range(-0.6, 0.6)
+			var d := Vector3(cos(a), 0, sin(a))
+			var up := rng.randf_range(0.25, 0.85) + (0.8 if top else 0.0)
+			var l := rng.randf_range(0.75, 1.4) * (1.15 - t * 0.45) * (0.6 if top else 1.0)
+			var r0 := lerpf(0.25, 0.05, pow(t, 0.75)) * (0.75 if top else 0.6)
+			var bp := PackedVector3Array([o])
+			for j in range(1, 4):
+				var f := j / 3.0
+				var jit := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.6, 0.6), rng.randf_range(-1, 1)) * 0.09 * f
+				# Out first, then crooked up, a little droop at the tips.
+				bp.append(o + d * l * f + Vector3.UP * l * up * f * (1.2 - f * 0.5) + jit)
+			limbs.append(Shape.limb(bp, PackedFloat32Array([r0, r0 * 0.6, r0 * 0.35, 0.008]), 6, 2))
+			for j: int in [1, 2]:
+				var tw := bp[j]
+				var td := (d.rotated(Vector3.UP, rng.randf_range(-1.3, 1.3)) + Vector3.UP * rng.randf_range(0.1, 0.9)).normalized()
+				var tl := rng.randf_range(0.22, 0.45)
+				var kink := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * 0.04
+				limbs.append(Shape.limb(PackedVector3Array([tw, tw + td * tl * 0.5 + kink, tw + td * tl]), PackedFloat32Array([r0 * 0.3, 0.01, 0.004]), 4, 2))
+		var bm := Shape.merge(limbs)
+		return [Shape.centered(Shape.ground(tm, 2.2, 0.35)), Shape.centered(Shape.ground(bm, h + 1.0, 0.6))])
+
+
+## The iron lantern on its post: post and arm, the cage, the glass, the flame.
+static func _lamp_kit() -> Dictionary:
+	return _cached("lamp", func() -> Dictionary:
+		var x := 0.42
+		var post := Shape.lathe(PackedVector2Array([Vector2(0.13, 0.0), Vector2(0.12, 0.05), Vector2(0.065, 0.1), Vector2(0.05, 0.2), Vector2(0.04, 1.72), Vector2(0.055, 1.74), Vector2(0.055, 1.8), Vector2(0.03, 1.83), Vector2(0.0, 1.87)]), 8)
+		var arm := Shape.limb(Shape.curve(Vector3(0, 1.76, 0), Vector3(0.25, 1.86, 0), Vector3(x + 0.03, 1.8, 0), 5), Shape.taper(0.022, 0.015, 5), 6, 2)
+		var brace := Shape.limb(PackedVector3Array([Vector3(0.03, 1.42, 0), Vector3(0.1, 1.58, 0), Vector3(0.2, 1.71, 0), Vector3(0.27, 1.82, 0)]), Shape.taper(0.015, 0.012, 4), 5, 2)
+		# A scroll curled under the arm.
+		var curl := PackedVector3Array()
+		for k in 7:
+			var a := k * 0.9
+			curl.append(Vector3(0.14 + cos(a) * 0.05 * (1.0 - k * 0.1), 1.66 + sin(a) * 0.05 * (1.0 - k * 0.1), 0))
+		var scroll := Shape.limb(curl, Shape.taper(0.011, 0.007, 7), 4, 1)
+		var hook := Shape.limb(PackedVector3Array([Vector3(x, 1.8, 0), Vector3(x, 1.72, 0)]), Shape.taper(0.009, 0.009, 2), 4, 1)
+		var cage := []
+		cage.append(Shape.lathe(PackedVector2Array([Vector2(0.0, 1.4), Vector2(0.05, 1.4), Vector2(0.085, 1.43), Vector2(0.088, 1.455), Vector2(0.0, 1.455)]), 10))
+		for k in 4:
+			var a := TAU * k / 4.0 + PI * 0.25
+			var d := Vector3(cos(a), 0, sin(a)) * 0.08
+			cage.append(Shape.limb(PackedVector3Array([d + Vector3.UP * 1.45, d * 1.08 + Vector3.UP * 1.55, d + Vector3.UP * 1.64]), Shape.taper(0.008, 0.008, 3), 4, 2))
+		cage.append(Shape.lathe(PackedVector2Array([Vector2(0.0, 1.63), Vector2(0.1, 1.63), Vector2(0.105, 1.645), Vector2(0.06, 1.69), Vector2(0.025, 1.72), Vector2(0.025, 1.735), Vector2(0.012, 1.75), Vector2(0.0, 1.75)]), 10))
+		var iron := Shape.ground(Shape.merge([post, arm, brace, scroll, hook, _at(Shape.merge(cage), Vector3(x, 0, 0))]), 1.8, 0.45)
+		var glass := _at(Shape.lathe(PackedVector2Array([Vector2(0.074, 1.455), Vector2(0.078, 1.55), Vector2(0.074, 1.635)]), 10), Vector3(x, 0, 0))
+		var flame := Shape.warp(Shape.blob(Vector3(0.022, 0.045, 0.022), 0.0, 1.0, 6, 8), func(p: Vector3) -> Vector3:
+			var k := 1.0 - clampf(p.y / 0.045, -1.0, 1.0) * 0.45
+			return Vector3(p.x * k + x, p.y + 1.515, p.z * k))
+		var gm := StandardMaterial3D.new()
+		gm.albedo_color = Color(0.55, 0.33, 0.12, 0.35)
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.roughness = 0.15
+		gm.emission_enabled = true
+		gm.emission = Color(1.0, 0.55, 0.2)
+		gm.emission_energy_multiplier = 0.7
+		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		return {iron = iron, glass = glass, flame = flame, glass_mat = gm})
+
+
+## A cluster of melted candles: wax (with its puddle), wicks, flames and
+## where each flame is, on a slab or not.
+static func _candle_kit(i: int) -> Dictionary:
+	return _cached("candles%d" % i, func() -> Dictionary:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 311 + i * 53
+		var slab := i % 2 == 0
+		var lift := 0.07 if slab else 0.0
+		var wax := []
+		var wicks := []
+		var flames := []
+		var tops := PackedVector3Array()
+		var n := rng.randi_range(4, 7)
+		var spots: Array[Vector2] = []
+		for k in n:
+			var at := Vector2.ZERO
+			for _t in 12:
+				at = Vector2(rng.randf_range(-0.3, 0.3), rng.randf_range(-0.24, 0.24))
+				var ok := true
+				for s in spots:
+					if s.distance_to(at) < 0.1:
+						ok = false
+				if ok:
+					break
+			spots.append(at)
+			var r := rng.randf_range(0.022, 0.042)
+			var h := rng.randf_range(0.06, 0.2) if k > 1 else rng.randf_range(0.28, 0.42)
+			var base := Vector3(at.x, lift, at.y)
+			var prof := PackedVector2Array([Vector2(r * 1.9, -0.004), Vector2(r * 1.5, 0.006), Vector2(r * 1.2, 0.016), Vector2(r * 1.08, 0.03), Vector2(r, h * 0.4), Vector2(r * 1.04, h * 0.75), Vector2(r * 0.97, h - 0.012), Vector2(r * 0.88, h), Vector2(r * 0.5, h - 0.006), Vector2(0.0, h - 0.009)])
+			wax.append(_at(Shape.lathe(prof, 8), base))
+			for _d in rng.randi_range(1, 3):
+				var a := rng.randf() * TAU
+				var dir := Vector3(cos(a), 0, sin(a))
+				var dl := rng.randf_range(0.02, minf(h * 0.7, 0.14))
+				wax.append(Shape.limb(PackedVector3Array([base + dir * r * 0.95 + Vector3.UP * (h - 0.004), base + dir * r * 1.02 + Vector3.UP * (h - dl * 0.5), base + dir * r * 1.05 + Vector3.UP * (h - dl)]), PackedFloat32Array([0.006, 0.007, 0.009]), 4, 1))
+			var lean := Vector3(rng.randf_range(-0.004, 0.004), 0, rng.randf_range(-0.004, 0.004))
+			wicks.append(Shape.limb(PackedVector3Array([base + Vector3.UP * (h - 0.012), base + Vector3.UP * (h + 0.014) + lean]), PackedFloat32Array([0.003, 0.0025]), 3, 1))
+			var top := base + Vector3.UP * (h + 0.038) + lean
+			tops.append(top)
+			flames.append(Shape.warp(Shape.blob(Vector3(0.011, 0.026, 0.011), 0.0, 1.0, 5, 6), func(p: Vector3) -> Vector3:
+				var kk := 1.0 - clampf(p.y / 0.026, -1.0, 1.0) * 0.5
+				return Vector3(p.x * kk, p.y, p.z * kk) + top))
+		var out := {wax = Shape.ground(Shape.merge(wax), 0.4, 0.6), wick = Shape.merge(wicks), flame = Shape.merge(flames), tops = tops}
+		if slab:
+			out.slab = Shape.ground(Shape.blob(Vector3(0.44, 0.07, 0.36), 0.1, i * 1.3 + 4.0, 6, 14), 0.07, 0.5)
+		return out)
+
+
+## One long bone along x, knobbed at both ends.
+static func _bone(l: float, r: float, seed: float) -> ArrayMesh:
+	var hl := l * 0.5
+	var parts := [Shape.limb(PackedVector3Array([Vector3(-hl, 0, 0), Vector3(-hl + r * 2.0, 0, 0), Vector3(0, 0, 0), Vector3(hl - r * 2.0, 0, 0), Vector3(hl, 0, 0)]), PackedFloat32Array([r * 1.35, r * 0.95, r * 0.75, r * 0.95, r * 1.35]), 6, 2)]
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			parts.append(_at(Shape.blob(Vector3.ONE * r * 1.2, 0.08, seed + sx + sz * 2.0, 4, 6), Vector3(sx * (hl + r * 0.2), r * 0.1, sz * r * 0.75)))
+	return Shape.merge(parts)
+
+
+## A skull facing +z, resting on the floor: [bone, eye sockets].
+static func _skull(seed: float) -> Array:
+	var bone := [
+		_at(Shape.blob(Vector3(0.082, 0.085, 0.11), 0.03, seed, 8, 12), Vector3(0, 0.1, -0.01)),
+		_at(Shape.blob(Vector3(0.068, 0.05, 0.055), 0.04, seed + 2.0, 6, 10), Vector3(0, 0.055, 0.072)),
+		_at(Shape.blob(Vector3(0.075, 0.022, 0.03), 0.0, 1.0, 4, 10), Vector3(0, 0.112, 0.09)),
+		Shape.limb(Shape.curve(Vector3(-0.058, 0.05, 0.0), Vector3(0, 0.0, 0.16), Vector3(0.058, 0.05, 0.0), 5), Shape.taper(0.016, 0.016, 5), 5, 2),
+	]
+	var holes := [
+		_at(Shape.blob(Vector3(0.026, 0.024, 0.02), 0.0, 1.0, 5, 8), Vector3(-0.032, 0.083, 0.112)),
+		_at(Shape.blob(Vector3(0.026, 0.024, 0.02), 0.0, 1.0, 5, 8), Vector3(0.032, 0.083, 0.112)),
+		_at(Shape.blob(Vector3(0.011, 0.017, 0.01), 0.0, 1.0, 4, 6), Vector3(0, 0.05, 0.124)),
+	]
+	return [Shape.merge(bone), Shape.merge(holes)]
+
+
+## A scatter of old bones: [bones, eye sockets].
+static func _bones_kit(i: int) -> Array:
+	return _cached("bones%d" % i, func() -> Array:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 733 + i * 31
+		var parts := []
+		for k in rng.randi_range(4, 7):
+			var l := rng.randf_range(0.22, 0.48)
+			var r := l * rng.randf_range(0.05, 0.065)
+			var y := r * 1.3 + (r * 1.8 if k > 2 and rng.randf() < 0.4 else 0.0)
+			var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.FORWARD, rng.randf_range(-0.08, 0.08)), Vector3(rng.randf_range(-0.42, 0.42), y, rng.randf_range(-0.42, 0.42)))
+			parts.append(_moved(_bone(l, r, k * 1.7 + i), xf))
+		# A few ribs, curved, lying on their sides.
+		var rib_at := Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3))
+		var rib_yaw := rng.randf() * TAU
+		for k in rng.randi_range(2, 4):
+			var o := Vector3(0, 0.012, k * 0.07)
+			parts.append(_moved(Shape.limb(Shape.curve(o + Vector3(-0.17, 0, 0), o + Vector3(0, 0.05, 0.12), o + Vector3(0.17, 0, 0.02), 5), Shape.taper(0.012, 0.007, 5), 4, 2), Transform3D(Basis(Vector3.UP, rib_yaw), rib_at)))
+		var holes: ArrayMesh = null
+		if i % 3 != 2:
+			var sk := _skull(i * 3.1)
+			var sxf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.7, -0.35)) * Basis(Vector3.FORWARD, rng.randf_range(-0.3, 0.3)), Vector3(rng.randf_range(-0.3, 0.3), 0.02, rng.randf_range(-0.3, 0.3)))
+			parts.append(_moved(sk[0], sxf))
+			holes = _moved(sk[1], sxf)
+		return [Shape.ground(Shape.merge(parts), 0.2, 0.55), holes])
+
+
+const _COFFIN := [Vector2(-0.2, -0.95), Vector2(0.2, -0.95), Vector2(0.34, 0.42), Vector2(0.26, 0.95), Vector2(-0.26, 0.95), Vector2(-0.34, 0.42)]
+
+
+## The coffin's lid with its raised cross, its floor, its handles and the
+## dark inside, each made once.
+static func _coffin_kit() -> Dictionary:
+	return _cached("coffin", func() -> Dictionary:
+		var big := PackedVector2Array()
+		var inner := PackedVector2Array()
+		for p: Vector2 in _COFFIN:
+			big.append(p * 1.05)
+			inner.append(p * 0.86)
+		var lid := Shape.merge([
+			_prism(big, 0.0, 0.07, 0.03),
+			_prism(PackedVector2Array([Vector2(-0.03, -0.55), Vector2(0.03, -0.55), Vector2(0.03, 0.75), Vector2(-0.03, 0.75)]), 0.06, 0.085, 0.01),
+			_prism(PackedVector2Array([Vector2(-0.17, 0.42), Vector2(0.17, 0.42), Vector2(0.17, 0.48), Vector2(-0.17, 0.48)]), 0.06, 0.085, 0.01),
+		])
+		var handles := []
+		for e: Array in [[1, 2], [5, 0]]:
+			var a: Vector2 = _COFFIN[e[0]]
+			var b: Vector2 = _COFFIN[e[1]]
+			var out := (a - b).orthogonal().normalized()
+			if out.dot((a + b) * 0.5) < 0.0:
+				out = -out
+			for t: float in [0.3, 0.7]:
+				var q := a.lerp(b, t) + out * 0.04
+				var along := (b - a).normalized() * 0.07
+				var p0 := Vector3(q.x - along.x, 0.3, q.y - along.y)
+				var p1 := Vector3(q.x + along.x, 0.3, q.y + along.y)
+				var mid := (p0 + p1) * 0.5 + Vector3(out.x, 0, out.y) * 0.03 + Vector3.DOWN * 0.07
+				handles.append(Shape.limb(Shape.curve(p0, mid, p1, 5), Shape.taper(0.011, 0.011, 5), 4, 2))
+		return {lid = Shape.ground(lid, 0.08, 0.7), floor = _prism(PackedVector2Array(_COFFIN), 0.0, 0.05), hollow = _prism(inner, 0.33, 0.36), handles = Shape.merge(handles)})
+
+
+## A turned clay jar in three pieces (foot, belly, neck), centred, and
+## how high its mouth is. [param blood]: the squat glazed one.
+static func _urn_kit(i: int, blood: bool) -> Dictionary:
+	return _cached("urn%d%s" % [i, blood], func() -> Dictionary:
+		var sx: float = [1.0, 0.92, 1.08][i % 3]
+		var sy: float = [1.0, 1.1, 0.9][i % 3]
+		var prof: Array
+		if blood:
+			prof = [Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.115, 0.025), Vector2(0.1, 0.05), Vector2(0.19, 0.13), Vector2(0.225, 0.24), Vector2(0.205, 0.34), Vector2(0.15, 0.42), Vector2(0.12, 0.47), Vector2(0.125, 0.53), Vector2(0.155, 0.56), Vector2(0.145, 0.58), Vector2(0.115, 0.565)]
+		else:
+			prof = [Vector2(0.0, 0.0), Vector2(0.09, 0.0), Vector2(0.105, 0.03), Vector2(0.085, 0.06), Vector2(0.165, 0.16), Vector2(0.21, 0.28), Vector2(0.195, 0.38), Vector2(0.13, 0.47), Vector2(0.08, 0.52), Vector2(0.078, 0.57), Vector2(0.11, 0.6), Vector2(0.102, 0.62), Vector2(0.074, 0.6)]
+		var pp := PackedVector2Array()
+		for v: Vector2 in prof:
+			pp.append(Vector2(v.x * sx, v.y * sy))
+		var cuts := [[0, 5], [5, 8], [8, pp.size() - 1]]
+		var pieces := []
+		for c: Array in cuts:
+			var sub := pp.slice(c[0], c[1] + 1)
+			pieces.append(Shape.centered(Shape.ground(Shape.lathe(sub, 16), 0.6, 0.5)))
+		# A painted band round the belly.
+		var band := Shape.lathe(PackedVector2Array([pp[5] + Vector2(0.004, -0.03 * sy), pp[5] + Vector2(0.006, 0.0), pp[5] + Vector2(0.004, 0.03 * sy)]), 16)
+		var top: Vector2 = pp[pp.size() - 1]
+		return {pieces = pieces, band = band, mouth = top.y, mouth_r = top.x})
+
+
+static func _keg_r(y: float) -> float:
+	# The barrel's bulge: 0.215 at the ends, 0.275 in the middle.
+	return 0.215 + 0.06 * sin(clampf(y / 0.62, 0.0, 1.0) * PI)
+
+
+## The powder keg: [lower staves, upper staves, hoops, lid], centred.
+static func _keg_kit() -> Array:
+	return _cached("keg", func() -> Array:
+		var lo := PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.2, 0.0), Vector2(0.215, 0.012)])
+		var hi := PackedVector2Array()
+		for k in 7:
+			var y := 0.012 + k * (0.298 / 6.0)
+			lo.append(Vector2(_keg_r(y), y))
+		for k in 7:
+			var y := 0.31 + k * (0.298 / 6.0)
+			hi.append(Vector2(_keg_r(y), y))
+		hi.append(Vector2(0.2, 0.62))
+		hi.append(Vector2(0.19, 0.6))
+		var hoops := []
+		for y: float in [0.05, 0.17, 0.45, 0.57]:
+			var r := _keg_r(y) + 0.004
+			hoops.append(Shape.lathe(PackedVector2Array([Vector2(r, y - 0.022), Vector2(r + 0.009, y - 0.016), Vector2(r + 0.009, y + 0.016), Vector2(r, y + 0.022)]), 18))
+		var lid := Shape.lathe(PackedVector2Array([Vector2(0.19, 0.585), Vector2(0.18, 0.595), Vector2(0.0, 0.595)]), 16)
+		return [Shape.centered(Shape.ground(Shape.lathe(lo, 32, 16, 0.012), 0.62, 0.45)), Shape.centered(Shape.ground(Shape.lathe(hi, 32, 16, 0.01), 0.62, 0.45)),
+			Shape.centered(Shape.ground(Shape.merge(hoops), 0.62, 0.5)), Shape.centered(lid)])
+
+
+## The weeping angel above its plinth (from 0.7 m up): [robe, head and arms,
+## left wing, right wing], centred.
+static func _angel_kit() -> Array:
+	return _cached("angel", func() -> Array:
+		var b := 0.7
+		var robe := Shape.lathe(PackedVector2Array([Vector2(0.31, b), Vector2(0.32, b + 0.05), Vector2(0.28, b + 0.4), Vector2(0.21, b + 0.75), Vector2(0.17, b + 0.95), Vector2(0.2, b + 1.1), Vector2(0.18, b + 1.18), Vector2(0.09, b + 1.24), Vector2(0.0, b + 1.27)]), 18, 9, 0.12)
+		var upper := [
+			# A hooded head bowed into its hands.
+			_at(Shape.blob(Vector3(0.11, 0.125, 0.115), 0.05, 2.0, 8, 12), Vector3(0, b + 1.37, 0.05)),
+			_at(Shape.blob(Vector3(0.13, 0.08, 0.12), 0.08, 5.0, 6, 10), Vector3(0, b + 1.28, 0.0)),
+		]
+		for sx: float in [-1.0, 1.0]:
+			upper.append(Shape.limb(PackedVector3Array([Vector3(sx * 0.17, b + 1.16, 0.0), Vector3(sx * 0.21, b + 1.02, 0.15), Vector3(sx * 0.07, b + 1.3, 0.17)]), PackedFloat32Array([0.07, 0.055, 0.045]), 7, 3))
+			upper.append(_at(Shape.blob(Vector3(0.045, 0.06, 0.03), 0.1, 3.0 + sx, 5, 8), Vector3(sx * 0.045, b + 1.37, 0.15)))
+		var wings := []
+		for sx: float in [-1.0, 1.0]:
+			# Folded wings behind it, rising over the head and trailing down,
+			# in two layers of feathers.
+			var w := []
+			for layer in 2:
+				var len := 0.62 - layer * 0.18
+				var feather := Shape.blob(Vector3(0.05, len, 0.2 - layer * 0.03), 0.1, 7.0 + layer + sx, 10, 10)
+				feather = Shape.warp(feather, func(p: Vector3) -> Vector3:
+					var t := (p.y + len) / (2.0 * len)
+					return Vector3(p.x + 0.12 * t * t, p.y, p.z - 0.1 * t * t + 0.05 * sin(p.y * 9.0) * (1.0 - t)))
+				var xf := Transform3D(Basis(Vector3.UP, sx * -0.45) * Basis(Vector3.FORWARD, sx * -0.28), Vector3(sx * 0.2, b + 1.0 + layer * 0.12, -0.17 - layer * 0.03))
+				if sx < 0.0:
+					feather = Shape.warp(feather, func(p: Vector3) -> Vector3: return Vector3(-p.x, p.y, p.z))
+					xf = Transform3D(Basis(Vector3.UP, 0.45) * Basis(Vector3.FORWARD, 0.28), Vector3(-0.2, b + 1.0 + layer * 0.12, -0.17 - layer * 0.03))
+				w.append(_moved(feather, xf))
+			wings.append(Shape.centered(Shape.ground(Shape.merge(w), 2.4, 0.6)))
+		return [Shape.centered(Shape.ground(robe, 2.0, 0.45)), Shape.centered(Shape.ground(Shape.merge(upper), 2.2, 0.6)), wings[0], wings[1]])
+
+
+## A knight lying in stone on a sarcophagus lid (lid top at y 0), centred.
+static func _effigy() -> Array:
+	return _cached("effigy", func() -> Array:
+		var body := Shape.limb(PackedVector3Array([Vector3(0, 0, 0.62), Vector3(0, 0, 0.48), Vector3(0, 0, 0.1), Vector3(0, 0, -0.4), Vector3(0, 0, -0.78), Vector3(0, 0, -0.9)]), PackedFloat32Array([0.07, 0.21, 0.18, 0.17, 0.13, 0.08]), 10, 3)
+		body = Shape.warp(body, func(p: Vector3) -> Vector3: return Vector3(p.x, maxf(p.y, -0.02) * 0.45 + 0.03, p.z))
+		var parts := [body,
+			_at(Shape.blob(Vector3(0.095, 0.08, 0.11), 0.04, 3.0, 7, 10), Vector3(0, 0.1, 0.78)),
+			_prism(PackedVector2Array([Vector2(-0.2, 0.68), Vector2(0.2, 0.68), Vector2(0.2, 0.92), Vector2(-0.2, 0.92)]), 0.0, 0.06, 0.02),
+			_at(Shape.blob(Vector3(0.06, 0.045, 0.07), 0.1, 4.0, 5, 8), Vector3(0, 0.15, 0.22)),
+			Shape.limb(PackedVector3Array([Vector3(0, 0.14, 0.3), Vector3(0, 0.14, -0.62)]), Shape.taper(0.018, 0.012, 2), 4, 1),
+			Shape.limb(PackedVector3Array([Vector3(-0.09, 0.14, 0.16), Vector3(0.09, 0.14, 0.16)]), Shape.taper(0.014, 0.014, 2), 4, 1),
+		]
+		for sx: float in [-1.0, 1.0]:
+			# Arms folded over the sword.
+			parts.append(Shape.limb(PackedVector3Array([Vector3(sx * 0.19, 0.07, 0.44), Vector3(sx * 0.17, 0.09, 0.22), Vector3(sx * 0.04, 0.14, 0.2)]), PackedFloat32Array([0.05, 0.045, 0.035]), 6, 2))
+		return Shape.centered(Shape.merge(parts)))
+
+
+## The iron brazier: [bowl, legs and ring, coals, embers], centred.
+static func _brazier_kit() -> Array:
+	return _cached("brazier", func() -> Array:
+		var bowl := Shape.lathe(PackedVector2Array([Vector2(0.0, 0.86), Vector2(0.16, 0.87), Vector2(0.34, 0.95), Vector2(0.45, 1.08), Vector2(0.48, 1.13), Vector2(0.455, 1.135), Vector2(0.42, 1.1), Vector2(0.32, 1.01), Vector2(0.0, 0.98)]), 14)
+		var legs := []
+		var ring := PackedVector3Array()
+		for k in 3:
+			var a := TAU * k / 3.0
+			var d := Vector3(cos(a), 0, sin(a))
+			legs.append(Shape.limb(PackedVector3Array([d * 0.3 + Vector3.UP * 1.0, d * 0.4 + Vector3.UP * 0.6, d * 0.33 + Vector3.UP * 0.15, d * 0.46 + Vector3.UP * 0.03]), PackedFloat32Array([0.034, 0.03, 0.028, 0.045]), 6, 3))
+		for k in 13:
+			var a := TAU * k / 12.0
+			ring.append(Vector3(cos(a) * 0.37, 0.45, sin(a) * 0.37))
+		legs.append(Shape.limb(ring, Shape.taper(0.016, 0.016, 13), 4, 2))
+		var coals := []
+		var embers := []
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 97
+		for k in 11:
+			var a := rng.randf() * TAU
+			var r := sqrt(rng.randf()) * 0.3
+			var p := Vector3(cos(a) * r, 1.02 + rng.randf() * 0.04, sin(a) * r)
+			var m := Shape.blob(Vector3.ONE * rng.randf_range(0.06, 0.1) * Vector3(1, 0.7, 1), 0.2, k * 1.3, 5, 7)
+			(embers if k % 3 == 0 else coals).append(_at(m, p))
+		var iron := Shape.material(Color(0.17, 0.13, 0.1), Color(0.06, 0.045, 0.035), 4.0, 0.7, 0.9, 0.45, 33)
+		return [Shape.centered(Shape.ground(bowl, 1.1, 0.6)), Shape.centered(Shape.ground(Shape.merge(legs), 1.0, 0.4)), Shape.centered(Shape.merge(coals)), Shape.centered(Shape.merge(embers)), iron])
+
+
+## A crystal of ice: an uneven six-sided prism with a pointed tip, base
+## buried below 0, [param h] tall.
+static func _shard(i: int) -> ArrayMesh:
+	return _cached("shard%d" % i, func() -> ArrayMesh:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 51 + i * 13
+		var r := rng.randf_range(0.12, 0.22)
+		var h := 1.0
+		var shoulder := rng.randf_range(0.62, 0.8)
+		var tip := Vector3(rng.randf_range(-0.04, 0.04), h, rng.randf_range(-0.04, 0.04))
+		var lo := PackedVector3Array()
+		var hi := PackedVector3Array()
+		for k in 6:
+			var a := TAU * k / 6.0 + rng.randf_range(-0.12, 0.12)
+			var rr := r * rng.randf_range(0.8, 1.15)
+			lo.append(Vector3(cos(a) * rr, -0.15, sin(a) * rr))
+			hi.append(Vector3(cos(a) * rr * 0.85, h * shoulder + rng.randf_range(-0.06, 0.06), sin(a) * rr * 0.85))
+		var tris := PackedVector3Array()
+		for k in 6:
+			var j := (k + 1) % 6
+			tris.append_array(PackedVector3Array([lo[k], lo[j], hi[j], lo[k], hi[j], hi[k], hi[k], hi[j], tip]))
+		return _faceted(tris, Vector3(0, h * 0.4, 0)))
+
+
+static func _ice_mat() -> StandardMaterial3D:
+	return _cached("mice", func() -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.4, 0.52, 0.62, 0.82)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.roughness = 0.12
+		m.metallic = 0.15
+		m.metallic_specular = 0.8
+		m.emission_enabled = true
+		m.emission = Color(0.07, 0.13, 0.19)
+		m.rim_enabled = true
+		m.rim = 0.5
+		m.rim_tint = 0.4
+		return m)
+
+
+## A clump of reeds: [stalks, seed heads].
+static func _reed_kit(i: int) -> Array:
+	return _cached("reeds%d" % i, func() -> Array:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 211 + i * 19
+		var stalks := []
+		var heads := []
+		for k in 22:
+			var a := rng.randf() * TAU
+			var o := Vector3(cos(a), 0, sin(a)) * sqrt(rng.randf()) * 0.55
+			var h := rng.randf_range(0.6, 1.4)
+			var bend := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.05, 0.25) * h
+			var pts := Shape.curve(o + Vector3.DOWN * 0.05, o + bend * 0.2 + Vector3.UP * h * 0.55, o + bend + Vector3.UP * h, 4)
+			stalks.append(Shape.limb(pts, PackedFloat32Array([0.02, 0.015, 0.008, 0.0]), 3, 2))
+			if k % 4 == 0:
+				var hp := _along(pts, 0.78)
+				var hd := (_along(pts, 0.9) - hp).normalized()
+				heads.append(Shape.limb(PackedVector3Array([hp, hp + hd * 0.14]), Shape.taper(0.026, 0.024, 2), 5, 1))
+		return [Shape.ground(Shape.merge(stalks), 1.2, 0.35), Shape.merge(heads)])
+
+
+## A clump of pale cave fungus: [stems, caps].
+static func _shroom_kit(i: int) -> Array:
+	return _cached("shroom%d" % i, func() -> Array:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 401 + i * 23
+		var stems := []
+		var caps := []
+		for k in rng.randi_range(3, 6):
+			var a := rng.randf() * TAU
+			var o := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.0, 0.4)
+			var s := rng.randf_range(0.5, 1.2) if k > 0 else 1.5
+			var h := 0.42 * s * rng.randf_range(0.7, 1.1)
+			var lean := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.02, 0.1) * s
+			var top := o + lean + Vector3.UP * h
+			stems.append(Shape.limb(PackedVector3Array([o + Vector3.DOWN * 0.02, o + lean * 0.3 + Vector3.UP * h * 0.5, top]), PackedFloat32Array([0.035 * s, 0.022 * s, 0.025 * s]), 6, 2))
+			var cs := 0.12 * s
+			var cap := Shape.lathe(PackedVector2Array([Vector2(0.02 * s, -0.01 * s), Vector2(cs * 0.7, -0.005 * s), Vector2(cs, -0.02 * s), Vector2(cs * 1.02, 0.0), Vector2(cs * 0.85, 0.045 * s), Vector2(cs * 0.45, 0.08 * s), Vector2(0.0, 0.09 * s)]), 14, 7, 0.025)
+			caps.append(_moved(cap, Transform3D(Basis(lean.cross(Vector3.UP).normalized() if lean.length() > 0.001 else Vector3.RIGHT, -lean.length() * 1.5), top)))
+		return [Shape.ground(Shape.merge(stems), 0.4, 0.4), Shape.merge(caps)])
+
+
+## A dripping stalagmite with its little one beside it: [big, small],
+## centred, [param i] picking the height.
+static func _stalag_kit(i: int) -> Array:
+	return _cached("stalag%d" % i, func() -> Array:
+		var out := []
+		for part in 2:
+			var h: float = [1.3, 1.8, 2.3, 2.8][i % 4] * (1.0 if part == 0 else 0.55)
+			var r := 0.5 if part == 0 else 0.3
+			var prof := PackedVector2Array([Vector2(r * 1.15, -0.05), Vector2(r * 0.9, h * 0.1), Vector2(r * 0.68, h * 0.3), Vector2(r * 0.45, h * 0.55), Vector2(r * 0.22, h * 0.8), Vector2(r * 0.07, h * 0.96), Vector2(0.0, h)])
+			var m := Shape.lathe(prof, 12, 7, 0.1)
+			var sd := i * 2.3 + part
+			m = Shape.warp(m, func(p: Vector3) -> Vector3:
+				return p + Vector3(sin(p.y * 3.1 + sd) * 0.05, 0, cos(p.y * 2.7 + sd) * 0.05) * (p.y / h))
+			if part == 1:
+				m = _at(m, Vector3(0.45, 0, 0.2))
+			out.append(Shape.centered(m))
+		return out)

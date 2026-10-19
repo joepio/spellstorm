@@ -47,7 +47,17 @@ static func _sphere(r: float) -> SphereMesh:
 static func material(e: int, hot := false) -> ShaderMaterial:
 	var key := "%d%s" % [e, "h" if hot else ""]
 	if not _mats.has(key):
-		_mats[key] = Fx.shader("bullet", {element = e, base = El.COLOR[e], hot = 1.0 if hot else 0.0})
+		# Pale elements burn out to white at full strength: keep them icy.
+		var energy := 0.85 if e in [El.FROST, El.ICE, El.AIR, El.STEAM] else 1.3
+		_mats[key] = Fx.shader("bullet", {element = e, base = El.COLOR[e], hot = 1.0 if hot else 0.0, energy = energy})
+	return _mats[key]
+
+
+## The soft fading tail of one element's fiery shots (trail.gdshader).
+static func _tail_material(e: int) -> ShaderMaterial:
+	var key := "t%d" % e
+	if not _mats.has(key):
+		_mats[key] = Fx.shader("trail", {color = El.COLOR[e]})
 	return _mats[key]
 
 
@@ -56,11 +66,11 @@ static func _mesh(kind: String, r: float) -> Mesh:
 	if not _meshes.has(key):
 		match kind:
 			"shard":
-				_meshes[key] = Art.cyl(0.0, r, r * 3.4, 6)
+				_meshes[key] = Art.cyl(0.0, r * 0.7, r * 3.8, 5)
 			"rock":
 				_meshes[key] = Art.sphere(r, 5)
 			"tail":
-				_meshes[key] = Art.cyl(0.0, r * 0.9, r * 3.0, 8)
+				_meshes[key] = Art.cyl(0.0, r * 0.9, r * 3.0, 12)
 			"arrow":
 				_meshes[key] = Art.cyl(r * 0.18, r * 0.18, r * 7.0, 5)
 			_:
@@ -105,10 +115,10 @@ func _ready() -> void:
 		# A tail streaming out behind it.
 		var tail := MeshInstance3D.new()
 		tail.mesh = _mesh("tail", r)
-		var tc: Color = El.COLOR[e]
-		tail.material_override = Fx.additive(Color(tc.r, tc.g, tc.b, 0.45), 0.9)
+		tail.material_override = _tail_material(e)
 		tail.rotation_degrees.x = 90.0
-		tail.position.z = r * 1.6
+		tail.position.z = r * 1.9
+		tail.scale = Vector3(0.8, 1.3, 0.8)
 		tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(tail)
 	_face()

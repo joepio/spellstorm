@@ -62,6 +62,25 @@ static func box(x: float, y: float, z: float) -> BoxMesh:
 
 ## Sword steel: cool and dark enough that the ridge and edges catch the
 ## light instead of the whole blade burning white.
+static var _stones := {}
+
+
+## Rough stone (stone.gdshader) in [param c], with [param moss] settling on
+## top; one material per colour, shared.
+static func stone(c: Color, moss := 0.0, moss_c := Color(0.12, 0.16, 0.08)) -> ShaderMaterial:
+	var key := "%s%.2f%s" % [c.to_html(), moss, moss_c.to_html()]
+	if not _stones.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://src/world/stone.gdshader")
+		# A touch lighter than the old flat paint: the cracks and bump take
+		# some back, and the dark comes from the light.
+		m.set_shader_parameter("color", c.lightened(0.15))
+		m.set_shader_parameter("moss_amount", moss)
+		m.set_shader_parameter("moss", moss_c)
+		_stones[key] = m
+	return _stones[key]
+
+
 static func steel() -> StandardMaterial3D:
 	var m := Fx.solid(Color(0.5, 0.53, 0.58), 0.28)
 	m.metallic = 0.85
@@ -118,68 +137,113 @@ static func blade_mesh(length: float) -> ArrayMesh:
 	return m
 
 
-## A robed wizard with a pointed hat and a staff. Returns the parts the
-## wizard animates: body, staff, gem, hat.
+static var _cloths := {}
+
+
+## Worn wool (cloth.gdshader) in [param c]; one material per colour, shared.
+## White takes the mesh's vertex colours instead (the robe's skirt).
+static func cloth(c: Color, weave := 90.0) -> ShaderMaterial:
+	var key := "%s%.0f" % [c.to_html(), weave]
+	if not _cloths.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://src/world/cloth.gdshader")
+		m.set_shader_parameter("color", c)
+		m.set_shader_parameter("weave", weave)
+		_cloths[key] = m
+	return _cloths[key]
+
+
+## A wandering wizard in a worn wool robe with a short mantle over the
+## shoulders, a slouched felt hat, a long grey beard and a gnarled staff.
+## Kept muted and weathered rather than toy-bright: the colour says whose
+## wizard it is, the light does the rest. Returns the parts the wizard
+## animates: body, staff, gem, hat.
 static func wizard(robe: Color) -> Dictionary:
 	var root := Node3D.new()
 	var body := Node3D.new()
 	root.add_child(body)
+	robe = Color.from_hsv(robe.h, robe.s * 0.7, robe.v * 0.6)
 	var dark := robe.darkened(0.45)
-	var robe_m := Fx.solid(robe, 0.9)
-	var trim_m := Fx.solid(Color(0.75, 0.6, 0.3), 0.5)
+	var robe_m := cloth(robe)
+	var mantle_m := cloth(robe.darkened(0.15).lerp(Color(0.25, 0.22, 0.2), 0.2), 70.0)
+	var leather := Shape.material(Color(0.3, 0.2, 0.13), Color(0.12, 0.08, 0.05), 3.0, 0.7, 0.5, 0.0, 3)
+	var iron := Shape.material(Color(0.34, 0.33, 0.32), Color(0.16, 0.15, 0.15), 4.0, 0.45, 0.3, 0.7, 5)
 	var meshes: Array[GeometryInstance3D] = []
 	# Legs under the robe, in dark breeches and boots, that step as they walk.
-	var leg_m := Fx.solid(dark.darkened(0.3), 0.9)
-	var boot_m := Fx.solid(Color(0.22, 0.15, 0.1), 0.7)
+	var leg_m := cloth(dark.darkened(0.3), 120.0)
 	var legs: Array[Node3D] = []
 	for side in [1.0, -1.0]:
 		var hip := Node3D.new()
 		hip.position = Vector3(0.11 * side, 0.62, 0)
 		body.add_child(hip)
-		meshes.append(part(hip, cyl(0.07, 0.06, 0.5, 8), leg_m, Vector3(0, -0.27, 0)))
-		meshes.append(part(hip, box(0.13, 0.1, 0.24), boot_m, Vector3(0, -0.56, 0.04)))
+		meshes.append(part(hip, Shape.limb(PackedVector3Array([Vector3(0, 0, 0), Vector3(0, -0.25, 0.01), Vector3(0, -0.46, 0)]), PackedFloat32Array([0.075, 0.065, 0.06])), leg_m))
+		meshes.append(part(hip, Shape.blob(Vector3(0.068, 0.07, 0.125), 0.05, side * 3.0, 8, 12), leather, Vector3(0, -0.55, 0.035)))
 		legs.append(hip)
-	# A round belly under the chest, belted, with the skirt of the robe
-	# hanging from the hips as cloth (Robe).
-	meshes.append(part(body, sphere(0.27, 12), robe_m, Vector3(0, 0.8, 0.02), Vector3.ZERO, Vector3(1.0, 0.85, 1.05)))
-	meshes.append(part(body, cyl(0.22, 0.26, 0.24, 12), robe_m, Vector3(0, 0.93, 0)))
+	# Torso: narrow at the waist, filling out to the chest, sloping off to
+	# the neck.
+	var torso := Shape.lathe(PackedVector2Array([Vector2(0.21, 0.66), Vector2(0.2, 0.76), Vector2(0.23, 0.92), Vector2(0.24, 1.04), Vector2(0.18, 1.14), Vector2(0.07, 1.2)]), 20)
+	meshes.append(part(body, torso, robe_m, Vector3.ZERO, Vector3.ZERO, Vector3(1.12, 1, 0.92)))
 	var skirt := Robe.new().setup(robe, dark)
+	skirt.material_override = cloth(Color.WHITE)
 	skirt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body.add_child(skirt)
 	meshes.append(skirt)
-	meshes.append(part(body, cyl(0.275, 0.275, 0.06, 14), trim_m, Vector3(0, 0.74, 0.01)))
-	part(body, box(0.09, 0.08, 0.03), Fx.solid(Color(0.9, 0.78, 0.4), 0.3), Vector3(0, 0.74, 0.285))
-	# Shoulders, and arms that swing from them: the right hand holds the staff.
-	meshes.append(part(body, sphere(0.27), robe_m, Vector3(0, 1.02, 0), Vector3.ZERO, Vector3(1.15, 0.7, 1.0)))
-	var skin := Fx.solid(Color(0.85, 0.68, 0.55))
+	# A plain leather belt with an iron buckle, and a pouch on the hip.
+	meshes.append(part(body, cyl(0.235, 0.235, 0.05, 20), leather, Vector3(0, 0.75, 0), Vector3.ZERO, Vector3(1.12, 1, 0.92)))
+	meshes.append(part(body, box(0.07, 0.06, 0.02), iron, Vector3(0, 0.75, 0.22)))
+	meshes.append(part(body, Shape.blob(Vector3(0.07, 0.08, 0.04), 0.08, 2.0, 8, 10), leather, Vector3(-0.22, 0.68, 0.1), Vector3(0, -40, 0)))
+	# A short mantle over the shoulders, hanging in folds.
+	var mantle := Shape.lathe(PackedVector2Array([Vector2(0.33, 0.88), Vector2(0.32, 0.98), Vector2(0.27, 1.1), Vector2(0.15, 1.18), Vector2(0.09, 1.22)]), 24, 7, 0.08)
+	meshes.append(part(body, mantle, mantle_m, Vector3(0, 0, 0.0), Vector3.ZERO, Vector3(1.1, 1, 0.95)))
+	# Arms in wide sleeves that swing from the shoulders: the right hand
+	# holds the staff.
+	var skin := Shape.material(Color(0.78, 0.6, 0.48), Color(0.55, 0.36, 0.3), 5.0, 0.6, 0.2, 0.0, 9)
 	var arms: Array[Node3D] = []
 	for side in [1.0, -1.0]:
 		var sh := Node3D.new()
 		sh.position = Vector3(0.29 * side, 1.04, 0.02)
 		body.add_child(sh)
-		meshes.append(part(sh, cyl(0.07, 0.11, 0.42, 8), robe_m, Vector3(0, -0.21, 0)))
-		meshes.append(part(sh, sphere(0.065, 8), skin, Vector3(0, -0.45, 0)))
+		meshes.append(part(sh, Shape.limb(PackedVector3Array([Vector3(0, 0.02, 0), Vector3(0, -0.2, 0.01), Vector3(0, -0.38, 0.02)]), PackedFloat32Array([0.075, 0.085, 0.115]), 10), robe_m))
+		meshes.append(part(sh, Shape.blob(Vector3(0.05, 0.065, 0.055), 0.12, side, 8, 10), skin, Vector3(0, -0.45, 0)))
 		arms.append(sh)
-	# Head in a hood shadow, with a beard.
-	meshes.append(part(body, sphere(0.17), Fx.solid(Color(0.85, 0.68, 0.55)), Vector3(0, 1.28, 0.03)))
-	meshes.append(part(body, cyl(0.02, 0.13, 0.32, 8), Fx.solid(Color(0.85, 0.85, 0.82)), Vector3(0, 1.12, 0.12), Vector3(-15, 0, 0)))
-	var eye_m := Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
-	part(body, sphere(0.025, 6), eye_m, Vector3(0.06, 1.31, 0.17))
-	part(body, sphere(0.025, 6), eye_m, Vector3(-0.06, 1.31, 0.17))
+	# An old face: a nose, deep-set eyes, grey hair and a long beard.
+	meshes.append(part(body, Shape.blob(Vector3(0.125, 0.145, 0.13), 0.04, 4.0), skin, Vector3(0, 1.3, 0.03)))
+	meshes.append(part(body, Shape.limb(PackedVector3Array([Vector3(0, 1.32, 0.15), Vector3(0, 1.28, 0.18)]), PackedFloat32Array([0.022, 0.026]), 6), skin))
+	var eye_m := Fx.solid(Color(0.06, 0.05, 0.05), 0.3)
+	for side in [1.0, -1.0]:
+		part(body, sphere(0.016, 6), eye_m, Vector3(0.05 * side, 1.33, 0.145))
+	var grey := Shape.material(Color(0.72, 0.71, 0.68), Color(0.45, 0.44, 0.42), 9.0, 0.95, 0.9, 0.0, 11)
+	meshes.append(part(body, Shape.blob(Vector3(0.14, 0.12, 0.13), 0.12, 6.0), grey, Vector3(0, 1.3, -0.03)))
+	meshes.append(part(body, Shape.limb(PackedVector3Array([Vector3(0, 1.25, 0.13), Vector3(0, 1.12, 0.19), Vector3(0, 0.98, 0.21), Vector3(0, 0.88, 0.19)]), PackedFloat32Array([0.1, 0.085, 0.05, 0.012]), 10), grey, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1, 0.75)))
+	# A slouched felt hat: a wide brim drooping at the edge and a tall crown
+	# that bends back and sags.
 	var hat := Node3D.new()
 	hat.position = Vector3(0, 1.38, 0)
 	body.add_child(hat)
-	meshes.append(part(hat, cyl(0.36, 0.36, 0.04, 14), robe_m, Vector3(0, 0.0, 0)))
-	meshes.append(part(hat, cyl(0.0, 0.2, 0.62, 10), robe_m, Vector3(0, 0.31, -0.04), Vector3(-12, 0, 0)))
-	meshes.append(part(hat, cyl(0.205, 0.21, 0.06, 10), trim_m, Vector3(0, 0.05, 0)))
+	var felt := cloth(robe.darkened(0.3).lerp(Color(0.2, 0.17, 0.14), 0.2), 200.0)
+	var brim := Shape.lathe(PackedVector2Array([Vector2(0.33, -0.05), Vector2(0.3, -0.01), Vector2(0.24, 0.015), Vector2(0.17, 0.025)]), 28, 5, 0.05)
+	meshes.append(part(hat, brim, felt))
+	meshes.append(part(hat, Shape.limb(PackedVector3Array([Vector3(0, 0.0, 0), Vector3(0, 0.18, -0.02), Vector3(0, 0.34, -0.08), Vector3(0, 0.44, -0.2), Vector3(0, 0.41, -0.31)]), PackedFloat32Array([0.18, 0.16, 0.11, 0.06, 0.025]), 14), felt))
+	meshes.append(part(hat, cyl(0.183, 0.185, 0.05, 20), leather, Vector3(0, 0.04, 0)))
 	# The staff turns about the hand at the end of the right sleeve, so
 	# pointing it tips the gem forward instead of swinging it from the feet.
+	# Gnarled wood, with roots curling up round the gem.
 	var staff := Node3D.new()
 	staff.position = Vector3(0.42, 0.75, 0.18)
 	body.add_child(staff)
-	meshes.append(part(staff, cyl(0.03, 0.04, 1.7, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.1, 0)))
-	meshes.append(part(staff, cyl(0.09, 0.03, 0.18, 6), Fx.solid(Color(0.32, 0.2, 0.12)), Vector3(0, 0.97, 0)))
-	var gem := part(staff, sphere(0.11, 12), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.12, 0))
+	var wood := Shape.material(Color(0.33, 0.24, 0.16), Color(0.13, 0.09, 0.06), 6.0, 0.8, 0.9, 0.0, 13)
+	var pts := PackedVector3Array()
+	var radii := PackedFloat32Array()
+	for i in 9:
+		var y := lerpf(-0.75, 1.0, i / 8.0)
+		pts.append(Vector3(sin(i * 2.1) * 0.018, y, cos(i * 1.7) * 0.015))
+		radii.append(lerpf(0.032, 0.038, i / 8.0) + (0.008 if i % 3 == 1 else 0.0))
+	meshes.append(part(staff, Shape.limb(pts, radii, 7), wood))
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.4
+		var out := Vector3(cos(a), 0, sin(a))
+		meshes.append(part(staff, Shape.limb(Shape.curve(Vector3(0, 0.98, 0), out * 0.12 + Vector3(0, 1.1, 0), out * 0.05 + Vector3(0, 1.24, 0), 5), Shape.taper(0.028, 0.008, 5), 6), wood))
+	var gem := part(staff, sphere(0.085, 12), Fx.glow(Color(0.9, 0.85, 0.7), 2.5), Vector3(0, 1.12, 0))
 	# A sword in the other hand, for the swing: a long, tapering blade with
 	# a raised ridge, a guard whose arms sweep up towards it, a wrapped grip
 	# and a heavy pommel. The blade is built as long as the swing reaches
@@ -214,9 +278,9 @@ static func wizard(robe: Color) -> Dictionary:
 
 static func tombstone() -> Node3D:
 	var n := Node3D.new()
-	var stone := Fx.solid(Color(0.38, 0.37, 0.4))
+	var stone := stone(Color(0.38, 0.37, 0.4), 0.5)
 	part(n, box(0.7, 0.9, 0.18), stone, Vector3(0, 0.45, 0))
-	part(n, cyl(0.35, 0.35, 0.18, 12), stone, Vector3(0, 0.9, 0), Vector3(90, 0, 0))
+	part(n, cyl(0.35, 0.35, 0.18, 20), stone, Vector3(0, 0.9, 0), Vector3(90, 0, 0))
 	part(n, box(0.08, 0.4, 0.04), Fx.solid(Color(0.2, 0.2, 0.22)), Vector3(0, 0.62, 0.1))
 	part(n, box(0.28, 0.08, 0.04), Fx.solid(Color(0.2, 0.2, 0.22)), Vector3(0, 0.72, 0.1))
 	part(n, box(1.0, 0.12, 0.6), Fx.solid(Color(0.22, 0.18, 0.12)), Vector3(0, 0.06, 0.1))

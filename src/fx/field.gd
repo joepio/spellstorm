@@ -115,6 +115,7 @@ func _build() -> void:
 			_light.position = Vector3.UP * 0.8
 		El.STEAM:
 			_parts = Fx.particles(Color(0.75, 0.75, 0.8, 0.5), int(8 * radius * radius), 2.0, 1.6)
+			_haze(_parts, Color(0.72, 0.74, 0.78), 0.16, 2.0)
 			_parts.direction = Vector3.UP
 			_parts.gravity = Vector3.UP * 0.2
 			_parts.initial_velocity_min = 0.1
@@ -140,6 +141,7 @@ func _build() -> void:
 			_look(pool)
 			# A low sickly vapour hanging over it.
 			_parts = Fx.particles(Color(c.r * 0.6, c.g * 0.6, c.b * 0.6, 0.12), int(2 * radius * radius) + 4, 2.0, 0.4)
+			_haze(_parts, Color(c.r * 0.45, c.g * 0.5, c.b * 0.3), 0.14, 1.6)
 			_parts.direction = Vector3.UP
 			_parts.gravity = Vector3.UP * 0.15
 			_parts.initial_velocity_min = 0.05
@@ -155,6 +157,18 @@ func _build() -> void:
 		_parts.scale = Vector3.ONE
 	if _light:
 		add_child(_light)
+
+
+## Turn [param p] into a see-through haze of [param c] instead of glowing
+## dots: soft clouds [param size] across, never more opaque than [param a].
+static func _haze(p: CPUParticles3D, c: Color, a: float, size: float) -> void:
+	p.mesh = Parts._quad(size, "puff", false)
+	var g := Gradient.new()
+	g.set_color(0, Color(c.r, c.g, c.b, 0.0))
+	g.set_color(1, Color(c.r, c.g, c.b, 0.0))
+	g.add_point(0.3, Color(c.r, c.g, c.b, a))
+	g.add_point(0.7, Color(c.r, c.g, c.b, a * 0.6))
+	p.color_ramp = g
 
 
 ## Burning ground: a ragged patch of glowing seams with tongues of flame on

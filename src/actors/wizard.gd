@@ -45,6 +45,7 @@ const SWING_REACH := 1.7
 ## the bullets it knocks back.
 const SWING_ARC := 1.3
 const NOVA_HOLD := 0.45
+const HERO_LIGHT := 3.2
 ## The roll is a commitment, not a dash: it pushes off hard, then slows to
 ## a stop, and you are only untouchable for its first part. Afterwards you
 ## stumble for a moment, so rolling all the time is slower than walking.
@@ -135,13 +136,16 @@ func _ready() -> void:
 	add_child(_remains)
 	meshes = model.meshes
 	setup_status_fx()
+	# The light round each wizard, Diablo style: the world is dark and you
+	# carry a warm pool of it with you, casting real shadows.
 	_light = OmniLight3D.new()
-	_light.light_color = Color(1.0, 0.82, 0.6)
-	_light.light_energy = 1.6
-	_light.omni_range = 9.0
-	_light.omni_attenuation = 1.0
-	_light.position = Vector3(0, 2.6, 0)
-	_light.shadow_enabled = false
+	_light.light_color = Color(1.0, 0.8, 0.58)
+	_light.light_energy = HERO_LIGHT
+	_light.omni_range = 13.0
+	_light.omni_attenuation = 1.3
+	_light.position = Vector3(0, 3.4, 0)
+	_light.shadow_enabled = true
+	_light.shadow_blur = 1.5
 	add_child(_light)
 	# The queued elements ride on the staff, small balls circling its gem.
 	for i in SpellQueue.SIZE:
@@ -1317,7 +1321,7 @@ func revive(frac: float) -> void:
 		return
 	alive = true
 	hp = max_hp * frac
-	_light.light_energy = 1.3
+	_light.light_energy = HERO_LIGHT
 	if _tomb:
 		var tomb := _tomb
 		_tomb = null

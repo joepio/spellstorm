@@ -6,6 +6,8 @@ thousands of spells and descend through five biomes together.
   fall and start again.
 - Eighteen kinds of monster, each with its own attack, weakness and place
   to come from.
+- A darker, grounded look: real shadows, fog and weathered stone, with
+  rebuilt wizards, monsters and props.
 - Plant traps and sentries, enchant your staff, or knock bullets back with your staff.
 
 Windows x86-64, portable: unzip and run Spellstorm.exe. Works best with

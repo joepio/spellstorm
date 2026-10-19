@@ -177,8 +177,17 @@ static func burst(at: Vector3, c: Color, amount := 24, speed := 5.0, size := 0.3
 	p.finished.connect(p.queue_free)
 
 
+## A soft cloud of dust, steam or smoke: see-through and unlit by itself,
+## not a glowing ball.
 static func puff(at: Vector3, c: Color, size := 1.2) -> void:
 	var p := particles(c, 14, 1.4, size)
+	p.mesh = Parts._quad(size * 1.2, "puff", false)
+	var g := Gradient.new()
+	g.set_color(0, Color(c.r, c.g, c.b, 0.0))
+	g.set_color(1, Color(c.r * 0.8, c.g * 0.8, c.b * 0.8, 0.0))
+	g.add_point(0.15, Color(c.r, c.g, c.b, 0.35))
+	g.add_point(0.55, Color(c.r * 0.9, c.g * 0.9, c.b * 0.9, 0.2))
+	p.color_ramp = g
 	p.one_shot = true
 	p.explosiveness = 0.8
 	p.direction = Vector3.UP

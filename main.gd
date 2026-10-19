@@ -486,19 +486,37 @@ func _world() -> void:
 	e.background_color = Color(0, 0, 0)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.25, 0.3, 0.4)
-	e.ambient_light_energy = 0.9
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.05
+	e.ambient_light_energy = 0.45
+	# Forward+ (Joep: less cartoony): AgX keeps bright spells from clipping to
+	# flat colour, ambient occlusion grounds everything in its corners,
+	# volumetric fog lets torches and spells light the air.
+	e.tonemap_mode = Environment.TONE_MAPPER_AGX
+	e.tonemap_exposure = 1.5
 	e.glow_enabled = true
-	e.glow_intensity = 0.8
-	e.glow_bloom = 0.12
-	e.glow_hdr_threshold = 0.8
-	e.fog_enabled = true
-	e.fog_light_color = Color(0.08, 0.1, 0.12)
-	e.fog_density = 0.006
+	e.glow_intensity = 0.6
+	e.glow_bloom = 0.05
+	e.glow_hdr_threshold = 1.0
+	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	e.ssao_enabled = true
+	e.ssao_radius = 1.4
+	e.ssao_intensity = 2.2
+	e.ssao_power = 1.6
+	e.ssao_detail = 0.6
+	e.ssil_enabled = true
+	e.ssil_radius = 4.0
+	e.ssil_intensity = 0.8
+	e.fog_enabled = false
+	e.volumetric_fog_enabled = true
+	e.volumetric_fog_density = 0.004
+	e.volumetric_fog_albedo = Color(0.5, 0.55, 0.6)
+	e.volumetric_fog_emission = Color(0.08, 0.1, 0.12)
+	e.volumetric_fog_emission_energy = 0.15
+	e.volumetric_fog_anisotropy = 0.4
+	e.volumetric_fog_length = 80.0
+	e.volumetric_fog_ambient_inject = 0.3
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 0.85
-	e.adjustment_contrast = 1.1
+	e.adjustment_saturation = 0.8
+	e.adjustment_contrast = 1.08
 	env.environment = e
 	add_child(env)
 	moon = DirectionalLight3D.new()
@@ -522,6 +540,7 @@ func apply_biome(b: Dictionary) -> void:
 	var e := env.environment
 	e.ambient_light_color = b.ambient
 	e.fog_light_color = b.fog
+	e.volumetric_fog_emission = b.fog
 	moon.light_color = b.moon
 	moon.light_energy = b.moon_energy * 1.8 + 0.15
 
@@ -713,6 +732,7 @@ func _take_shot() -> void:
 		set_process(false)
 		camera.far = 600.0
 		env.environment.fog_enabled = false
+		env.environment.volumetric_fog_enabled = false
 		camera.global_position = Vector3(0, 150, 0)
 		camera.look_at(Vector3.ZERO, Vector3.LEFT)
 		camera.fov = 48.0

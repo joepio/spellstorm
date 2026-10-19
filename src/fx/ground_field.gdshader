@@ -51,13 +51,19 @@ void fragment() {
 	} else if (kind == 3 || kind == 9) {
 		// Frost and ice: pale crystal broken into plates, rime thick at the
 		// rim, glints that come and go.
-		vec2 cell = el_cells(vec3(w * (kind == 9 ? 1.1 : 1.8), seed)).xy;
-		float crack = 1.0 - smoothstep(0.0, 0.05, cell.x);
+		// Cracks at two sizes, thin and broken up so it reads as real ice,
+		// not a net; the dark water shows through the clear parts.
+		vec2 wob = vec2(sn_fbm(vec3(w * 2.0, seed)), sn_fbm(vec3(w * 2.0, seed + 5.0))) * 0.35;
+		vec2 cell = el_cells(vec3((w + wob) * (kind == 9 ? 1.1 : 1.6), seed)).xy;
+		vec2 fine_c = el_cells(vec3((w + wob) * 4.5, seed + 3.0)).xy;
+		float broken = smoothstep(0.3, 0.6, sn_fbm(vec3(w * 1.5, seed + 9.0)));
+		float crack = (1.0 - smoothstep(0.0, 0.018, cell.x)) * (0.4 + 0.6 * broken);
+		crack = max(crack, (1.0 - smoothstep(0.0, 0.012, fine_c.x)) * broken * 0.45);
 		float rime = sn_fbm(vec3(w * 3.0, seed));
-		c = mix(vec3(0.22, 0.34, 0.46), vec3(0.42, 0.56, 0.68), cell.y * 0.5 + rime * 0.3);
-		c = mix(c, vec3(0.7, 0.8, 0.88), max(rim * 0.7, crack * 0.6));
+		c = mix(vec3(0.07, 0.11, 0.16), vec3(0.3, 0.38, 0.46), cell.y * 0.35 + rime * 0.55);
+		c = mix(c, vec3(0.55, 0.62, 0.7), max(rim * rime * 0.8, crack * 0.5));
 		float glint = step(0.985, sn_hash(vec3(floor(w * 6.0), floor(TIME * 3.0))));
-		glow = vec3(0.8, 0.95, 1.0) * glint * 0.8;
+		glow = vec3(0.8, 0.95, 1.0) * glint * crack * 1.5;
 		a *= kind == 9 ? 0.85 : 0.7;
 		rough = kind == 9 ? 0.05 : 0.35;
 	} else if (kind == 10) {

@@ -53,14 +53,14 @@ static func style(p: CPUParticles3D, e: int, smoke := true) -> void:
 			if smoke:
 				_smoke(p, size)
 		Look.DROP:
-			p.mesh = _quad(size * 0.38, "drop", false)
+			p.mesh = _quad(size * 0.3, "drop", false)
 			var light := c.lerp(Color.WHITE, 0.55)
 			p.color_ramp = _ramp([Color(light.r, light.g, light.b, 0.95), Color(c.r, c.g, c.b, 0.9), Color(c.r * 0.6, c.g * 0.6, c.b * 0.6, 0.0)], [0.0, 0.6, 1.0])
 			p.color_initial_ramp = _ramp([Color(1, 1, 1), Color(0.75, 0.8, 0.75)], [0.0, 1.0])
 			p.gravity = Vector3.DOWN * 12.0
 			p.scale_amount_curve = _curve([0.8, 1.0, 0.6])
 		Look.SPARK:
-			p.mesh = _quad(size * 0.6, "spark", true)
+			p.mesh = _quad(size * 0.4, "spark", true)
 			p.amount = int(p.amount * 1.5)
 			var hot := c.lerp(Color.WHITE, 0.7)
 			p.color_ramp = _ramp([Color(1, 1, 1, 1), Color(hot.r, hot.g, hot.b, 1.0), Color(c.r, c.g, c.b, 0.0)], [0.0, 0.4, 1.0])
@@ -75,7 +75,8 @@ static func style(p: CPUParticles3D, e: int, smoke := true) -> void:
 			p.angle_min = -180.0
 			p.angle_max = 180.0
 		Look.FLAKE:
-			p.mesh = _quad(size * 0.42, "flake", true)
+			p.mesh = _quad(size * 0.26, "flake", true)
+			p.amount = int(p.amount * 1.4)
 			var pale := c.lerp(Color.WHITE, 0.6)
 			p.color_ramp = _ramp([Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(pale.r, pale.g, pale.b, 0.8), Color(c.r, c.g, c.b, 0.0)], [0.0, 0.1, 0.5, 1.0])
 			p.gravity = Vector3.DOWN * 1.5
@@ -176,7 +177,7 @@ static func _chip(size: float, c: Color) -> BoxMesh:
 
 
 ## The particle shapes, drawn once: a flame tongue, a hard droplet with a
-## glint, a four-pointed spark, a six-pointed flake, a thin streak, a puff.
+## glint, a hot point of a spark, a splinter of ice, a thin streak, a puff.
 static func _texture(kind: String) -> Texture2D:
 	if _tex.has(kind):
 		return _tex[kind]
@@ -199,14 +200,16 @@ static func _texture(kind: String) -> Texture2D:
 					a = (1.0 - smoothstep(0.7, 0.82, r))
 					# A glint near the top-left, and a darker rim.
 					var g := Vector2(u + 0.3, v + 0.3).length()
-					lum = 0.75 + 0.25 * (1.0 - smoothstep(0.3, 0.75, r)) + 0.6 * (1.0 - smoothstep(0.05, 0.3, g))
+					lum = 0.8 + 0.2 * (1.0 - smoothstep(0.3, 0.75, r)) + 0.25 * (1.0 - smoothstep(0.05, 0.25, g))
 				"spark":
-					var cross := maxf(maxf(0.0, 1.0 - absf(u) * 9.0) * (1.0 - absf(v)), maxf(0.0, 1.0 - absf(v) * 9.0) * (1.0 - absf(u)))
-					a = clampf(cross + (1.0 - smoothstep(0.0, 0.35, r)), 0.0, 1.0)
+					# A white-hot point with a soft falloff, not a cartoon star.
+					a = clampf(pow(1.0 - smoothstep(0.0, 0.9, r), 2.2) + (1.0 - smoothstep(0.0, 0.18, r)), 0.0, 1.0)
 				"flake":
-					var ang := atan2(v, u)
-					var arm := absf(cos(ang * 3.0))
-					a = clampf((1.0 - smoothstep(0.0, 0.08, r * (1.0 - arm)) ) * (1.0 - r) + (1.0 - smoothstep(0.0, 0.3, r)), 0.0, 1.0)
+					# A splinter of ice: a sharp little diamond that glints, with a
+					# faint frosty haze round it.
+					var d := absf(u) * 2.2 + absf(v)
+					a = clampf((1.0 - smoothstep(0.55, 0.7, d)) + 0.25 * pow(1.0 - smoothstep(0.0, 1.0, r), 2.0), 0.0, 1.0)
+					lum = 0.8 + 0.2 * (1.0 - smoothstep(0.0, 0.5, d))
 				"streak":
 					a = maxf(0.0, 1.0 - absf(v) * 7.0) * pow(maxf(0.0, 1.0 - absf(u)), 1.5)
 				"puff":

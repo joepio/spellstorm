@@ -8,10 +8,10 @@ extends MeshInstance3D
 ## own space (with the forces of its motion added), so whatever moves or
 ## scales the body (deaths, revives) carries the robe along.
 
-const SEGS := 14
+const SEGS := 22
 const RINGS := 6
-const TOP := Vector2(0.76, 0.27)
-const BOTTOM := Vector2(0.16, 0.46)
+const TOP := Vector2(0.76, 0.235)
+const BOTTOM := Vector2(0.1, 0.38)
 const STIFF := 7.0
 const DAMP := 0.94
 const SUBSTEPS := 2
@@ -50,7 +50,7 @@ func setup(robe: Color, trim: Color) -> Robe:
 		for s in SEGS:
 			var a := TAU * s / SEGS
 			# A little in and out round the hem reads as folds.
-			var fold := 1.0 + 0.07 * k * sin(a * 3.0 + 0.6)
+			var fold := 1.0 + k * (0.05 * sin(a * 3.0 + 0.6) + 0.05 * sin(a * 8.0 + 1.3))
 			_rest[r * SEGS + s] = Vector3(sin(a) * rad * fold, y, cos(a) * rad * fold)
 	_pos = _rest.duplicate()
 	_prev = _rest.duplicate()

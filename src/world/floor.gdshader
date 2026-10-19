@@ -140,6 +140,10 @@ void fragment() {
 	float n = fbm(p * 0.35);
 	float fine = fbm(p * 2.5);
 	vec3 col;
+	// How high each bit of ground stands, for the light to catch (bump
+	// mapped at the end): grain everywhere, stones and flags proud of the
+	// grout and gaps between them.
+	float h = fine * 0.5 + n * 0.3;
 	if (tiles > 0.5) {
 		col = mix(base_a, base_b, smoothstep(0.3, 0.7, n));
 		col *= 0.85 + 0.3 * fine;
@@ -152,12 +156,12 @@ void fragment() {
 		col *= 0.93 + 0.14 * noise(p * 13.0);
 		float tuft = smoothstep(0.62, 0.8, fbm(p * 3.1 + 9.0)) * smoothstep(0.45, 0.65, patch);
 		col = mix(col, base_a * 1.35, tuft * 0.5);
-		vec2 st = cells(p * 3.2);
-		float stone = step(0.93, st.y) * smoothstep(0.1, 0.3, st.x);
-		col = mix(col, mix(base_b, vec3(0.2, 0.2, 0.19), 0.5) * (0.85 + 0.3 * fine), stone * 0.45);
+		// No scattered pebbles: as flat polygons they read as confetti.
+		h += tuft * 0.4 + noise(p * 13.0) * 0.25;
 	}
 	float rough = mix(0.95, 0.25, wet * smoothstep(0.4, 0.6, fbm(p * 0.6 + 3.0)));
 	vec3 glow = vec3(0.0);
+	float planks = 0.0;
 	if (tiles > 0.5) {
 		vec2 t = p / tile_size;
 		// Offset every other row like laid flagstones.
@@ -168,6 +172,7 @@ void fragment() {
 		float grout = smoothstep(0.0, 0.05, edge);
 		col *= mix(0.35, 1.0, grout);
 		col *= 0.8 + 0.4 * hash(id);
+		h += grout * 1.5 + hash(id) * 0.3;
 	}
 	// The zone this bit of ground is in.
 	float k1 = smoothstep(zone_z.x + 6.0, zone_z.x - 6.0, p.y);
@@ -202,6 +207,7 @@ void fragment() {
 		flag *= mix(0.4, 1.0, smoothstep(0.0, 0.06, edge));
 		float worn = smoothstep(-1.4, 0.0, pz) * smoothstep(0.35, 0.7, fbm(p * 1.3));
 		col = mix(flag, col, worn);
+		h = mix(h + smoothstep(0.0, 0.06, edge) * 1.5, h, worn);
 	}
 
 	vec4 pi = path_info(p);
@@ -221,6 +227,7 @@ void fragment() {
 		wc = mix(wc, vec3(0.42, 0.52, 0.52), clamp(foam, 0.0, 1.0) * 0.55);
 		col = wc;
 		rough = 0.08;
+		h = w2 * 0.4;
 		glow = water_b * 0.12 * (0.6 + w2);
 	} else if (on_path > 0.0) {
 		vec3 pc;
@@ -234,11 +241,16 @@ void fragment() {
 			pc *= mix(0.25, 1.0, smoothstep(0.0, 0.08, plank) * smoothstep(1.0, 0.92, plank));
 			float rail = smoothstep(path_w * 0.5 - 0.22, path_w * 0.5 - 0.12, pi.x);
 			pc = mix(pc, vec3(0.2, 0.13, 0.08), rail);
+			h = smoothstep(0.0, 0.08, plank) * smoothstep(1.0, 0.92, plank) * 1.4 + rail;
 			on_path = step(pi.x, path_w * 0.5);
+			// Dry old wood, not shining like the water under it.
+			rough = mix(rough, 0.9, on_path);
+			planks = on_path;
 		} else if (path_style == 1) {
 			vec2 c = cells(p * 1.3);
 			pc = mix(path_a, path_b, c.y) * (0.85 + 0.3 * fine);
 			pc *= mix(0.3, 1.0, smoothstep(0.02, 0.12, c.x));
+			h = mix(h, fine * 0.4 + smoothstep(0.02, 0.12, c.x) * 1.6, on_path);
 		} else if (path_style == 2) {
 			// A long red runner with a gold border, threadbare in places.
 			float edge = smoothstep(half_w - 0.45, half_w - 0.35, pi.x);
@@ -248,16 +260,22 @@ void fragment() {
 		} else if (path_style == 3) {
 			vec2 c = cells(p * 1.1);
 			pc = mix(path_a, path_b, c.y) * (0.8 + 0.3 * fine);
-			float seam = 1.0 - smoothstep(0.0, 0.06, c.x);
-			pc = mix(pc, vec3(1.0, 0.35, 0.05), seam);
-			glow = vec3(1.0, 0.3, 0.04) * seam * on_path * (0.5 + 0.25 * sin(TIME * 1.5 + p.x));
+			// Most seams are just dark cracks; heat wells up through some of
+			// them in patches that slowly shift, wider where it is hottest.
+			float heat = smoothstep(0.42, 0.72, fbm(p * 0.45 + vec2(TIME * 0.03, 3.0)));
+			float seam = 1.0 - smoothstep(0.0, 0.025 + 0.035 * heat, c.x);
+			pc = mix(pc, vec3(0.03, 0.02, 0.02), seam);
+			h = mix(h, fine * 0.5 + (1.0 - seam) * 1.5, on_path);
+			float core = 1.0 - smoothstep(0.0, 0.012 + 0.02 * heat, c.x);
+			glow = vec3(1.0, 0.28, 0.03) * (seam * 0.35 + core) * heat * on_path * (0.45 + 0.2 * sin(TIME * 1.5 + p.x));
 		} else {
 			// Trodden earth: worn smooth in the middle, pebbles at the edge.
 			float mid = 1.0 - smoothstep(0.0, half_w, pi.x);
 			pc = mix(path_b, path_a, mid * 0.6 + 0.4 * fine);
 			vec2 c = cells(p * 3.5);
-			float pebble = step(0.78, c.y) * smoothstep(0.05, 0.18, c.x) * smoothstep(half_w * 0.3, half_w * 0.8, pi.x);
-			pc = mix(pc, path_a * 1.35, pebble * 0.7);
+			float pebble = step(0.86, c.y) * smoothstep(0.15, 0.4, c.x) * smoothstep(half_w * 0.3, half_w * 0.8, pi.x);
+			pc = mix(pc, path_a * 1.1, pebble * 0.5);
+			h = mix(h, fine * 0.3 + pebble * 1.2, on_path);
 		}
 		col = mix(col, pc, on_path);
 	}
@@ -275,8 +293,21 @@ void fragment() {
 		glow += base_b * (0.6 + 0.5 * fine) * 0.22 * smoothstep(0.5, 3.0, sd);
 	}
 	col *= 1.0 - min(edge_dark, 1.0) * 0.6 - max(edge_dark - 1.0, 0.0) * 0.8;
-	ALBEDO = col * 1.7;
+	// The dark comes from the light, not the paint: brighter ground the
+	// wizards' light and spells can show (Joep: less cartoony).
+	ALBEDO = col * 2.4;
+	// Bump mapping from the height above, by screen-space derivatives.
+	float bump = 0.035;
+	vec3 dpdx = dFdx(VERTEX);
+	vec3 dpdy = dFdy(VERTEX);
+	float dhx = dFdx(h) * bump;
+	float dhy = dFdy(h) * bump;
+	vec3 r1 = cross(dpdy, NORMAL);
+	vec3 r2 = cross(NORMAL, dpdx);
+	float det = dot(dpdx, r1);
+	vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
+	NORMAL = normalize(abs(det) * NORMAL - grad);
 	ROUGHNESS = rough;
-	SPECULAR = shore > 0.0 ? 0.6 : 0.15;
+	SPECULAR = mix(shore > 0.0 ? 0.6 : 0.15, 0.2, planks);
 	EMISSION = glow;
 }

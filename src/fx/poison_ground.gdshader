@@ -23,7 +23,8 @@ void fragment() {
 		discard;
 	}
 	float churn = sn_fbm(vec3(wpos.x * 1.2, TIME * 0.25, wpos.z * 1.2));
-	vec3 c = mix(tint.rgb * 0.08, tint.rgb * 0.35, smoothstep(0.35, 0.7, churn));
+	vec3 murk = mix(tint.rgb, vec3(0.3, 0.32, 0.1), 0.35);
+	vec3 c = mix(murk * 0.06, murk * 0.27, smoothstep(0.35, 0.7, churn));
 	// Bubbles: one per cell, each on its own clock, swelling then popping.
 	vec2 g = wpos.xz * 3.0;
 	vec2 id = floor(g);
@@ -33,7 +34,7 @@ void fragment() {
 	vec2 off = vec2(h - 0.5, fract(h * 13.0) - 0.5) * 0.4;
 	float br = 0.04 + 0.16 * life;
 	float ring = smoothstep(br, br - 0.05, length(f - off)) * step(0.6, h) * (1.0 - smoothstep(0.85, 1.0, life));
-	c = mix(c, tint.rgb * 0.55, ring * 0.6);
+	c = mix(c, murk * 0.45, ring * 0.6);
 	ALBEDO = c;
 	ALPHA = clamp(mask * 0.8, 0.0, 1.0) * fade;
 }
