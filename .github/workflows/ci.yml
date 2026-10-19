@@ -95,7 +95,7 @@ jobs:
         if: env.GAMENIGHT_API_TOKEN != ''
         with:
           repository: ontola/gamenight
-          ref: 5703cf0c0adee10db4ac9adfb06d0edaf28b2010
+          ref: 581dfed420c088f25781ea545d8e921e5934380e
           path: .gamenight
           sparse-checkout: scripts/gamenight-publish.py
           sparse-checkout-cone-mode: false
