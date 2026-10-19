@@ -384,6 +384,58 @@ func _charm_end(at: Vector3) -> void:
 	if El.POISON in charmed:
 		var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(ground), El.POISON, 0.9, 2.5, caster)
 		f.friendly = true
+		f.splash()
+	# Every element lands with something you can see (Joep: three water
+	# bolts did nothing at all where they hit).
+	for e in charmed:
+		_impact(at, ground, e)
+
+
+## The look of an enchanted bolt landing, per base element; what it does
+## is in _charm_hit and above.
+func _impact(at: Vector3, ground: Vector3, e: int) -> void:
+	var c: Color = El.COLOR[e]
+	match e:
+		El.WATER:
+			# A crown of drops thrown up and falling back, and a ring on the floor.
+			_spray(at, e, 18, 7.0, 28.0, 0.75)
+			Fx.ripple(ground, 2.2, 0.6)
+		El.POISON:
+			_spray(at, e, 14, 5.0, 40.0, 0.7)
+		El.FROST:
+			# Ice splinters out and a breath of cold mist.
+			_spray(at, e, 12, 5.5, 75.0, 0.7)
+			Fx.puff(at, c.lerp(Color.WHITE, 0.6), 0.45)
+		El.EARTH:
+			# Chips of stone kicked up and a puff of dust.
+			_spray(at, e, 10, 6.5, 50.0, 0.9)
+			Fx.puff(ground + Vector3.UP * 0.2, Color(0.45, 0.38, 0.3), 0.9)
+		El.AIR:
+			# A gust bursting outward.
+			Fx.ring(ground, c.lerp(Color.WHITE, 0.5), 1.8, 0.3)
+			_spray(at, e, 10, 5.0, 90.0, 0.7)
+		El.LIGHTNING:
+			_spray(at, e, 8, 4.0, 90.0, 0.5)
+			Fx.light_pop(ground, c, 2.0, 4.0, 0.15)
+		El.VOID:
+			Fx.light_pop(ground, c, 1.5, 3.5, 0.25)
+
+
+## A one-shot fountain of [param e]'s particles, up and outward.
+func _spray(at: Vector3, e: int, amount: int, speed: float, spread: float, size: float) -> void:
+	var p := Fx.particles(El.COLOR[e], amount, 0.7, size)
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.direction = Vector3.UP
+	p.spread = spread
+	p.initial_velocity_min = speed * 0.5
+	p.initial_velocity_max = speed
+	p.damping_min = 0.5
+	p.damping_max = 1.5
+	Parts.style(p, e, false)
+	Fx._spawn(p, at + Vector3.UP * 0.1)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
 
 
 ## How hard an enchanted fire bolt's burst hits (Balance.enchant_shot).

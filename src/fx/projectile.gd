@@ -118,7 +118,7 @@ func _land(at: Vector3) -> void:
 				a.hit_spell(spell, power * 0.6 * n.rate, caster, Vector3(d.x, 0, d.y).normalized(), ff())
 		if Game.I:
 			var kind := El.FIRE if spell.primary == El.MAGMA else El.MUD
-			Game.I.arena.add_field(Vector3(at.x, 0, at.z), kind, r * 0.7, 6.0, caster)
+			Game.I.arena.add_field(Vector3(at.x, 0, at.z), kind, r * 0.7, 6.0, caster).splash()
 		touch(at, r)
 	else:
 		touch(at, 1.2)

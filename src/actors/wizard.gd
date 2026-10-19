@@ -48,10 +48,10 @@ const NOVA_HOLD := 0.45
 ## The roll is a commitment, not a dash: it pushes off hard, then slows to
 ## a stop, and you are only untouchable for its first part. Afterwards you
 ## stumble for a moment, so rolling all the time is slower than walking.
-const ROLL_TIME := 0.55
-const ROLL_SPEED := 11.0
+const ROLL_TIME := 0.5
+const ROLL_SPEED := 12.5
 const ROLL_IFRAMES := 0.3
-const ROLL_RECOVER := 0.3
+const ROLL_RECOVER := 0.15
 const ROLL_COOLDOWN := 0.95
 
 var player_name := "Wizard"
@@ -282,7 +282,7 @@ func _physics_process(dt: float) -> void:
 	elif not _charging.is_empty():
 		spd *= 0.6
 	if _roll_recover > 0.0:
-		spd *= 0.35
+		spd *= 0.7
 	drive(_leash(mv) * spd, dt)
 	_visuals(dt)
 
@@ -581,11 +581,13 @@ static func _arc_mesh(r0: float, r1: float, half: float) -> ArrayMesh:
 
 
 ## How fast the roll goes at [param k] of the way through it, 0 to 1: a quick
-## push off, then a long ease to a stop.
+## push off, then an even ease to a stop. About 3.3 m in half a second: a bit
+## quicker than walking, not a dash (Joep: the heavier Dark Souls roll that
+## covered less ground than walking was punished too hard).
 static func roll_speed(k: float) -> float:
 	if k < 0.15:
 		return 0.4 + 0.6 * k / 0.15
-	return pow(clampf(1.0 - (k - 0.15) / 0.85, 0.0, 1.0), 1.6)
+	return clampf(1.0 - (k - 0.15) / 0.85, 0.0, 1.0)
 
 
 ## A dodge roll the way you walk, untouchable at its start.

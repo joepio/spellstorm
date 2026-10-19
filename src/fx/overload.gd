@@ -423,9 +423,11 @@ func _ride(at: Vector3, r: float) -> void:
 				if not (e == El.WATER and spell.primary == El.LIGHTNING):
 					var wf: Field = Game.I.arena.add_field(ground, e, r * 0.7, 6.0, caster)
 					wf.friendly = true
+					wf.splash()
 			El.POISON:
 				var f: Field = Game.I.arena.add_field(ground, El.POISON, r * 0.7, 7.0, caster)
 				f.friendly = true
+				f.splash()
 			El.LIGHTNING:
 				Game.I.arena.touch_ground(ground, r, El.LIGHTNING, caster)
 				Fx.light_pop(ground, c, 4.0, r * 3.0, 0.25)

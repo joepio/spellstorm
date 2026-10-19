@@ -219,6 +219,17 @@ func _wind() -> void:
 	_look(core)
 
 
+## Land with a splash instead of just being there: the patch spreads out
+## from a small blot, overshoots a little and settles (Joep).
+func splash(time := 0.45) -> void:
+	for m: Node3D in _looks + [_disc]:
+		var full := m.scale
+		m.scale = Vector3(full.x * 0.15, full.y, full.z * 0.15)
+		var tw := m.create_tween()
+		tw.tween_property(m, "scale", Vector3(full.x * 1.12, full.y, full.z * 1.12), time * 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(m, "scale", full, time * 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
 func _look(m: MeshInstance3D) -> void:
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(m)
