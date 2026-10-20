@@ -570,17 +570,6 @@ func _limbs(dt: float, moving: bool, lift: float) -> void:
 
 
 
-## 1 when an enemy bullet is right on you, fading to 0 at six metres.
-func _bullet_near() -> float:
-	var best := 0.0
-	for b in Bullet.all:
-		if b.team == team:
-			continue
-		var d := Vector2(b.global_position.x - global_position.x, b.global_position.z - global_position.z).length()
-		best = maxf(best, 1.0 - clampf((d - SWING_REACH) / 4.0, 0.0, 1.0))
-	return best
-
-
 ## A flat ring sector on the ground, pointing along +Z: UV.x runs across it,
 ## UV.y from the inner radius out.
 static func _arc_mesh(r0: float, r1: float, half: float) -> ArrayMesh:
@@ -1455,14 +1444,8 @@ func _visuals(dt: float) -> void:
 		sword.position = sword.position.lerp(rest, 1.0 - exp(-12.0 * dt))
 		sword.rotation = sword.rotation.lerp(Vector3(PI * 0.5 + dip, 0.0, 0.32 + sin(_walk) * _stride * 0.05), 1.0 - exp(-12.0 * dt))
 		_zone.scale = Vector3.ONE
-		var near := _bullet_near() if _swing_cd <= 0.0 else 0.0
-		_zone.visible = near > 0.0 and alive
-		if _zone.visible:
-			_zone_mat.set_shader_parameter("color", Color(1.0, 0.9, 0.6))
-			_zone_mat.set_shader_parameter("progress", 1.0)
-			_zone_mat.set_shader_parameter("strength", 0.22 * near)
-			_zone_mat.set_shader_parameter("mirror", false)
-			_place_zone(aim_dir)
+		# No hint when a bullet could be deflected (Joep): you know RB does it.
+		_zone.visible = false
 	# The queue rides on the staff: up to three small balls circling the gem,
 	# which wears the element the bolts will be.
 	var slots := queue.slots

@@ -146,6 +146,58 @@ func level(biome: Dictionary, depth: int) -> void:
 	where = "%s   ·   Level %d of %d" % [biome.name, depth + 1, Arena.BIOMES.size()]
 	_title.text = biome.name
 	_sub.text = "Level %d of %d" % [depth + 1, Arena.BIOMES.size()]
+	_level_card("%d: %s" % [depth + 1, biome.name])
+
+
+var _card: Control
+var _card_tw: Tween
+
+
+## Each level opens on its name, big and slow, Dark Souls style (Joep):
+## it fades in over the dark, holds a moment and fades out while slowly
+## growing, a thin rule under it. Held while the game is paused (menu).
+func _level_card(text: String) -> void:
+	if _card == null:
+		_card = Control.new()
+		_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var box := VBoxContainer.new()
+		box.set_anchors_preset(Control.PRESET_FULL_RECT)
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.add_theme_constant_override("separation", 6)
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_card.add_child(box)
+		var l := Label.new()
+		l.name = "Name"
+		l.add_theme_font_override("font", Art.title_font())
+		l.add_theme_font_size_override("font_size", 96)
+		l.add_theme_color_override("font_color", Color(0.86, 0.8, 0.68))
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		l.add_theme_constant_override("shadow_offset_x", 0)
+		l.add_theme_constant_override("shadow_offset_y", 4)
+		l.add_theme_constant_override("shadow_outline_size", 18)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(l)
+		var rule := ColorRect.new()
+		rule.color = Color(0.86, 0.8, 0.68, 0.55)
+		rule.custom_minimum_size = Vector2(760, 2)
+		rule.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(rule)
+		add_child(_card)
+	(_card.find_child("Name", true, false) as Label).text = text
+	_card.pivot_offset = get_viewport().get_visible_rect().size * 0.5
+	_card.modulate.a = 0.0
+	_card.scale = Vector2.ONE * 0.97
+	if _card_tw:
+		_card_tw.kill()
+	_card_tw = _card.create_tween()
+	_card_tw.tween_interval(0.9)
+	_card_tw.tween_property(_card, "modulate:a", 1.0, 1.2).set_ease(Tween.EASE_OUT)
+	_card_tw.tween_interval(1.6)
+	_card_tw.tween_property(_card, "modulate:a", 0.0, 1.4).set_ease(Tween.EASE_IN)
+	var grow := _card.create_tween()
+	grow.tween_interval(0.9)
+	grow.tween_property(_card, "scale", Vector2.ONE * 1.04, 4.2)
 
 
 func set_grimoire(found: int, total: int) -> void:
