@@ -477,7 +477,9 @@ func shoot() -> void:
 ## The sword swing: hits monsters in front with your element and knocks
 ## their bullets back the way you aim.
 func melee() -> void:
-	if _swing_t > 0.0 or _swing_cd > 0.0 or busy():
+	# The sword is in the other hand: it swings while the staff pours out a
+	# stream (Joep), just not mid-roll or mid-windup.
+	if _swing_t > 0.0 or _swing_cd > 0.0 or not _charging.is_empty() or _roll_t > 0.0:
 		return
 	_swing_t = SWING_COOLDOWN
 	_swing_cd = SWING_COOLDOWN + SWING_RECOVER

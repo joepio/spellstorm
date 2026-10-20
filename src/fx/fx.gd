@@ -105,7 +105,8 @@ static func particles(c: Color, amount := 32, life := 0.8, size := 0.4) -> CPUPa
 	var p := CPUParticles3D.new()
 	p.amount = amount
 	p.lifetime = life
-	p.mesh = particle_mesh(size, c)
+	# A little smaller than asked: specks read better than blobs (Joep).
+	p.mesh = particle_mesh(size * 0.8, c)
 	p.color_ramp = ramp(c)
 	p.local_coords = false
 	return p

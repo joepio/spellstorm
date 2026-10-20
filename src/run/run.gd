@@ -333,7 +333,7 @@ func _raise_shrine(k: int) -> void:
 	var across := Vector2(-dir.y, dir.x)
 	var mid := Vector2(c.x, c.y) + (dir * -2.0 if k == 2 else Vector2.ZERO)
 	for i in picks.size():
-		var p := mid + across * (i - (picks.size() - 1) * 0.5) * 3.2
+		var p := mid + across * (i - (picks.size() - 1) * 0.5) * 3.6
 		var node := _altar(picks[i])
 		node.position = Vector3(p.x, 0, p.y)
 		arena.add_child(node)
@@ -446,8 +446,13 @@ func _altar(relic: Dictionary) -> Node3D:
 	var book := Node3D.new()
 	book.position = Vector3(0, 1.35, 0)
 	n.add_child(book)
-	Art.part(book, Art.box(0.5, 0.1, 0.38), Fx.solid(Color(0.4, 0.1, 0.08)), Vector3.ZERO, Vector3(-30, 0, 0))
-	Art.part(book, Art.box(0.46, 0.06, 0.34), Fx.solid(Color(0.85, 0.8, 0.65)), Vector3(0, 0.06, 0.02), Vector3(-30, 0, 0))
+	# Lying open, tipped up toward the camera (it looks from the +z side) as
+	# on a lectern, so you look into its pages.
+	book.rotation_degrees.x = 35.0
+	Art.part(book, Art.box(0.62, 0.04, 0.42), Fx.solid(Color(0.4, 0.1, 0.08)))
+	for sgn: float in [-1.0, 1.0]:
+		Art.part(book, Art.box(0.28, 0.05, 0.38), Fx.solid(Color(0.85, 0.8, 0.65)), Vector3(sgn * 0.145, 0.05, 0), Vector3(0, 0, sgn * 7.0))
+	Art.part(book, Art.box(0.24, 0.002, 0.3), Fx.glow(Color(1.0, 0.8, 0.45), 1.2), Vector3(-0.145, 0.078, 0), Vector3(0, 0, -7.0))
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.8, 0.45)
 	l.light_energy = 1.6
@@ -467,16 +472,18 @@ func _altar(relic: Dictionary) -> Node3D:
 	var lbl := Label3D.new()
 	lbl.text = relic.name + "\n" + relic.text
 	lbl.font = Art.body_font()
-	lbl.font_size = 30
-	lbl.outline_size = 10
+	lbl.font_size = 72
+	lbl.outline_size = 18
 	lbl.outline_modulate = Color(0, 0, 0, 0.9)
 	lbl.modulate = Color(1.0, 0.85, 0.55)
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
-	lbl.pixel_size = 0.005
-	lbl.width = 420
+	lbl.pixel_size = 0.006
+	lbl.width = 720
+	# Grows up from just over the book, however many lines it takes.
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.position.y = 2.3
+	lbl.position.y = 1.9
 	n.add_child(lbl)
 	return n
 

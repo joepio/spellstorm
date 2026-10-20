@@ -722,6 +722,12 @@ func _take_shot() -> void:
 			for w in wizards:
 				w._swing_cd = 0.0
 				w.melee()
+		# --shrine N: the first clearing's shrine rises N frames before the
+		# shot, the wizards beside it, for checking the tomes.
+		if "--shrine" in args and f == shot_frames - int(args[args.find("--shrine") + 1]):
+			run.skip_to(arena.clearing_at[0] - 5.0)
+			snap_camera()
+			run._raise_shrine(0)
 		# --roll N: the first wizard dodges N frames before the shot.
 		if "--roll" in args and f == shot_frames - int(args[args.find("--roll") + 1]):
 			wizards[0].roll()

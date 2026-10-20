@@ -169,10 +169,12 @@ func _ready() -> void:
 		heart.material_override = Fx.glow(_look.core, 4.0)
 		heart.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(heart)
-	var trail := Fx.particles(_look.trail, int(6 + 14 * _size), 0.25 + 0.2 * _size, 0.22 * _size)
+	# About one mote a frame at most: more and each frame's batch is born on
+	# the same spot, so they flew in pairs (Joep).
+	var trail := Fx.particles(_look.trail, int(3 + 6 * _size), 0.3 + 0.2 * _size, 0.18 * _size)
 	trail.local_coords = false
 	trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	trail.emission_sphere_radius = 0.08
+	trail.emission_sphere_radius = 0.14
 	trail.direction = Vector3.UP
 	trail.spread = 180.0
 	trail.initial_velocity_min = 0.2
