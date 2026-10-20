@@ -46,6 +46,8 @@ const SWING_REACH := 1.7
 const SWING_ARC := 1.3
 const NOVA_HOLD := 0.45
 const HERO_LIGHT := 3.2
+const GEM_WARM := Color(1.0, 0.8, 0.55)
+const WIZARD_LAYER := 2
 ## The roll is a commitment, not a dash: it pushes off hard, then slows to
 ## a stop, and you are only untouchable for its first part. Afterwards you
 ## stumble for a moment, so rolling all the time is slower than walking.
@@ -111,7 +113,11 @@ var _remains: Remains
 var _zone: MeshInstance3D
 ## A little light at the staff's gem that blooms with every shot, and how
 ## far into its bloom the gem is (1 just fired, fading to 0).
-var _muzzle: OmniLight3D
+## The colour of the bare gem, and the bloom of each shot (its colour).
+var _flash_c := GEM_WARM
+var _gem_halo: MeshInstance3D
+## How bright the staff light is now, 1 = HERO_LIGHT; eased toward its target.
+var _shine := 1.0
 var _bloom := 0.0
 var _zone_mat: ShaderMaterial
 
@@ -137,20 +143,33 @@ func _ready() -> void:
 	meshes = model.meshes
 	setup_status_fx()
 	# The light round each wizard, Diablo style: the world is dark and you
-	# carry a warm pool of it with you, casting real shadows.
+	# carry a warm pool of it with you, casting real shadows. It comes from
+	# the gem on the staff (Joep), so it follows the staff and lives with
+	# what the wizard does (_staff_light).
 	_light = OmniLight3D.new()
-	_light.light_color = Color(1.0, 0.8, 0.58)
+	_light.light_color = GEM_WARM
 	_light.light_energy = HERO_LIGHT
-	_light.omni_range = 13.0
-	_light.omni_attenuation = 1.3
-	_light.position = Vector3(0, 3.4, 0)
+	_light.omni_range = 12.0
+	_light.omni_attenuation = 1.1
+	_light.top_level = true
 	_light.shadow_enabled = true
 	_light.shadow_blur = 1.5
 	# Two shadow passes instead of six: from above nobody sees the seams.
 	_light.omni_shadow_mode = OmniLight3D.SHADOW_DUAL_PARABOLOID
-	# Facing down, so all the ground below lies in one of the two halves.
-	_light.rotation_degrees.x = -90.0
+	# The staff light sits by the wizard's own hat and shoulders: those would
+	# throw a huge shadow round the feet. Wizards stand on render layer 2,
+	# which casts in the moon's light but not in the staff lights.
+	_light.shadow_caster_mask = 0xFFFFF & ~WIZARD_LAYER
+	for g in (model.root as Node3D).find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).layers = WIZARD_LAYER
 	add_child(_light)
+	# Facing down, so all the ground below lies in one of the two halves.
+	_light.global_rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	# The gem's glow: a soft bloom round it that swells with the light.
+	_gem_halo = Fx.halo(GEM_WARM, 0.6, 0.8)
+	_gem_halo.material_override = _gem_halo.material_override.duplicate()
+	_gem_halo.top_level = true
+	add_child(_gem_halo)
 	# The queued elements ride on the staff, small balls circling its gem.
 	for i in SpellQueue.SIZE:
 		var o := Art.part(model.staff, Art.sphere(0.065, 10), Fx.element(El.FIRE, 1.3))
@@ -169,12 +188,6 @@ func _ready() -> void:
 	_name_label.position = Vector3(0, -0.35, 0.6)
 	_name_label.text = player_name
 	add_child(_name_label)
-	_muzzle = OmniLight3D.new()
-	_muzzle.light_energy = 0.0
-	_muzzle.omni_range = 2.2
-	_muzzle.shadow_enabled = false
-	_muzzle.top_level = true
-	add_child(_muzzle)
 	_zone = MeshInstance3D.new()
 	_zone.mesh = _arc_mesh(0.55, SWING_REACH + 0.3, SWING_ARC)
 	_zone_mat = ShaderMaterial.new()
@@ -987,7 +1000,7 @@ func _enchanted_shot(dir: Vector3) -> void:
 ## Every shot makes the staff's gem bloom for a moment, in the element's
 ## colour: it swells a little, glows brighter and casts a soft light.
 func _muzzle_flash(c: Color) -> void:
-	_muzzle.light_color = c
+	_flash_c = c
 	_bloom = 1.0
 
 
@@ -1348,14 +1361,54 @@ func revive(frac: float) -> void:
 	_remains.revive()
 
 
+## The gem is the light you carry, and it tells what the wizard is doing:
+## each element gathered in the queue feeds it and tints it toward that
+## element; winding up a charge or a burst swells it; every shot flares it
+## in the spell's colour; it dims for a moment after a sword swing; and
+## when hurt badly it gutters, flickering lower the closer death comes.
+func _staff_light(dt: float, nova_k: float) -> void:
+	var at := staff_tip() + Vector3.UP * 0.15
+	_light.global_position = at
+	_gem_halo.global_position = at - Vector3.UP * 0.15
+	_gem_halo.visible = alive
+	if not alive:
+		return
+	var slots := queue.slots
+	var tint := GEM_WARM
+	if not slots.is_empty():
+		var mix := Color(0, 0, 0)
+		for e in slots:
+			mix += El.COLOR[e]
+		mix /= slots.size()
+		tint = GEM_WARM.lerp(mix, 0.35 + 0.1 * slots.size())
+	var want := 1.0 + 0.12 * slots.size()
+	var winding := not _charging.is_empty() or nova_k > 0.0
+	if winding:
+		var t := Time.get_ticks_msec() / 1000.0
+		want += 0.45 * maxf(nova_k, 0.6) + 0.08 * sin(t * 18.0)
+	if _swing_cd > 0.0:
+		want *= 0.65
+	var low := clampf(1.0 - hp / (max_hp * 0.35), 0.0, 1.0)
+	if low > 0.0:
+		var t2 := Time.get_ticks_msec() / 1000.0
+		var gutter := 0.5 + 0.5 * sin(t2 * 11.0 + sin(t2 * 3.7) * 4.0)
+		want *= 1.0 - low * (0.25 + 0.3 * gutter)
+		tint = tint.lerp(Color(1.0, 0.45, 0.3), low * 0.5)
+	_shine = lerpf(_shine, want, minf(1.0, 8.0 * dt))
+	var shine := _shine + 0.7 * _bloom
+	_light.light_energy = HERO_LIGHT * shine
+	_light.light_color = tint.lerp(_flash_c, _bloom * 0.7)
+	var hm := _gem_halo.material_override as ShaderMaterial
+	hm.set_shader_parameter("color", _light.light_color)
+	hm.set_shader_parameter("strength", 0.55 * shine)
+	_gem_halo.scale = Vector3.ONE * (0.45 + 0.25 * shine)
+
+
 func _visuals(dt: float) -> void:
 	var body: Node3D = model.body
 	var target_yaw := atan2(aim_dir.x, aim_dir.z)
 	body.rotation.y = lerp_angle(body.rotation.y, target_yaw, 14.0 * dt)
 	_bloom = maxf(0.0, _bloom - dt * 7.0)
-	_muzzle.light_energy = 0.7 * _bloom
-	if _bloom > 0.0:
-		_muzzle.global_position = staff_tip()
 	var moving := velocity.length() > 0.5
 	_walk += dt * (9.0 if moving else 0.0)
 	body.position.y = absf(sin(_walk)) * 0.07 if moving else 0.0
@@ -1440,7 +1493,8 @@ func _visuals(dt: float) -> void:
 		if _charging.is_empty():
 			model.gem.scale = Vector3.ONE * (1.0 + 0.3 * _bloom + 0.6 * nova_k)
 	else:
-		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.85, 0.5), 3.0)
+		model.gem.material_override = Fx.glow(gem_color.darkened(0.75), 0.5) if _swing_cd > 0.0 else Fx.glow(Color(1.0, 0.88, 0.6), 6.0)
+	_staff_light(dt, nova_k)
 	# The roll: one tucked somersault forward the way you roll, turning
 	# round the middle of the body, quick at first and landing softly.
 	if _roll_t > 0.0:
