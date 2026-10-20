@@ -1,0 +1,20 @@
+{
+  "game": "spellstorm",
+  "generated_on": "2026-10-20",
+  "generator": "Built-in image_gen",
+  "use": "Illustrated promotional cover, not a gameplay screenshot",
+  "prompt": "Use case: stylized-concept. Create a finished premium indie game cover for GameNight. Portrait 3:4 composition, ideally 1536x2048. Full bleed artwork, no frame. The supplied screenshot is a reference for the actual game's identity, not an image to copy or a screenshot to decorate. Reimagine it as beautiful authored key art. A striking clear silhouette and deliberate composition, carefully crafted materials and lighting, rich but controlled detail. A large beautifully designed title occupies the upper quarter, stays entirely inside safe margins and is legible at 180 pixels wide. No subtitle, badge, developer/publisher logos, watermark, UI, scores, or interface text. Do not imitate another game's branding. Title exactly 'SPELLSTORM' in large carefully lettered weathered ivory fantasy capitals across upper quarter, a tiny violet electric crack through the lettering. Three robed wizards with large floppy pointed hats, one dark crimson, one desaturated blue and one deep moss green, stand back to back in a ruined gothic dungeon. Faces shadowed beneath broad brims, physical leather belts and simple wooden staffs. They combine a curling arc of amber fire, an ice-blue beam and violet lightning into one spectacular crossing spell overhead. Menacing skeletons and a hunched ghoul emerging from the lower shadows, broken stone arches and iron gates. Grim textured hand-painted dark-fantasy key art, chiaroscuro, warm charcoal stone, restrained desaturated costume colors and luminous elemental magic. Readable dramatic triangle, no bright cartoon castle, no UI, no extra text.",
+  "reference": "reference.png",
+  "master": "cover-source.png",
+  "runtime": "../../../assets/gamenight/cover.png",
+  "export": {
+    "width": 360,
+    "height": 480,
+    "format": "indexed PNG",
+    "max_bytes": 262144,
+    "colors": 256,
+    "command": "magick cover-source.png -resize 360x480! -strip -dither FloydSteinberg -colors 256 -define png:compression-level=9 PNG8:cover.png"
+  },
+  "review": "Actual game rendered and inspected; generated master and final 360x480 cover visually reviewed. Promotional illustration, not gameplay.",
+  "source_revision": "84b49e8af3d33c08d96ed22afcc05224f31ceab2"
+}

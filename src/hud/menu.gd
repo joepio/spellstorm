@@ -1,5 +1,6 @@
 class_name Menu
 extends Control
+const GAME_LOGO = preload("res://assets/branding/logo.png")
 ## The start menu and the pause menu, one screen. Start (Esc on the keyboard)
 ## opens it during play and pauses the game. Up and down pick a row, left and
 ## right change its value, A (Enter) confirms, B or Start closes it.
@@ -204,7 +205,7 @@ func _draw() -> void:
 	var h := vs.y
 	draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.8 if title_mode else 0.66))
 	var top := h * 0.15
-	draw_string(tf, Vector2(0, top), "Spellstorm", HORIZONTAL_ALIGNMENT_CENTER, w, 110, Color(0.72, 0.13, 0.08))
+	draw_game_logo(Rect2(w * 0.2, h * 0.025, w * 0.6, h * 0.15))
 	var sub := "A couch co-op roguelite for wizards" if title_mode else "Paused"
 	draw_string(f, Vector2(0, top + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 32, Color(0.75, 0.68, 0.56))
 	if not title_mode and Game.I.hud:
@@ -295,3 +296,8 @@ func _glyph(kind: String, c: Vector2) -> void:
 			draw_rect(Rect2(c.x - 18, c.y - 8, 36, 16), PAD_LIT)
 			for k in 3:
 				draw_line(Vector2(c.x - 9, c.y - 4 + k * 4), Vector2(c.x + 9, c.y - 4 + k * 4), Color(0.05, 0.04, 0.03), 2.0)
+
+func draw_game_logo(bounds: Rect2) -> void:
+	var dimensions: Vector2 = GAME_LOGO.get_size()
+	var fitted := dimensions * minf(bounds.size.x / dimensions.x, bounds.size.y / dimensions.y)
+	draw_texture_rect(GAME_LOGO, Rect2(bounds.position + (bounds.size - fitted) * 0.5, fitted), false)
