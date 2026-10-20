@@ -46,15 +46,16 @@ func _ready() -> void:
 	var lit_field := field.duplicate() as StandardMaterial3D
 	lit_field.emission_enabled = true
 	mats.append(lit_field)
-	var mesh := Art.sphere(0.5, 8)
+	# Tiny in its own vertices, not by scale: billboards (hp bars, halos)
+	# drop the node's scale and would fill the screen.
+	var mesh := Art.sphere(0.002, 8)
 	var i := 0
 	for m in mats:
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		mi.material_override = m
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.position = Vector3((i % 6 - 2.5) * 0.02, (i / 6) * 0.02, 0)
-		mi.scale = Vector3.ONE * 0.02
+		mi.position = Vector3((i % 6 - 2.5) * 0.004, (i / 6) * 0.004, 0)
 		add_child(mi)
 		i += 1
 	# Every monster once: its materials compile and its meshes are built
@@ -68,8 +69,8 @@ func _ready() -> void:
 		e._build(e.cfg.get("model", k))
 		var m := e._model
 		e.free()
-		m.scale = Vector3.ONE * 0.01
-		m.position = Vector3((at % 8 - 3.5) * 0.03, -0.06 - (at / 8) * 0.03, 0)
+		m.scale = Vector3.ONE * 0.001
+		m.position = Vector3((at % 8 - 3.5) * 0.004, -0.02 - (at / 8) * 0.004, 0)
 		add_child(m)
 		at += 1
 	# Particles draw through a MultiMesh, which is its own variant.
