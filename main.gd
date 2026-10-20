@@ -728,6 +728,12 @@ func _take_shot() -> void:
 			run.skip_to(arena.clearing_at[0] - 5.0)
 			snap_camera()
 			run._raise_shrine(0)
+		# --shatter N: every prop within 9 m of the first wizard breaks N
+		# frames before the shot, knocked away from the wizard.
+		if "--shatter" in args and f == shot_frames - int(args[args.find("--shatter") + 1]):
+			for pr in arena.props.duplicate():
+				if is_instance_valid(pr) and pr.global_position.distance_to(wizards[0].global_position) < 9.0:
+					pr.shatter((pr.global_position - wizards[0].global_position).normalized(), Vector3.INF, 10.0)
 		# --roll N: the first wizard dodges N frames before the shot.
 		if "--roll" in args and f == shot_frames - int(args[args.find("--roll") + 1]):
 			wizards[0].roll()

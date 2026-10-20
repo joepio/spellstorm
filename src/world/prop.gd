@@ -6,13 +6,9 @@ extends StaticBody3D
 ## Its pieces are worked out when the level is built (prepare()): every part
 ## it is made of is cut into chunks, boxes into smaller boxes, cylinders into
 ## drums, spheres into lumps, with meshes shared between all props. Breaking
-## then only hides the prop and throws those chunks about (Debris), so a
-## break costs nothing to work out mid-fight.
+## then only hides the prop and throws those chunks about as tumbling
+## bodies (Rubble), so a break costs nothing to work out mid-fight.
 
-## Chunks flying about at once, over all props: past this a break throws
-## fewer, bigger pieces.
-const MAX_LIVE := 360
-static var live := 0
 static var _meshes := {}
 
 var kind := ""
@@ -130,23 +126,19 @@ func shatter(dir := Vector3.ZERO, at := Vector3.INF, force := 6.0) -> void:
 	d._life = 3.0
 	if Fx.root:
 		Fx.root.add_child(d)
-	# Keep to the budget: past it, every other chunk stays behind.
-	var step := 1 if live + _chunks.size() < MAX_LIVE else 2
-	var thrown := 0
-	for i in range(0, _chunks.size(), step):
-		var c: Dictionary = _chunks[i]
-		var mi := MeshInstance3D.new()
-		mi.mesh = c.mesh
-		mi.material_override = c.mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		d.add_child(mi)
-		mi.global_transform = global_transform * (c.xf as Transform3D)
+	# Every chunk a real tumbling body (Rubble): pieces knock into each
+	# other, roll off and come to rest as rubble.
+	for c: Dictionary in _chunks:
+		var xf: Transform3D = global_transform * (c.xf as Transform3D)
+		var mid: Vector3 = xf * (c.mesh as Mesh).get_aabb().get_center()
+		var away := mid - from
+		away.y = 0.0
+		if away.length() < 0.05:
+			away = Vector3.RIGHT.rotated(Vector3.UP, randf() * TAU)
 		# Higher pieces fly further; the foot mostly drops where it stood.
-		var lift := clampf(mi.global_position.y - global_position.y, 0.0, 2.0)
-		d.add(mi, from, power * (0.4 + 0.5 * lift), 0.8 + power * 0.25)
-		thrown += 1
-	live += thrown
-	d.tree_exited.connect(func() -> void: live -= thrown)
+		var lift := clampf(mid.y - global_position.y, 0.0, 2.0)
+		var v := away.normalized() * power * (0.4 + 0.5 * lift) * randf_range(0.4, 0.9) + Vector3.UP * (0.5 + power * 0.2) * randf_range(0.5, 1.0)
+		Rubble.throw(c.mesh, c.mat, xf, v)
 	d.bits(global_position + Vector3.UP * 0.4, Color(0.4, 0.37, 0.33), 6, 0.08, power, 1.5)
 	_spill()
 	queue_free()
