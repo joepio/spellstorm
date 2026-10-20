@@ -147,6 +147,10 @@ func _clear_level() -> void:
 	encounters.clear()
 	_pending.clear()
 	_wave_at = -1.0
+	# How far the front wizard got belongs to the level just left: kept, it
+	# set off every pack of the new level up to there at once, far ahead.
+	_lead = 0.0
+	_lead_t = 0.0
 	boss = null
 
 
