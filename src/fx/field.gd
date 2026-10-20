@@ -278,6 +278,8 @@ func _physics_process(dt: float) -> void:
 			continue
 		if friendly and src and a.team == src.team:
 			continue
+		if a.has_method("mods") and a.mods().get("firewalker", false):
+			continue
 		match kind:
 			El.FROST, El.ICE:
 				a.slick = 0.25
@@ -285,8 +287,6 @@ func _physics_process(dt: float) -> void:
 				var tangent := d.cross(Vector3.UP).normalized()
 				a.push += (tangent * 5.0 - d.normalized() * 2.0) * dt * 4.0
 		var scale := dt * rate
-		if kind in [El.FIRE, El.MAGMA] and a.has_method("mods") and a.mods().get("firewalker", false):
-			continue
 		a.hit_spell(spell, scale, src, d.normalized() if d.length() > 0.1 else Vector3.ZERO, ff * 0.6)
 		if electrified > 0.0:
 			a.hit_spell(Field.simple(El.LIGHTNING), dt * 0.7, src, Vector3.ZERO, ff * 0.6)

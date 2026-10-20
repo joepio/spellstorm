@@ -250,13 +250,13 @@ static func _raw_numbers(spell: Dictionary, mods: Dictionary) -> void:
 	var n := {}
 	match spell.shape:
 		"spray":
-			n = {range = (3.2 + 0.9 * lead) * float(mods.get("spray_range", 1.0)), angle = 26.0 + 4.0 * p,
+			n = {range = (3.2 + 0.9 * lead) * float(mods.get("reach", 1.0)), angle = 26.0 + 4.0 * p,
 				duration = 2.5 + 0.5 * p, rate = 1.0}
 		"beam":
-			n = {range = 15.0, width = 0.25 + 0.08 * p, duration = 3.0 + 0.5 * p, rate = 1.3}
+			n = {range = 15.0 * float(mods.get("reach", 1.0)), width = 0.25 + 0.08 * p, duration = 3.0 + 0.5 * p, rate = 1.3}
 		"strike":
 			# One thunderbolt out of the sky where you aim: radius is its splash.
-			n = {range = 8.0 + 0.5 * p, radius = (1.0 + 0.2 * p + 0.1 * lead) * float(mods.get("strike_radius", 1.0)), rate = 1.0}
+			n = {range = 8.0 + 0.5 * p, radius = 1.0 + 0.2 * p + 0.1 * lead, rate = 1.0}
 		"projectile":
 			var pieces := 1
 			if spell.primary == El.ICE:

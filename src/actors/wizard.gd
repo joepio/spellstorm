@@ -496,9 +496,10 @@ func melee() -> void:
 		to.y = 0
 		if to.length() > SWING_REACH + a.radius or absf(aim_dir.signed_angle_to(to, Vector3.UP)) > SWING_ARC + atan2(a.radius, maxf(to.length(), 0.1)):
 			continue
-		a.hit_spell(bonk, 0.4, self, to.normalized())
+		var whet := float(_mod("sword", 1.0))
+		a.hit_spell(bonk, 0.4 * whet, self, to.normalized())
 		if enchant_time <= 0.0:
-			BoltFx.strike(a, touch, 2.5, self, to.normalized())
+			BoltFx.strike(a, touch, 2.5 * whet, self, to.normalized())
 		add_mana(MANA_PER_SWING)
 	# The sword smashes what stands in the arc too.
 	var cut := enchant_reach() if enchant_time > 0.0 else SWING_REACH
@@ -739,9 +740,9 @@ func cast(form: String, button: int) -> void:
 				var again := NovaFx.new().setup(self, s) as NovaFx
 				get_tree().create_timer(0.35).timeout.connect(func(): if is_instance_valid(self): Game.I.spawn(again, global_position))
 		"trap":
-			_plant(TrapFx.new().setup(self, s), _traps, MAX_TRAPS)
+			_plant(TrapFx.new().setup(self, s), _traps, MAX_TRAPS + (2 if _mod("planter", false) else 0))
 		"sentry":
-			_plant(SentryFx.new().setup(self, s), _sentries, 1)
+			_plant(SentryFx.new().setup(self, s), _sentries, 2 if _mod("planter", false) else 1)
 		"enchant":
 			_enchant(s)
 		"stomp":

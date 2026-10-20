@@ -87,5 +87,22 @@ func _init() -> void:
 	check(keys.size() >= 300, "hundreds of spells")
 	var castable := keys.keys().filter(func(k): return not (k.ends_with("|staff") or k.ends_with("|stomp") or k.ends_with("|fizzle"))).size()
 	check(castable == Grammar.TOTAL, "Grammar.TOTAL is %d, the rules make %d" % [Grammar.TOTAL, castable])
+	# Tomes: every key does something, every element has exactly one tome,
+	# and every text fits on the shrine.
+	var known := ["name", "text", "dmg", "heal", "reach", "charge", "enchant_time", "sword",
+		"afflicted", "hp", "speed", "echo", "planter", "firewalker"]
+	var tomed := {}
+	for r: Dictionary in Relics.ALL:
+		check(r.text.length() <= 52, "tome text fits: %s" % r.name)
+		for k: String in r:
+			if k.begins_with("el_"):
+				tomed[int(k.substr(3))] = int(tomed.get(int(k.substr(3)), 0)) + 1
+			else:
+				check(k in known, "tome key %s does something (%s)" % [k, r.name])
+	for e in El.ALL:
+		check(tomed.get(e, 0) == 1, "%s has exactly one tome" % El.NAMES[e])
+	var far := {reach = 1.35}
+	check(Grammar.compose([El.FIRE], "cast", far).n.range > spell([El.FIRE]).n.range, "Long Nozzle lengthens sprays")
+	check(Grammar.compose([El.VOID], "cast", far).n.range > spell([El.VOID]).n.range, "Long Nozzle lengthens beams")
 	print("ok" if failures == 0 else "%d failures" % failures)
 	quit(1 if failures > 0 else 0)

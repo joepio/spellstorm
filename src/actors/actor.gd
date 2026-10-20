@@ -125,6 +125,8 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 	var shove := 0.0
 	var shock_hit := false
 	var mods: Dictionary = src.mods() if src else {}
+	# Read before this hit adds its own statuses (Hunter's Mark).
+	var afflicted := wet > 0.0 or burn > 0.0 or chill > 0.0 or poison > 0.0 or frozen > 0.0
 	var top_el := -1
 	var top_d := 0.0
 	for e in spell.counts:
@@ -148,7 +150,7 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 			top_el = e
 		if eff.has("shock"):
 			if wet > 0.0:
-				d *= 2.0 * float(mods.get("wet_shock", 1.0))
+				d *= 2.0
 			shock_hit = true
 			stun = maxf(stun, 0.3 if scale > 0.2 else 0.08)
 		if e == El.EARTH and frozen > 0.0:
@@ -162,6 +164,8 @@ func hit_spell(spell: Dictionary, scale: float, src: Actor, dir: Vector3, ff := 
 		dmg *= ff
 		shove *= maxf(ff, 0.35)
 	dmg *= float(mods.get("dmg", 1.0)) * armor
+	if afflicted:
+		dmg *= float(mods.get("afflicted", 1.0))
 	if heal > 0.0:
 		healed(heal)
 	if shove > 0.0 and dir.length() > 0.01:
