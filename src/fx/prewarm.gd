@@ -11,11 +11,10 @@ extends Node3D
 ## (rendering/shader_compiler/shader_cache, on in project.godot), so after
 ## the first launch on a machine even this step is nearly free.
 
-const FRAMES := 4
-## The spell and world shaders in src/fx; each one compiles once whatever
-## its uniforms, so one material each is enough.
-const SHADERS := ["beam", "bolt", "bullet", "element", "fire_ground", "flame", "halo", "hp_bar", "molten", "poison_ground",
-	"shock", "slash", "stream", "trail", "trap", "wind", "zap"]
+const FRAMES := 6
+## Every 3D shader file in these folders is compiled; each one compiles
+## once whatever its uniforms, so one material each is enough.
+const SHADER_DIRS := ["res://src/fx", "res://src/world"]
 
 var _frames := FRAMES
 
@@ -32,8 +31,10 @@ static func run(camera: Camera3D) -> void:
 
 func _ready() -> void:
 	var mats: Array[Material] = []
-	for name: String in SHADERS:
-		mats.append(Fx.shader(name))
+	for sh in _shaders():
+		var sm := ShaderMaterial.new()
+		sm.shader = sh
+		mats.append(sm)
 	# The standard material variants the effects build.
 	mats.append(Fx.glow(Color.WHITE, 2.0))
 	mats.append(Fx.additive(Color.WHITE, 1.0))
@@ -56,11 +57,39 @@ func _ready() -> void:
 		mi.scale = Vector3.ONE * 0.02
 		add_child(mi)
 		i += 1
+	# Every monster once: its materials compile and its meshes are built
+	# and cached now, not when the first one walks in mid-fight.
+	var at := 0
+	for k: String in Enemy.KINDS:
+		var e := Enemy.new()
+		e.kind = k
+		e.cfg = Enemy.KINDS[k]
+		e._model = Node3D.new()
+		e._build(e.cfg.get("model", k))
+		var m := e._model
+		e.free()
+		m.scale = Vector3.ONE * 0.01
+		m.position = Vector3((at % 8 - 3.5) * 0.03, -0.06 - (at / 8) * 0.03, 0)
+		add_child(m)
+		at += 1
 	# Particles draw through a MultiMesh, which is its own variant.
 	var sparks := Fx.particles(Color.WHITE, 4, 0.5, 0.01)
 	sparks.local_coords = true
 	add_child(sparks)
 	sparks.emitting = true
+
+
+static func _shaders() -> Array[Shader]:
+	var out: Array[Shader] = []
+	out.append_array(BlastFx.shaders())
+	for dir: String in SHADER_DIRS:
+		for f in ResourceLoader.list_directory(dir):
+			if not f.ends_with(".gdshader"):
+				continue
+			var sh := load(dir + "/" + f) as Shader
+			if sh and sh.get_mode() == Shader.MODE_SPATIAL:
+				out.append(sh)
+	return out
 
 
 func _process(_dt: float) -> void:

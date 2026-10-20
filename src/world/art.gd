@@ -35,6 +35,61 @@ static func part(parent: Node3D, mesh: Mesh, mat: Material, pos := Vector3.ZERO,
 	return m
 
 
+## Fold the plain still parts of [param root] that share a material into
+## one mesh each: a prop of twelve parts draws in two or three calls instead
+## of twelve (and as many again for every shadow it is in). Cards,
+## billboards and anything with children or a script stay as they are.
+static func merge_parts(root: Node3D) -> void:
+	var groups := {}
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		var mat := mi.material_override
+		if mi.mesh == null or mi.mesh is QuadMesh or mi.mesh is PlaneMesh or not mi.visible or mi.get_child_count() > 0 or mi.get_script() != null or mat == null:
+			continue
+		if mat is StandardMaterial3D:
+			var sm := mat as StandardMaterial3D
+			if sm.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED:
+				continue
+		elif not (mat is ShaderMaterial and (mat as ShaderMaterial).shader and (mat as ShaderMaterial).shader.resource_path.ends_with("stone.gdshader")):
+			continue
+		var am := mi.mesh as ArrayMesh
+		var ok := true
+		var fmt := ""
+		for i in mi.mesh.get_surface_count():
+			if am and am.surface_get_primitive_type(i) != Mesh.PRIMITIVE_TRIANGLES:
+				ok = false
+			var a := mi.mesh.surface_get_arrays(i)
+			fmt += "%d%d%d" % [int(a[Mesh.ARRAY_COLOR] != null), int(a[Mesh.ARRAY_TEX_UV] != null), int(a[Mesh.ARRAY_TANGENT] != null)]
+		if not ok:
+			continue
+		var key := [mat.get_instance_id(), mi.cast_shadow, fmt]
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(mi)
+	for key: Array in groups:
+		var parts: Array = groups[key]
+		if parts.size() < 2:
+			continue
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for mi: MeshInstance3D in parts:
+			var xf := mi.transform
+			var p := mi.get_parent() as Node3D
+			while p and p != root:
+				xf = p.transform * xf
+				p = p.get_parent() as Node3D
+			for i in mi.mesh.get_surface_count():
+				st.append_from(mi.mesh, i, xf)
+		var one := MeshInstance3D.new()
+		one.mesh = st.commit()
+		one.material_override = (parts[0] as MeshInstance3D).material_override
+		one.cast_shadow = (parts[0] as MeshInstance3D).cast_shadow
+		root.add_child(one)
+		for mi: MeshInstance3D in parts:
+			mi.get_parent().remove_child(mi)
+			mi.free()
+
+
 static func cyl(top: float, bottom: float, h: float, seg := 10) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = top

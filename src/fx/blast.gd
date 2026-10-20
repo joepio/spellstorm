@@ -138,7 +138,8 @@ static func boom(at: Vector3, radius: float, mark := true) -> BlastFx:
 	return b
 
 
-func _build(radius: float, seed_value: int) -> void:
+## The blast's shaders, made once (also for Prewarm).
+static func shaders() -> Array[Shader]:
 	if billow_shader == null:
 		billow_shader = Shader.new()
 		billow_shader.code = BILLOW_CODE
@@ -146,6 +147,12 @@ func _build(radius: float, seed_value: int) -> void:
 		spark_shader.code = SPARK_CODE
 		scorch_shader = Shader.new()
 		scorch_shader.code = SCORCH_CODE
+	return [billow_shader, spark_shader, scorch_shader]
+
+
+func _build(radius: float, seed_value: int) -> void:
+	shaders()
+	if puff_mesh == null:
 		puff_mesh = SphereMesh.new()
 		puff_mesh.radius = 0.5
 		puff_mesh.height = 1.0

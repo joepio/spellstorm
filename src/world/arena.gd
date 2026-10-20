@@ -88,6 +88,7 @@ var _oseg := PackedInt32Array()
 ## (x, z, nx, nz), for monsters that come in over the walls.
 var _rim: Array[Vector4] = []
 var _torches: Array = []
+var _torch_base := PackedFloat32Array()
 var _rng := RandomNumberGenerator.new()
 ## Where props stand, by 3 m cell, so finding free ground stays quick on a
 ## big level.
@@ -104,6 +105,7 @@ func build(biome_index: int, seed_value: int) -> void:
 	_rim.clear()
 	_sdf = PackedFloat32Array()
 	_torches.clear()
+	_torch_base.clear()
 	_props_at.clear()
 	_near_path.clear()
 	biome = BIOMES[biome_index % BIOMES.size()]
@@ -1537,6 +1539,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 			r = made.get("r", 0.4)
 			if r < 0.0:
 				body.collision_layer = 0
+				Art.merge_parts(body)
 				return body
 	var cs := CollisionShape3D.new()
 	if kind == "pew":
@@ -1551,6 +1554,7 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 	cs.position.y = 1.5
 	body.add_child(cs)
 	body.prepare()
+	Art.merge_parts(body)
 	props.append(body)
 	return body
 
@@ -1610,15 +1614,20 @@ func _process(_dt: float) -> void:
 		if fwd.y < -0.1:
 			at += fwd * ((1.5 - at.y) / fwd.y)
 		_dust_p.global_position = Vector3(at.x, 1.5, at.z)
+	while _torch_base.size() < _torches.size():
+		_torch_base.append(-1.0)
+	var near := cam.global_position if cam else Vector3.ZERO
 	for i in _torches.size():
 		# Lights of broken props are freed with them.
 		if not is_instance_valid(_torches[i]):
 			continue
 		var l: OmniLight3D = _torches[i]
-		if not l.has_meta("base"):
-			l.set_meta("base", l.light_energy)
-		var b: float = l.get_meta("base")
-		l.light_energy = b * (0.85 + 0.1 * sin(t * 9.0 + i * 1.7) + 0.05 * sin(t * 23.0 + i))
+		if _torch_base[i] < 0.0:
+			_torch_base[i] = l.light_energy
+		# Only the ones in view flicker; the rest wait as they are.
+		if cam and l.global_position.distance_squared_to(near) > 3600.0:
+			continue
+		l.light_energy = _torch_base[i] * (0.85 + 0.1 * sin(t * 9.0 + i * 1.7) + 0.05 * sin(t * 23.0 + i))
 
 
 func add_field(at: Vector3, kind: int, r: float, ttl: float, owner: Actor) -> Field:

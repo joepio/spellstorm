@@ -488,7 +488,8 @@ func _world() -> void:
 	e.ambient_light_color = Color(0.25, 0.3, 0.4)
 	e.ambient_light_energy = 0.45
 	# Forward+ (Joep: less cartoony): AgX keeps bright spells from clipping to
-	# flat colour, ambient occlusion grounds everything in its corners,
+	# flat colour, ambient occlusion grounds everything in its corners (no
+	# indirect light pass: it cost a lot at 4K for little),
 	# volumetric fog lets torches and spells light the air.
 	e.tonemap_mode = Environment.TONE_MAPPER_AGX
 	e.tonemap_exposure = 1.5
@@ -502,9 +503,6 @@ func _world() -> void:
 	e.ssao_intensity = 2.2
 	e.ssao_power = 1.6
 	e.ssao_detail = 0.6
-	e.ssil_enabled = true
-	e.ssil_radius = 4.0
-	e.ssil_intensity = 0.8
 	e.fog_enabled = false
 	e.volumetric_fog_enabled = true
 	e.volumetric_fog_density = 0.004
@@ -525,7 +523,11 @@ func _world() -> void:
 	moon.light_energy = 0.35
 	moon.shadow_enabled = true
 	moon.directional_shadow_max_distance = 60.0
+	# Seen from above, two cascades cover the view as well as four.
+	moon.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	add_child(moon)
+	get_window().size_changed.connect(_fit_render_scale)
+	_fit_render_scale()
 	camera = Camera3D.new()
 	# The camera moves every drawn frame itself, so it is not interpolated.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -534,6 +536,20 @@ func _world() -> void:
 	add_child(camera)
 	camera.position = Vector3(0, 20, 12)
 	camera.look_at(Vector3.ZERO)
+
+
+## Above 1620 lines (a 4K screen) the 3D world is drawn at 1620 lines and
+## upscaled with FSR, the HUD stays sharp: it looks nearly the same from the
+## couch and draws almost twice as fast.
+func _fit_render_scale() -> void:
+	var h := get_window().size.y
+	var vp := get_viewport()
+	if h > 1700:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+		vp.scaling_3d_scale = 1620.0 / h
+	else:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = 1.0
 
 
 func apply_biome(b: Dictionary) -> void:
@@ -742,6 +758,33 @@ func _take_shot() -> void:
 		menu.open(false)
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	if "--stats" in OS.get_cmdline_user_args():
+		# What the frame cost to draw, for chasing frame rate.
+		var lights := 0
+		var shadowed := 0
+		for l in get_tree().root.find_children("*", "Light3D", true, false):
+			if (l as Light3D).is_visible_in_tree():
+				lights += 1
+				shadowed += int((l as Light3D).shadow_enabled)
+		print("stats: draws %d objects %d primitives %d nodes %d lights %d shadowed %d" % [
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+			Performance.get_monitor(Performance.OBJECT_NODE_COUNT), lights, shadowed])
+		if "--stats-by" in OS.get_cmdline_user_args():
+			var by := {}
+			for g in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+				if not (g as Node3D).is_visible_in_tree():
+					continue
+				var top: Node = g
+				while top.get_parent() and top.get_parent() != self and top.get_parent() != arena and top.get_parent() != get_tree().root:
+					top = top.get_parent()
+				var key: String = "%s/%s" % [top.get_class(), top.get("kind") if top.get("kind") is String else top.get_script().get_global_name() if top.get_script() else top.name.left(12)]
+				by[key] = by.get(key, 0) + 1
+			var keys := by.keys()
+			keys.sort_custom(func(x, y) -> bool: return by[x] > by[y])
+			for k in keys.slice(0, 25):
+				print("  ", by[k], " ", k)
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(shot)
 	print("saved ", shot)

@@ -146,6 +146,10 @@ func _ready() -> void:
 	_light.position = Vector3(0, 3.4, 0)
 	_light.shadow_enabled = true
 	_light.shadow_blur = 1.5
+	# Two shadow passes instead of six: from above nobody sees the seams.
+	_light.omni_shadow_mode = OmniLight3D.SHADOW_DUAL_PARABOLOID
+	# Facing down, so all the ground below lies in one of the two halves.
+	_light.rotation_degrees.x = -90.0
 	add_child(_light)
 	# The queued elements ride on the staff, small balls circling its gem.
 	for i in SpellQueue.SIZE:
