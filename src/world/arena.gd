@@ -78,6 +78,12 @@ var _sdf_w := 0
 var _sdf_h := 0
 ## Half the band's width at each point of the path.
 var _hw := PackedFloat32Array()
+## A dungeon laid out in straight halls with square turns (catacombs, keep):
+## the corner points of its path, and which of those stretches each path
+## point lies on.
+var ortho := false
+var _okeys := PackedVector2Array()
+var _oseg := PackedInt32Array()
 ## Points just inside the walls and the way into the level from there
 ## (x, z, nx, nz), for monsters that come in over the walls.
 var _rim: Array[Vector4] = []
@@ -178,6 +184,7 @@ func _plan() -> void:
 	isles.clear()
 	plazas.clear()
 	nave = Vector2(-1, -1)
+	ortho = built() and corridor and biome.id != "chapel"
 	start = Vector2(_rng.randf_range(-6.0, 6.0), half.y - 7.0)
 	var arena := Vector3(0, -half.y + 24.0, 14.0)
 	portal_at = Vector2(arena.x, arena.y - 6.0)
@@ -196,7 +203,7 @@ func _plan() -> void:
 		var x := side * _rng.randf_range(reach * 0.15, reach)
 		if straight:
 			# A long straight stretch now and then, between the bends.
-			x = clampf(last_x + _rng.randf_range(-1.5, 1.5), -reach, reach)
+			x = clampf(last_x + (0.0 if ortho else _rng.randf_range(-1.5, 1.5)), -reach, reach)
 		elif absf(x - last_x) < 6.0:
 			x = clampf(last_x + side * 8.0, -reach, reach)
 		marks.append(Vector2(x, z))
@@ -209,7 +216,7 @@ func _plan() -> void:
 	var c2 := int(marks.size() * 0.68)
 	for i in marks.size():
 		var m := marks[i]
-		if built() and i > c1 and i < c2:
+		if built() and i > c1 and (i < c2 or (ortho and i == c2)):
 			# The nave: straight on from the first clearing.
 			m.x = marks[c1].x
 		keys.append(m)
@@ -222,7 +229,10 @@ func _plan() -> void:
 	keys.append(portal_at)
 	keys.append(Vector2(0, -half.y - 1.0))
 	clearings.append(arena)
-	path = _smooth(keys, 7)
+	if ortho:
+		_orthogonal(keys)
+	else:
+		path = _smooth(keys, 7)
 	if built():
 		for c in clearings:
 			plazas.append(Vector3(c.x, c.y, c.z + 1.0))
@@ -243,6 +253,30 @@ func _plan() -> void:
 				clear = false
 		if clear:
 			isles.append(Vector4(c.x, c.y, _rng.randf_range(2.0, 4.0), _rng.randf_range(1.8, 3.2)))
+
+
+## Straight halls between the keys, turning square: where two keys differ
+## both ways the way runs on first and then crosses over. The path gets a
+## point every two metres or so.
+func _orthogonal(keys: PackedVector2Array) -> void:
+	_okeys = PackedVector2Array([keys[0]])
+	for i in range(1, keys.size()):
+		var p := _okeys[_okeys.size() - 1]
+		var q := keys[i]
+		if absf(p.x - q.x) > 0.01 and absf(p.y - q.y) > 0.01:
+			_okeys.append(Vector2(p.x, q.y))
+		_okeys.append(q)
+	path = PackedVector2Array()
+	_oseg = PackedInt32Array()
+	for i in _okeys.size() - 1:
+		var a := _okeys[i]
+		var b := _okeys[i + 1]
+		var n := maxi(1, int(a.distance_to(b) / 2.0))
+		for k in n:
+			path.append(a.lerp(b, float(k) / n))
+			_oseg.append(i)
+	path.append(_okeys[_okeys.size() - 1])
+	_oseg.append(_okeys.size() - 2)
 
 
 ## Distances along the path, where the clearings sit on it, and a coarse
@@ -269,6 +303,9 @@ func _index_path() -> void:
 
 ## How wide the band round the path is along it, then its distance field.
 func _band() -> void:
+	if ortho:
+		_band_ortho()
+		return
 	_hw = PackedFloat32Array()
 	var knots: Array[float] = []
 	for _k in int(length() / 20.0) + 3:
@@ -310,6 +347,69 @@ func _band() -> void:
 			d = maxf(d, q.y - (half.y + 0.6))
 			d = maxf(d, -q.y - (half.y + 0.6))
 			_sdf[i2] = d
+
+
+## A dungeon's band: halls of one width per stretch, square rooms at the
+## clearings and now and then a side chamber off a long hall, all with
+## straight walls.
+func _band_ortho() -> void:
+	var pad := 16.0
+	_sdf_o = Vector2(-half.x - pad, -half.y - pad)
+	_sdf_w = int((half.x + pad) * 2.0) + 1
+	_sdf_h = int((half.y + pad) * 2.0) + 1
+	_sdf.resize(_sdf_w * _sdf_h)
+	_sdf.fill(30.0)
+	var segw := PackedFloat32Array()
+	for i in _okeys.size() - 1:
+		var a := _okeys[i]
+		var b := _okeys[i + 1]
+		var w := _rng.randf_range(3.2, 4.6)
+		var run := progress_of((a + b) * 0.5)
+		if nave.x >= 0.0 and run > nave.x - 6.0 and run < nave.y + 6.0 and absf(a.x - b.x) < 0.01:
+			w = 13.5
+		if a.y <= portal_at.y + 0.1 and b.y <= portal_at.y + 0.1:
+			w = 2.3
+		segw.append(w)
+		_raster_box((a + b) * 0.5, (b - a).abs() * 0.5 + Vector2(w, w))
+		# A side chamber off a long hall, through a doorway.
+		if w < 6.0 and w > 3.0 and a.distance_to(b) > 14.0 and _rng.randf() < 0.55:
+			var along := (b - a).normalized()
+			var across := Vector2(along.y, -along.x) * (1.0 if _rng.randf() < 0.5 else -1.0)
+			var room := Vector2(_rng.randf_range(3.0, 5.0), _rng.randf_range(3.0, 5.0))
+			var depth := absf(across.x) * room.x + absf(across.y) * room.y
+			var c := a.lerp(b, _rng.randf_range(0.3, 0.7)) + across * (w + 1.0 + depth)
+			if absf(c.x) + room.x < half.x - 2.0:
+				_raster_box(c, room)
+				var door := absf(along.x) * Vector2(1.4, 0) + absf(along.y) * Vector2(0, 1.4)
+				_raster_box(c - across * depth - across * 0.5, door + absf(across.x) * Vector2(1.2, 0) + absf(across.y) * Vector2(0, 1.2))
+	_hw = PackedFloat32Array()
+	for i in path.size():
+		_hw.append(segw[_oseg[i]])
+	_raster_box(start, Vector2(6.0, 6.0))
+	for c in clearings:
+		_raster_box(Vector2(c.x, c.y), Vector2(c.z + 2.0, c.z + 2.0))
+	for iz in _sdf_h:
+		for ix in _sdf_w:
+			var q := _sdf_o + Vector2(ix, iz)
+			var i2 := iz * _sdf_w + ix
+			var d := maxf(_sdf[i2], q.y - (half.y + 0.6))
+			_sdf[i2] = maxf(d, -q.y - (half.y + 0.6))
+
+
+## Write the distance to the box at [param c] reaching [param he] each way
+## into the field where it is nearer than what is there.
+func _raster_box(c: Vector2, he: Vector2) -> void:
+	var x0 := maxi(0, int(c.x - he.x - 9.0 - _sdf_o.x))
+	var x1 := mini(_sdf_w - 1, int(c.x + he.x + 9.0 - _sdf_o.x) + 1)
+	var z0 := maxi(0, int(c.y - he.y - 9.0 - _sdf_o.y))
+	var z1 := mini(_sdf_h - 1, int(c.y + he.y + 9.0 - _sdf_o.y) + 1)
+	for iz in range(z0, z1 + 1):
+		for ix in range(x0, x1 + 1):
+			var q := (_sdf_o + Vector2(ix, iz) - c).abs() - he
+			var d := Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0)
+			var i := iz * _sdf_w + ix
+			if d < _sdf[i]:
+				_sdf[i] = d
 
 
 ## Write the distance to a stretch of path a-b, [param wa] to [param wb]
@@ -1006,6 +1106,7 @@ func _floor() -> void:
 					pv.append(c)
 			mat.set_shader_parameter("plazas", pv)
 			mat.set_shader_parameter("plaza_n", pv.size())
+			mat.set_shader_parameter("square_plazas", ortho)
 			var m := MeshInstance3D.new()
 			var pm := PlaneMesh.new()
 			pm.size = Vector2(chunk, chunk)

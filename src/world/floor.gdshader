@@ -39,6 +39,8 @@ uniform bool water = false;
 // Laid stone floors (x, z, r).
 uniform vec3 plazas[4];
 uniform int plaza_n = 0;
+// Square flagged floors in a dungeon's square rooms.
+uniform bool square_plazas = false;
 uniform vec3 water_a : source_color = vec3(0.015, 0.05, 0.065);
 uniform vec3 water_b : source_color = vec3(0.04, 0.13, 0.14);
 uniform vec3 sand : source_color = vec3(0.2, 0.18, 0.13);
@@ -196,9 +198,10 @@ void fragment() {
 	float pz = 1e5;
 	for (int i = 0; i < 4; i++) {
 		if (i >= plaza_n) break;
-		pz = min(pz, length(p - plazas[i].xy) - plazas[i].z);
+		vec2 dq = abs(p - plazas[i].xy);
+		pz = min(pz, (square_plazas ? max(dq.x, dq.y) : length(dq)) - plazas[i].z);
 	}
-	pz += (fbm(p * 0.7 + 5.0) - 0.5) * 1.6;
+	pz += (fbm(p * 0.7 + 5.0) - 0.5) * (square_plazas ? 0.7 : 1.6);
 	if (pz < 0.0 && shore < 0.0) {
 		vec2 t = p / 1.5;
 		t.x += step(1.0, mod(floor(t.y), 2.0)) * 0.5;
