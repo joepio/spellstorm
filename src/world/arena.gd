@@ -12,31 +12,31 @@ var half := Vector2(34.0, 105.0)
 const LEVEL_HALF := Vector2(34.0, 105.0)
 
 const BIOMES := [
-	{id = "chapel", moss = 0.6, zones = [["grave", "grave", "grave", "dead_tree", "rock", "urn", "coffin"], ["grave", "candles", "dead_tree", "bones", "urn", "oil_jar", "statue"], ["dead_tree", "dead_tree", "rock", "grave", "coffin", "oil_jar"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
+	{id = "chapel", moss = 0.6, zones = [["grave", "grave", "cross", "dead_tree", "rock", "urn", "coffin", "fence"], ["grave", "candles", "cross", "bones", "urn", "oil_jar", "statue", "mausoleum"], ["dead_tree", "dead_tree", "rock", "grave", "cross", "coffin", "oil_jar", "mausoleum"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
 		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35,
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2, bone_archer = 2, necromancer = 1}, boss = "gravekeeper", fields = [],
 		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave",
-		corridor = true, outside = ["dead_tree", "dead_tree", "dead_tree", "grave", "rock"]},
-	{id = "catacombs", moss = 0.25, zones = [["bones", "candles", "sarcophagus", "pillar"], ["sarcophagus", "bones", "candles"], ["sarcophagus", "sarcophagus", "bones", "pillar"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
+		corridor = true, outside = ["dead_tree", "dead_tree", "dead_tree", "grave", "rock"], wall_style = "masonry", wall_props = ["ruin_wall"], wall_every = 18.0},
+	{id = "catacombs", moss = 0.25, zones = [["bones", "candles", "sarcophagus", "pillar", "bone_pile"], ["sarcophagus", "bones", "candles", "bone_pile", "altar"], ["sarcophagus", "sarcophagus", "bones", "pillar", "bone_pile"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
 		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12,
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1, bone_archer = 2, necromancer = 1, shieldbearer = 2}, boss = "abbot", fields = [],
-		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave"},
-	{id = "isles", moss = 0.7, zones = [["reeds", "reeds", "rock", "dead_tree"], ["reeds", "reeds", "lantern", "rock"], ["dead_tree", "dead_tree", "reeds", "rock"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
+		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave", corridor = true, wall_style = "ossuary", wall_props = ["skull_niche", "skull_niche", "chains", "cobweb", "skull_niche", "altar"], wall_every = 6.0, outside = []},
+	{id = "isles", moss = 0.7, zones = [["reeds", "reeds", "rock", "hanging_moss_tree", "sunken_ruin"], ["reeds", "reeds", "lantern", "rock", "hanging_moss_tree"], ["hanging_moss_tree", "dead_tree", "reeds", "rock", "sunken_ruin"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
 		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4,
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 1, bile = 1, wraith = 1, toad = 3, sprite = 3}, boss = "drowned_king", fields = [],
-		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true},
-	{id = "caves", moss = 0.5, moss_c = Color(0.08, 0.18, 0.16), zones = [["stalagmite", "stalagmite", "rock"], ["mushroom", "mushroom", "stalagmite", "rock"], ["stalagmite", "rock", "rock", "mushroom"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
+		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true, water_props = ["piling", "piling", "lily", "lily", "boat", "sunken_ruin", "hanging_moss_tree"]},
+	{id = "caves", moss = 0.5, moss_c = Color(0.08, 0.18, 0.16), zones = [["stalagmite", "stalagmite", "rock", "mine_cart", "mine_support", "drip_pool"], ["mushroom", "mushroom", "stalagmite", "rock", "fungus_shelf", "crystal"], ["stalagmite", "rock", "crystal", "mushroom", "crystal", "drip_pool"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
 		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.2, 0.34, 0.38), moon = Color(0.35, 0.62, 0.66), moon_energy = 0.3,
 		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 2, bile = 2, ghoul = 2, lurker = 3, toad = 1, sprite = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
-		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16)},
-	{id = "keep", moss = 0.7, moss_c = Color(0.85, 0.9, 0.95), zones = [["ice", "ice", "rock"], ["pillar", "ice", "rock"], ["ice", "rock", "rock", "pillar"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
+		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16), corridor = true, wall_style = "rock", density = 1.8, wall_props = ["crystal", "fungus_shelf", "mine_support", "crystal"], wall_every = 9.0, outside = ["stalagmite", "rock", "crystal", "rock"]},
+	{id = "keep", moss = 0.7, moss_c = Color(0.85, 0.9, 0.95), zones = [["ice", "rock", "barricade", "icicle_rock", "weapon_rack"], ["ice", "barricade", "weapon_rack", "frozen_statue", "icicle_rock"], ["ice", "rock", "barricade", "icicle_rock", "frozen_statue"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
 		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3,
 		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1, shieldbearer = 2, necromancer = 1, bone_archer = 2}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
-		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave"},
-	{id = "pit", moss = 0.5, moss_c = Color(0.05, 0.03, 0.03), zones = [["basalt", "basalt", "bones"], ["brazier", "basalt", "bones"], ["basalt", "basalt", "brazier", "bones"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
+		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave", corridor = true, wall_style = "castle", density = 1.15, wall_props = ["banner", "weapon_rack", "banner", "frozen_statue"], wall_every = 8.0, outside = ["icicle_rock", "rock", "rock", "ice"]},
+	{id = "pit", moss = 0.5, moss_c = Color(0.05, 0.03, 0.03), zones = [["basalt", "spikes", "skull_pile", "lava_vent"], ["brazier", "basalt", "skull_pile", "obsidian_spire", "spikes"], ["basalt", "obsidian_spire", "brazier", "skull_pile", "lava_vent"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
 		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2,
 		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1, hellhound = 2, lurker = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
-		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04)},
+		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04), corridor = true, wall_style = "cliff", outside_lava = true, wall_props = ["cage", "chains_pit", "spikes"], wall_every = 10.0, outside = ["obsidian_spire", "basalt", "lava_vent"]},
 ]
 
 var biome: Dictionary
@@ -122,13 +122,26 @@ func build(biome_index: int, seed_value: int) -> void:
 	# as ground you cross along a way, not an empty field.
 	var count := int(half.x * half.y * 4.0 / 46.0)
 	if corridor:
-		count = int(_inside_area() / 33.0)
+		count = int(_inside_area() / 33.0 * biome.get("density", 1.0))
 	for i in count:
 		var spot := _free_spot(2.6)
 		if spot == Vector3.INF:
 			continue
 		var zone_props: Array = biome.zones[zone_at(spot)]
 		_prop(zone_props[_rng.randi() % zone_props.size()], spot)
+	# Out in the water of the isles: rotten pilings, lily pads, a sunken
+	# boat, the stumps of drowned ruins.
+	var wet_kinds: Array = biome.get("water_props", [])
+	if not wet_kinds.is_empty():
+		var placed := 0
+		for _w in 600:
+			if placed >= 70:
+				break
+			var q := Vector2(_rng.randf_range(-half.x + 2.0, half.x - 2.0), _rng.randf_range(-half.y + 2.0, half.y - 2.0))
+			if shore(q) < 0.9 or path_dist(q) < PATH_W * 0.5 + 1.2 or _crowded(Vector3(q.x, 0, q.y), 2.0):
+				continue
+			_prop(wet_kinds[_rng.randi() % wet_kinds.size()], Vector3(q.x, 0, q.y))
+			placed += 1
 	# Jars of blood along the way, in every biome: the only health besides
 	# what monsters bleed. One every URN_EVERY metres of the way, beside the
 	# path on dry ground, so a long level or one of small islands is never
@@ -481,12 +494,24 @@ func _band_walls() -> void:
 	var tools := {}
 	var lit := Art.stone(biome.wall, biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	var dark := Art.stone(biome.wall.darkened(0.3), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
+	# Each biome's walls have their own shape: graveyard masonry, crypt
+	# walls with skull niches, a castle's battlements, the raw rock of a
+	# cave, jagged cliffs over lava.
+	var style: String = biome.get("wall_style", "masonry")
+	var natural := style == "rock" or style == "cliff"
+	var mats := {0: lit, 1: dark, 2: Art.stone(biome.wall.darkened(0.75)), 3: _bone_mat()}
+	if style == "cliff":
+		mats[0] = Art.stone(biome.wall.darkened(0.2), 0.0)
+		mats[1] = Art.stone(biome.wall.darkened(0.45), 0.0)
 	var last_torch: Array[Vector2] = []
+	var wall_props: Array = biome.get("wall_props", [])
+	var every: float = biome.get("wall_every", 9.0)
 	for chain: Array in chains:
 		if chain.size() < 2:
 			continue
 		# The height drifts slowly along a wall instead of jumping per stone.
 		var drift := _rng.randf() * 10.0
+		var since := _rng.randf() * every
 		for k in chain.size() - 1:
 			var a: Vector2 = chain[k]
 			var b: Vector2 = chain[k + 1]
@@ -501,28 +526,66 @@ func _band_walls() -> void:
 				continue
 			var face := smoothstep(0.25, 0.8, out.y)
 			var wave := 0.88 + 0.12 * sin(drift + k * 0.45) + 0.06 * sin(drift * 1.7 + k * 1.3)
-			var h := lerpf(2.7, 0.75, face) * wave
+			var tall := 2.7 if style != "castle" else 3.3
+			if style == "cliff":
+				tall = 2.0
+			var h := lerpf(tall, 0.75, face) * wave
 			var basis := Basis(Vector3.UP, atan2(along.x, along.y) + PI * 0.5)
 			var centre := Vector3(mid.x + out.x * 0.45, 0, mid.y + out.y * 0.45)
 			var ck := Vector2i(int(floor(mid.x / 20.0)), int(floor(mid.y / 20.0)))
-			_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(len + 0.35, h, 0.8), Transform3D(basis, centre + Vector3.UP * h * 0.5))
-			# A coping along the top, darker.
-			_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.14, 1.0), Transform3D(basis, centre + Vector3.UP * (h + 0.07)))
-			# A plinth along the foot.
-			_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.3, 1.05), Transform3D(basis, centre + Vector3.UP * 0.15))
-			# A buttress every few stones, a little taller, with a cap.
-			if k % 3 == 0:
-				var ph := h + 0.35
-				_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(0.75, ph, 1.15), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph * 0.5, a.y + out.y * 0.45)))
-				_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(0.95, 0.2, 1.35), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph + 0.1, a.y + out.y * 0.45)))
-				if ph > 2.4:
-					var far := true
-					for o in last_torch:
-						if o.distance_to(a) < 13.0:
-							far = false
-					if far:
-						last_torch.append(a)
-						_torch(self, Vector3(a.x - out.x * 0.25, 2.2, a.y - out.y * 0.25))
+			if natural:
+				# Rock, not blocks: two lumpy crags overlapping along the edge,
+				# leaning a little, one now and then standing taller.
+				for j in 2:
+					var w := (len + 0.9) * _rng.randf_range(0.65, 0.85)
+					var ch := h * _rng.randf_range(0.85, 1.25) * (1.35 if k % 4 == 0 and j == 0 else 1.0)
+					var off := (j - 0.5) * len * 0.45
+					var rb := basis * Basis(Vector3.UP, _rng.randf_range(-0.4, 0.4)) * Basis(Vector3.RIGHT, _rng.randf_range(-0.12, 0.12))
+					var xf := Transform3D(rb * Basis.from_scale(Vector3(w, ch, _rng.randf_range(1.3, 1.9))), centre + basis * Vector3(off, 0, 0) + Vector3.UP * ch * 0.38)
+					_wall_mesh(tools, Vector3i(ck.x, ck.y, j), _crag(_rng.randi() % 6, style == "cliff"), xf)
+			else:
+				_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(len + 0.35, h, 0.8), Transform3D(basis, centre + Vector3.UP * h * 0.5))
+				# A coping along the top, darker.
+				_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.14, 1.0), Transform3D(basis, centre + Vector3.UP * (h + 0.07)))
+				# A plinth along the foot.
+				_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len + 0.4, 0.3, 1.05), Transform3D(basis, centre + Vector3.UP * 0.15))
+				if style == "castle" and h > 1.9:
+					# Battlements: merlons with gaps along the top.
+					var n := maxi(1, int(round(len / 0.9)))
+					for m in n:
+						var o := -len * 0.5 + (m + 0.5) * len / n
+						_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(len / n * 0.55, 0.45, 0.9), Transform3D(basis, centre + basis * Vector3(o, 0, 0) + Vector3.UP * (h + 0.36)))
+				if style == "ossuary" and h > 2.2 and k % 2 == 1 and len > 0.9:
+					# A niche in the wall, stacked with skulls.
+					var inner := centre - Vector3(out.x, 0, out.y) * 0.4
+					_wall_piece(tools, Vector3i(ck.x, ck.y, 2), Vector3(len * 0.7, 0.75, 0.06), Transform3D(basis, inner + Vector3.UP * 1.35))
+					_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(len * 0.8, 0.08, 0.2), Transform3D(basis, inner + Vector3.UP * 0.94))
+					var sk := maxi(1, int(len * 0.7 / 0.24))
+					for m in sk:
+						for row in 2:
+							var o2 := -len * 0.33 + (m + 0.5) * len * 0.66 / sk + (0.06 if row == 1 else 0.0)
+							var at := inner - Vector3(out.x, 0, out.y) * 0.04 + basis * Vector3(o2, 0, 0) + Vector3.UP * (1.08 + row * 0.25)
+							_wall_mesh(tools, Vector3i(ck.x, ck.y, 3), _niche_skull(), Transform3D(Basis(Vector3.UP, atan2(-out.x, -out.y)) * Basis(Vector3.UP, _rng.randf_range(-0.4, 0.4)), at))
+				# A buttress every few stones, a little taller, with a cap.
+				if k % 3 == 0:
+					var ph := h + 0.35
+					_wall_piece(tools, Vector3i(ck.x, ck.y, 0), Vector3(0.75, ph, 1.15), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph * 0.5, a.y + out.y * 0.45)))
+					_wall_piece(tools, Vector3i(ck.x, ck.y, 1), Vector3(0.95, 0.2, 1.35), Transform3D(Basis(Vector3.UP, basis.get_euler().y), Vector3(a.x + out.x * 0.45, ph + 0.1, a.y + out.y * 0.45)))
+					if ph > 2.4:
+						var far := true
+						for o in last_torch:
+							if o.distance_to(a) < 13.0:
+								far = false
+						if far:
+							last_torch.append(a)
+							_torch(self, Vector3(a.x - out.x * 0.25, 2.2, a.y - out.y * 0.25))
+			# Something of the biome's against the taller walls now and then.
+			since += len
+			if h > 1.7 and not wall_props.is_empty() and since >= every:
+				var spot := mid - out * 0.85
+				if path_dist(spot) > PATH_W * 0.5 + 1.2 and not _crowded(Vector3(spot.x, 0, spot.y), 1.4):
+					since = 0.0
+					_prop(wall_props[_rng.randi() % wall_props.size()], Vector3(spot.x, 0, spot.y), atan2(-out.x, -out.y))
 			var bs := BoxShape3D.new()
 			bs.size = Vector3(len + 0.5, 4.0, 1.2)
 			var cs := CollisionShape3D.new()
@@ -533,22 +596,64 @@ func _band_walls() -> void:
 	for tk: Vector3i in tools:
 		var m := MeshInstance3D.new()
 		m.mesh = (tools[tk] as SurfaceTool).commit()
-		m.material_override = lit if tk.z == 0 else dark
+		m.material_override = mats[tk.z if not natural else (0 if tk.z == 0 else 1)]
 		add_child(m)
 
 
 func _wall_piece(tools: Dictionary, key: Vector3i, size: Vector3, xf: Transform3D) -> void:
+	_wall_mesh(tools, key, Art.box(size.x, size.y, size.z), xf)
+
+
+func _wall_mesh(tools: Dictionary, key: Vector3i, mesh: Mesh, xf: Transform3D) -> void:
 	if not tools.has(key):
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		tools[key] = st
-	(tools[key] as SurfaceTool).append_from(Art.box(size.x, size.y, size.z), 0, xf)
+	(tools[key] as SurfaceTool).append_from(mesh, 0, xf)
+
+
+static var _crags := {}
+
+
+## A unit-sized lump of rock for natural walls: rounded and lumpy for a
+## cave, or [param jagged], narrowing to broken points, for the pit's cliffs.
+static func _crag(i: int, jagged: bool) -> Mesh:
+	var key := i + (100 if jagged else 0)
+	if not _crags.has(key):
+		var m := Shape.blob(Vector3(0.5, 0.5, 0.5), 0.3 if jagged else 0.2, 3.1 + i * 7.3, 9, 13)
+		if jagged:
+			var s := float(i)
+			m = Shape.warp(m, func(v: Vector3) -> Vector3:
+				var up := clampf(v.y + 0.5, 0.0, 1.0)
+				var pinch := 1.0 - up * 0.65
+				var spike := 1.0 + 0.35 * maxf(0.0, sin(v.x * 9.0 + s) * sin(v.z * 7.0 + s * 2.0)) * up
+				return Vector3(v.x * pinch, v.y * spike, v.z * pinch))
+		_crags[key] = m
+	return _crags[key]
+
+
+static var _skull_mesh: Mesh
+
+
+## A small skull for the niches: a round cranium, its face to +z.
+static func _niche_skull() -> Mesh:
+	if _skull_mesh == null:
+		var head := Shape.blob(Vector3(0.1, 0.09, 0.11), 0.05, 2.0, 8, 10)
+		var face := Shape.warp(Shape.blob(Vector3(0.075, 0.06, 0.05), 0.0, 1.0, 6, 8), func(v: Vector3) -> Vector3: return v + Vector3(0, -0.05, 0.07))
+		_skull_mesh = Shape.merge([head, face])
+	return _skull_mesh
+
+
+static func _bone_mat() -> Material:
+	return Shape.material(Color(0.6, 0.56, 0.47), Color(0.28, 0.25, 0.2), 6.0, 0.8, 0.5, 0.0, 77)
 
 
 ## Beyond the walls: dark ground thick with the biome's things, so the edge
 ## of the level reads as land you cannot reach, not as the end of the world.
 func _outside() -> void:
 	var kinds: Array = biome.get("outside", ["rock"])
+	if kinds.is_empty():
+		return
 	var n := 0
 	for _i in 900:
 		if n >= 170:
@@ -862,6 +967,7 @@ func _floor() -> void:
 				mat.set_shader_parameter("bounds", tex)
 				mat.set_shader_parameter("bounds_rect", Vector4(_sdf_o.x - 0.5, _sdf_o.y - 0.5, _sdf_w, _sdf_h))
 				mat.set_shader_parameter("bounded", true)
+				mat.set_shader_parameter("outside_lava", 1.0 if biome.get("outside_lava", false) else 0.0)
 			mat.shader = shader
 			mat.set_shader_parameter("base_a", biome.floor_a)
 			mat.set_shader_parameter("base_b", biome.floor_b)
@@ -1319,6 +1425,18 @@ func _prop(kind: String, at := Vector3.INF, yaw := INF) -> Prop:
 				Art.part(body, Art.box(0.08, 0.95, 0.5), oak_end, Vector3(sgn * 1.17, 0.475, -0.02))
 				Art.part(body, Art.box(0.1, 0.06, 0.54), oak_end, Vector3(sgn * 1.17, 0.97, -0.02))
 			r = 0.0
+		_:
+			# The biomes' own dressing (Dressing): r < 0 means walk-through.
+			if not Dressing.KINDS.has(kind):
+				body.queue_free()
+				return null
+			var made: Dictionary = Dressing.build(kind, body, _rng, biome)
+			for l in body.find_children("*", "OmniLight3D", true, false):
+				_torches.append(l)
+			r = made.get("r", 0.4)
+			if r < 0.0:
+				body.collision_layer = 0
+				return body
 	var cs := CollisionShape3D.new()
 	if kind == "pew":
 		var bs := BoxShape3D.new()
@@ -1392,12 +1510,14 @@ func _process(_dt: float) -> void:
 			at += fwd * ((1.5 - at.y) / fwd.y)
 		_dust_p.global_position = Vector3(at.x, 1.5, at.z)
 	for i in _torches.size():
+		# Lights of broken props are freed with them.
+		if not is_instance_valid(_torches[i]):
+			continue
 		var l: OmniLight3D = _torches[i]
-		if is_instance_valid(l):
-			if not l.has_meta("base"):
-				l.set_meta("base", l.light_energy)
-			var b: float = l.get_meta("base")
-			l.light_energy = b * (0.85 + 0.1 * sin(t * 9.0 + i * 1.7) + 0.05 * sin(t * 23.0 + i))
+		if not l.has_meta("base"):
+			l.set_meta("base", l.light_energy)
+		var b: float = l.get_meta("base")
+		l.light_energy = b * (0.85 + 0.1 * sin(t * 9.0 + i * 1.7) + 0.05 * sin(t * 23.0 + i))
 
 
 func add_field(at: Vector3, kind: int, r: float, ttl: float, owner: Actor) -> Field:

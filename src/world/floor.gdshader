@@ -48,6 +48,8 @@ uniform vec3 sand : source_color = vec3(0.2, 0.18, 0.13);
 uniform sampler2D bounds : filter_linear, repeat_disable;
 uniform vec4 bounds_rect = vec4(0.0, 0.0, 1.0, 1.0);
 uniform bool bounded = false;
+// The pit: beyond the walls lies a sea of lava, crusted, glowing in its seams.
+uniform float outside_lava = 0.0;
 
 varying vec3 wpos;
 
@@ -236,7 +238,7 @@ void fragment() {
 			float along = pi.y / 0.42;
 			float plank = fract(along);
 			float pid = floor(along);
-			pc = mix(vec3(0.33, 0.23, 0.14), vec3(0.22, 0.15, 0.09), hash(vec2(pid, 3.0)));
+			pc = mix(vec3(0.11, 0.08, 0.05), vec3(0.065, 0.047, 0.03), hash(vec2(pid, 3.0)));
 			pc *= 0.8 + 0.35 * fbm(vec2(pi.x * 6.0, pid * 3.0));
 			pc *= mix(0.25, 1.0, smoothstep(0.0, 0.08, plank) * smoothstep(1.0, 0.92, plank));
 			float rail = smoothstep(path_w * 0.5 - 0.22, path_w * 0.5 - 0.12, pi.x);
@@ -291,6 +293,16 @@ void fragment() {
 		edge_dark = smoothstep(1.0, 14.0, sd) * 0.75;
 		// A faint moonlit glow, so ground nobody lights still reads as ground.
 		glow += base_b * (0.6 + 0.5 * fine) * 0.22 * smoothstep(0.5, 3.0, sd);
+		if (outside_lava > 0.5) {
+			float out_k = smoothstep(0.6, 2.2, sd);
+			float n = fbm(p * 0.35 + vec2(0.0, TIME * 0.02));
+			float seam = pow(1.0 - abs(n * 2.0 - 1.0), 6.0);
+			float pool = smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0));
+			float heat = clamp(seam * 0.8 + pool, 0.0, 1.0) * (0.75 + 0.25 * sin(TIME * 1.3 + p.x * 0.4 + p.y * 0.3));
+			col = mix(col, vec3(0.03, 0.015, 0.012) * (0.7 + 0.6 * fine), out_k);
+			glow += vec3(1.0, 0.3, 0.04) * heat * out_k * 0.9;
+			edge_dark *= 1.0 - out_k * 0.7;
+		}
 	}
 	col *= 1.0 - min(edge_dark, 1.0) * 0.6 - max(edge_dark - 1.0, 0.0) * 0.8;
 	// The dark comes from the light, not the paint: brighter ground the
