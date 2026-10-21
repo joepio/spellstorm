@@ -792,6 +792,13 @@ func _take_shot() -> void:
 			run.skip_to(arena.clearing_at[0] - 5.0)
 			snap_camera()
 			run._raise_shrine(0)
+		# --exit N: the level is won N frames before the shot, the wizards
+		# just short of the way out, for checking the portal in the gate.
+		if "--exit" in args and f == shot_frames - int(args[args.find("--exit") + 1]):
+			run.skip_to(arena.length() - 6.0)
+			snap_camera()
+			run.encounters.clear()
+			run._level_cleared()
 		# --shatter N: every prop within 9 m of the first wizard breaks N
 		# frames before the shot, knocked away from the wizard.
 		if "--shatter" in args and f == shot_frames - int(args[args.find("--shatter") + 1]):

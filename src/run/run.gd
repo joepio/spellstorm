@@ -387,7 +387,7 @@ func _level_cleared() -> void:
 	state = "cleared"
 	_raise_shrine(2)
 	portal = _portal()
-	var pa: Vector2 = Game.I.arena.portal_at
+	var pa: Vector2 = Game.I.arena.exit_at
 	portal.position = Vector3(pa.x, 0, pa.y)
 	Game.I.arena.add_child(portal)
 	_portal_t = 0.0
@@ -542,6 +542,10 @@ static func _fill_ring(n: Node3D, r: float, c: Color) -> void:
 			n.set_meta("fill", ring)
 
 
+## The portal stands in the gate, this far behind the ring you stand in.
+const GATE_BACK := 2.0
+
+
 func _portal() -> Node3D:
 	var n := Node3D.new()
 	var c := Color(0.3, 0.55, 1.0)
@@ -550,9 +554,9 @@ func _portal() -> Node3D:
 	tor.outer_radius = 1.45
 	tor.rings = 32
 	tor.ring_segments = 8
-	var ring := Art.part(n, tor, Fx.glow(c, 3.0), Vector3(0, 1.6, 0), Vector3(90, 0, 0))
+	var ring := Art.part(n, tor, Fx.glow(c, 3.0), Vector3(0, 1.6, -GATE_BACK), Vector3(90, 0, 0))
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var disc := Art.part(n, Art.cyl(1.25, 1.25, 0.02, 32), Fx.additive(Color(0.2, 0.4, 1.0, 0.6), 1.2), Vector3(0, 1.6, 0), Vector3(90, 0, 0))
+	var disc := Art.part(n, Art.cyl(1.25, 1.25, 0.02, 32), Fx.additive(Color(0.2, 0.4, 1.0, 0.6), 1.2), Vector3(0, 1.6, -GATE_BACK), Vector3(90, 0, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Everyone stands in the ring until it fills, as at an altar.
 	_fill_ring(n, PORTAL_R, Color(0.55, 0.75, 1.0))
@@ -562,7 +566,7 @@ func _portal() -> Node3D:
 	p.emission_ring_radius = 1.35
 	p.emission_ring_inner_radius = 1.1
 	p.emission_ring_height = 0.1
-	p.position.y = 1.6
+	p.position = Vector3(0, 1.6, -GATE_BACK)
 	p.direction = Vector3.UP
 	p.initial_velocity_max = 0.5
 	n.add_child(p)
@@ -571,6 +575,6 @@ func _portal() -> Node3D:
 	l.light_color = c
 	l.light_energy = 2.5
 	l.omni_range = 7.0
-	l.position.y = 1.6
+	l.position = Vector3(0, 1.6, -GATE_BACK + 0.6)
 	n.add_child(l)
 	return n

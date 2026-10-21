@@ -57,6 +57,10 @@ var clearing_at: Array[float] = []
 ## Where the wizards come in, and where the portal opens after the boss.
 var start := Vector2.ZERO
 var portal_at := Vector2.ZERO
+## Where the way out opens once the level is won: in front of the gate in
+## the back wall, so the portal fills the gate (Joep: a portal in the
+## middle of the map and a gate you can't go through made no sense).
+var exit_at := Vector2.ZERO
 ## Islands in a water biome, as (x, z, rx, rz) ellipses; empty elsewhere.
 var isles: Array[Vector4] = []
 ## Laid stone floors (x, z, r) in a built biome: the clearings and the arena.
@@ -191,6 +195,7 @@ func _plan() -> void:
 	start = Vector2(_rng.randf_range(-6.0, 6.0), half.y - 7.0)
 	var arena := Vector3(0, -half.y + 24.0, 14.0)
 	portal_at = Vector2(arena.x, arena.y - 6.0)
+	exit_at = Vector2(0.0, -half.y + 1.6)
 	# Bends every 12 to 24 m, mostly swinging to the other side, sometimes
 	# wide and sometimes barely, now and then drifting on along the same
 	# side; two of them are clearings, and in a built biome the way between
@@ -620,7 +625,7 @@ func _band_walls() -> void:
 			var b: Vector2 = chain[k + 1]
 			var mid := (a + b) * 0.5
 			# The gate fills the gap at the far end.
-			if mid.y < -half.y + 1.5 and absf(mid.x - portal_at.x) < 2.6:
+			if mid.y < -half.y + 1.5 and absf(mid.x) < 2.8:
 				continue
 			var out := _bound_out(mid)
 			var along := b - a
@@ -1016,20 +1021,21 @@ func _lamp(at: Vector2, toward := Vector2.ZERO) -> void:
 func _gate() -> void:
 	var stone := Art.stone(biome.wall.lightened(0.05), biome.get("moss", 0.0), biome.get("moss_c", Color(0.12, 0.16, 0.08)))
 	var z := -half.y - 0.6
+	# Wide enough for the portal that opens in it.
 	for sgn: float in [-1.0, 1.0]:
-		Art.part(self, Art.box(0.9, 4.2, 1.5), stone, Vector3(sgn * 1.7, 2.1, z))
-	Art.part(self, Art.box(4.3, 0.7, 1.5), stone, Vector3(0, 4.3, z))
+		Art.part(self, Art.box(0.9, 4.2, 1.5), stone, Vector3(sgn * 2.1, 2.1, z))
+	Art.part(self, Art.box(5.1, 0.7, 1.5), stone, Vector3(0, 4.3, z))
 	var block := StaticBody3D.new()
 	block.collision_layer = 1
 	var cs := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
-	bs.size = Vector3(2.6, 4.0, 1.2)
+	bs.size = Vector3(3.4, 4.0, 1.2)
 	cs.shape = bs
 	cs.position = Vector3(0, 2.0, z)
 	block.add_child(cs)
 	add_child(block)
 	# Darkness beyond the arch.
-	Art.part(self, Art.box(2.5, 3.9, 0.2), Fx.solid(Color(0.01, 0.01, 0.015), 1.0), Vector3(0, 1.95, z - 0.5))
+	Art.part(self, Art.box(3.3, 3.9, 0.2), Fx.solid(Color(0.01, 0.01, 0.015), 1.0), Vector3(0, 1.95, z - 0.5))
 
 
 ## How the ground shifts from zone to zone along the level, as tints on
