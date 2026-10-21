@@ -483,7 +483,12 @@ func _hitch_check() -> void:
 		var seen := {}
 		for k in _hitch_new:
 			seen[k] = int(seen.get(k, 0)) + 1
-		print("hitch frame %d: %.0f ms, %d pipelines compiled at draw, after %s" % [_frame, ms, stalls, seen])
+		# The other compile counters (since start) and where the frame's
+		# time went, so a stall that is not a draw-time compile still says
+		# what it was.
+		print("hitch frame %d: %.0f ms, %d pipelines compiled at draw, after %s; since start: %d surface, %d mesh, %d specialization compiles; process %.0f ms, physics %.0f ms, %d objects" % [_frame, ms, stalls, seen,
+			Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_SURFACE), Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_MESH), Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_SPECIALIZATION),
+			Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, Performance.get_monitor(Performance.OBJECT_COUNT)])
 	_hitch_new.clear()
 
 
