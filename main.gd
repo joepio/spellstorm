@@ -89,6 +89,8 @@ func _ready() -> void:
 	fx_root = Node3D.new()
 	fx_root.name = "Fx"
 	add_child(fx_root)
+	if "--hitches" in OS.get_cmdline_user_args():
+		_hitch_watch.call_deferred()
 	Fx.root = fx_root
 	run = Run.new()
 	add_child(run)
@@ -431,6 +433,36 @@ func _confluence(dt: float) -> void:
 
 func _process(dt: float) -> void:
 	_update_camera(dt)
+	if _hitch_last >= 0:
+		_hitch_check()
+
+
+## --hitches: print every frame that took far longer than its neighbours,
+## with what entered the world just before, to find what still compiles
+## or builds mid-game.
+var _hitch_last := -1
+var _hitch_new: Array[String] = []
+
+
+func _hitch_watch() -> void:
+	_hitch_last = Time.get_ticks_usec()
+	var note := func(n: Node):
+		var s: Script = n.get_script()
+		_hitch_new.append(s.get_global_name() if s and s.get_global_name() != "" else n.get_class())
+	fx_root.child_entered_tree.connect(note)
+	child_entered_tree.connect(note)
+
+
+func _hitch_check() -> void:
+	var now := Time.get_ticks_usec()
+	var ms := (now - _hitch_last) / 1000.0
+	_hitch_last = now
+	if ms > 120.0 and _frame > 30:
+		var seen := {}
+		for k in _hitch_new:
+			seen[k] = int(seen.get(k, 0)) + 1
+		print("hitch frame %d: %.0f ms after %s" % [_frame, ms, seen])
+	_hitch_new.clear()
 
 
 ## Put the camera straight over the wizards, for a new level: gliding there

@@ -123,7 +123,7 @@ func die(how: String, dir: Vector3) -> void:
 			hole.add_child(pull)
 			pull.emitting = true
 			hole.scale = Vector3.ONE * 0.1
-			var tw := create_tween()
+			var tw := _tween()
 			tw.tween_property(hole, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.parallel().tween_property(root, "position:y", root.position.y + 0.5, 0.35)
 			tw.parallel().tween_property(root, "scale", Vector3(0.45, 1.5, 0.45), 0.35).set_trans(Tween.TRANS_SINE)
@@ -150,14 +150,14 @@ func die(how: String, dir: Vector3) -> void:
 ## Back onto the floor, like a ragdoll losing its legs.
 func _topple(time: float) -> void:
 	var body: Node3D = _model.body
-	var tw := create_tween()
+	var tw := _tween()
 	tw.tween_property(body, "rotation:x", -PI * 0.5, time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.parallel().tween_property(body, "position:y", 0.22, time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func():
 		if Game.I:
 			Game.I.shake(0.15)
 		var b := body
-		var t2 := create_tween()
+		var t2 := _tween()
 		t2.tween_property(b, "rotation:x", -PI * 0.5 + 0.12, 0.08)
 		t2.tween_property(b, "rotation:x", -PI * 0.5, 0.12))
 
@@ -165,6 +165,16 @@ func _topple(time: float) -> void:
 func _skin(m: Material) -> void:
 	for p in _parts:
 		p.material_override = m
+
+
+var _tweens: Array[Tween] = []
+
+
+## A tween of the death itself, so a revive can stop it.
+func _tween() -> Tween:
+	var tw := create_tween()
+	_tweens.append(tw)
+	return tw
 
 
 ## Throw [param n] loose: it flies, bounces and settles under its own rules.
@@ -273,6 +283,13 @@ func _physics_process(dt: float) -> void:
 
 ## Healed back: every piece flies home in a column of light.
 func revive() -> void:
+	# A death still playing out (the void swallowing the body) must not
+	# go on after the wizard stands up: it left the body shrunk and the
+	# robe spinning (Joep).
+	for tw in _tweens:
+		if tw.is_valid():
+			tw.kill()
+	_tweens.clear()
 	_fly.clear()
 	_jolt = 0.0
 	_shatter_at = -1.0

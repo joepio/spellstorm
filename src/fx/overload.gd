@@ -137,14 +137,14 @@ func _ready() -> void:
 			var nova := NovaFx.new().setup(caster, spell) as NovaFx
 			nova.n = {radius = 8.5, rate = 1.6}
 			nova.only_team = 1
-			Game.I.spawn(nova, caster.global_position)
+			Game.I.spawn(nova, target)
 			for a in targets():
-				if a.team != caster.team and a.global_position.distance_to(caster.global_position) < 8.5:
+				if a.team != caster.team and a.global_position.distance_to(target) < 8.5:
 					a.stun = maxf(a.stun, 2.2)
 			for i in 14:
-				var p := caster.global_position + Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 14.0) * randf_range(3, 8)
+				var p := target + Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 14.0) * randf_range(3, 8)
 				Fx.burst(p, El.COLOR[El.EARTH], 12, 6.0, 0.4, El.EARTH)
-			_ride(caster.global_position, 6.0)
+			_ride(target, 6.0)
 			Game.I.shake(1.0)
 		El.AIR:
 			_field = Game.I.arena.add_field(target, El.AIR, 2.4, 8.0, caster)

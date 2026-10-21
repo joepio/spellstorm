@@ -41,6 +41,8 @@ var portal: Node3D
 var _portal_t := 0.0
 var _end_t := 0.0
 var _quiet_t := 0.0
+## The boss is down: that wins the level, whatever is still about.
+var _boss_fell := false
 var boss: Enemy
 
 
@@ -152,6 +154,7 @@ func _clear_level() -> void:
 	_lead = 0.0
 	_lead_t = 0.0
 	boss = null
+	_boss_fell = false
 
 
 func _queue_wave(players: int, scale: float) -> void:
@@ -188,6 +191,7 @@ func spawn_enemy(k: String, at: Vector3, telegraph := true) -> void:
 	Game.I.add_enemy(e)
 	if Enemy.KINDS[k].get("boss", false):
 		boss = e
+		e.died.connect(func(_a): _boss_fell = true)
 
 
 func _physics_process(dt: float) -> void:
@@ -229,13 +233,23 @@ var _lead_t := 0.0
 
 
 func _fight(dt: float) -> void:
+	if _boss_fell:
+		# Beating the boss ends the level (Joep: nothing happened, some
+		# stragglers were still somewhere far back): the rest of its horde
+		# falls with it and nothing more comes.
+		_boss_fell = false
+		encounters.clear()
+		spawn_queue.clear()
+		for e in Game.I.enemies.duplicate():
+			if is_instance_valid(e) and e.alive:
+				e.take(e.hp + 1.0)
 	# The lead only matters a few times a second.
 	_lead_t -= dt
 	if _lead_t <= 0.0:
 		_lead_t = 0.2
 		_lead = lead_progress()
 	# The next pack holds off while the field is still full of the last ones.
-	var alive_count := Game.I.enemies.filter(func(e): return e.alive).size()
+	var alive_count := _near_count()
 	while not encounters.is_empty() and _lead >= encounters[0].at and alive_count + spawn_queue.size() < 9:
 		var enc: Dictionary = encounters.pop_front()
 		_wave_at = _lead
@@ -258,7 +272,7 @@ func _fight(dt: float) -> void:
 		spawn_t = 0.35
 		var k: String = spawn_queue.pop_front()
 		spawn_enemy(k, _spawn_spot(k), Enemy.KINDS[k].get("spawn", "") != "under")
-	alive_count = Game.I.enemies.filter(func(e): return e.alive).size()
+	alive_count = _near_count()
 	_quiet_t = _quiet_t + dt if spawn_queue.is_empty() and alive_count == 0 else 0.0
 	if _quiet_t < 1.5:
 		return
@@ -268,6 +282,25 @@ func _fight(dt: float) -> void:
 	_pending.clear()
 	if encounters.is_empty() and (boss == null or not is_instance_valid(boss) or not boss.alive):
 		_level_cleared()
+
+
+## Monsters still in the fight: one left far behind (Joep: a single one
+## 100 m back kept the level from ending) no longer holds up the next
+## pack, a shrine or the portal. It only stops counting once no wizard is
+## within STRAY_DIST, so it changes nothing in an actual fight.
+const STRAY_DIST := 45.0
+
+
+func _near_count() -> int:
+	var n := 0
+	for e in Game.I.enemies:
+		if not is_instance_valid(e) or not e.alive:
+			continue
+		for w in Game.I.wizards:
+			if w.alive and w.global_position.distance_to(e.global_position) < STRAY_DIST:
+				n += 1
+				break
+	return n
 
 
 ## Where a monster of [param k] comes in, by what it is: archers and

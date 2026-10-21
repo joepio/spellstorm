@@ -293,6 +293,7 @@ func _physics_process(dt: float) -> void:
 		drive(_roll_dir * ROLL_SPEED * roll_speed(1.0 - _roll_t / ROLL_TIME), dt)
 		if _roll_t <= 0.0:
 			_roll_recover = ROLL_RECOVER
+			collision_mask = 1 | 2
 		_visuals(dt)
 		return
 	_roll_recover = maxf(0.0, _roll_recover - dt)
@@ -614,8 +615,19 @@ func roll() -> void:
 	_roll_t = ROLL_TIME
 	_roll_cd = ROLL_COOLDOWN
 	invuln = ROLL_IFRAMES
+	# Through monsters, not into them (Joep): only the world stops a roll.
+	collision_mask = 1
 	if channel and is_instance_valid(channel):
 		channel = null
+	# Rolling out of a windup calls the spell off: mana and elements back.
+	if not _charging.is_empty():
+		var s := _charging
+		_charging = {}
+		_charge_stop()
+		mana = minf(MANA_MAX, mana + cost(s))
+		var back: Array = (s.slots as Array) + queue.copy()
+		queue.set_slots(back.slice(0, queue.size))
+		ammo = full_ammo()
 	_trace_once("dodge")
 	Game.I.count("rolls")
 
@@ -794,8 +806,10 @@ func _release() -> void:
 const OVERLOAD_REACH := 7.0
 
 
+## RT always casts ahead of you (Joep), the Earthquake too; only the
+## Tidal Wave rises at your feet, since it rolls away from you anyway.
 func _overload_here(s: Dictionary) -> bool:
-	return s.primary in [El.EARTH, El.WATER]
+	return s.primary == El.WATER
 
 
 ## The gem lights up in the spell's element: a glow round it and the
@@ -1200,6 +1214,8 @@ func die(src: Actor) -> void:
 	var tw := _tomb.create_tween()
 	tw.tween_interval(1.2)
 	tw.tween_property(_tomb, "position:y", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# The same ring as at a shrine's tome, filling while a friend raises you.
+	Run._fill_ring(_tomb, REVIVE_REACH, Color(1.0, 0.8, 0.45))
 	_grave_lights()
 
 
@@ -1255,7 +1271,6 @@ func _grave_lights() -> void:
 ## seconds with one, faster with more. Walking away lets it fade again.
 const REVIVE_RATE := 14.0
 const REVIVE_REACH := 1.9
-var _raise_fx := 0.0
 const GRAVE_BEAM := 16.0
 const GRAVE_CALM := Color(0.62, 0.8, 1.0)
 const GRAVE_WARM := Color(1.0, 0.82, 0.45)
@@ -1277,12 +1292,15 @@ func _raise(dt: float) -> void:
 	_grave_look(n > 0, dt)
 	if n == 0:
 		_revive = maxf(0.0, _revive - REVIVE_RATE * 0.5 * dt)
-		return
-	_raise_fx -= dt
-	if _raise_fx <= 0.0:
-		_raise_fx = 0.35
-		Fx.ring(global_position + Vector3.UP * 0.04, Color(1.0, 0.85, 0.5), REVIVE_REACH * (1.0 - _revive / REVIVE_NEED * 0.7), 0.35)
-	revive_progress(REVIVE_RATE * n * dt)
+	else:
+		revive_progress(REVIVE_RATE * n * dt)
+	if _tomb and _tomb.has_meta("fill"):
+		var fill := (_tomb.get_meta("fill") as MeshInstance3D).material_override as ShaderMaterial
+		fill.set_shader_parameter("progress", clampf(_revive / REVIVE_NEED, 0.0, 1.0))
+		for w in Game.I.wizards:
+			if w != self and w.alive and _grave_dist(w.global_position) < REVIVE_REACH:
+				fill.set_shader_parameter("color", w.robe.lightened(0.35))
+				break
 
 
 ## How far from the grave: the stone or the body beside it, whichever is nearer.
@@ -1343,6 +1361,7 @@ func revive(frac: float) -> void:
 	frozen = 0.0
 	chill = 0.0
 	stun = 0.0
+	collision_mask = 1 | 2
 	# A moment to stand up while the pieces fly back together.
 	invuln = maxf(invuln, 1.2)
 	_remains.revive()
