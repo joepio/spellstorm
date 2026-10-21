@@ -140,31 +140,41 @@ func _confirm(row: String) -> void:
 			get_tree().quit()
 
 
-## The tomes each wizard has taken this run, under the menu.
+## The wizards and the tomes each has taken this run, right of the menu.
 func _tomes(r: Rect2) -> void:
 	var tf := Art.title_font()
 	var f := Art.body_font()
-	var lines: Array = []
+	var x := r.position.x + 26.0
+	var tw := r.size.x - 52.0
+	var yy := r.position.y + 40.0
+	var bottom := r.position.y + r.size.y - 12.0
+	var cmds: Array = []
 	for w in Game.I.wizards:
-		lines.append([w.player_name, w.robe.lightened(0.3), true])
+		cmds.append([tf, w.player_name, w.robe.lightened(0.3), 26, 34.0])
 		if w.relics.is_empty():
-			lines.append(["No tomes yet", Color(0.5, 0.46, 0.4), false])
+			cmds.append([f, "No tomes yet", Color(0.5, 0.46, 0.4), 19, 30.0])
 		for t in w.relics:
-			lines.append(["%s  ·  %s" % [t.get("name", ""), t.get("text", "")], Color(0.78, 0.72, 0.6), false])
-	var lh := 30.0
-	var hh := minf(r.size.y, lines.size() * lh + 40.0)
-	if hh < 80.0:
-		return
-	_frame(Rect2(r.position, Vector2(r.size.x, hh)))
-	var yy := r.position.y + 38.0
-	for l in lines:
-		if yy > r.position.y + hh - 8.0:
+			cmds.append([f, "%s: %s" % [t.get("name", ""), t.get("text", "")], Color(0.78, 0.72, 0.6), 19, 0.0])
+		cmds.append(null)
+	var used := 40.0
+	for c in cmds:
+		used += 14.0 if c == null else (c[4] if c[4] > 0.0 else _lines(f, c[1], tw - 18.0, 19) * 24.0 + 4.0)
+	_frame(Rect2(r.position, Vector2(r.size.x, minf(r.size.y, used))))
+	for c in cmds:
+		if yy > bottom:
 			break
-		if l[2]:
-			draw_string(tf, Vector2(r.position.x + 30, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 60, 26, l[1])
+		if c == null:
+			yy += 14.0
+		elif c[4] > 0.0:
+			draw_string(c[0], Vector2(x, yy), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw, c[3], c[2])
+			yy += c[4]
 		else:
-			draw_string(f, Vector2(r.position.x + 52, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 80, 22, l[1])
-		yy += lh
+			draw_multiline_string(f, Vector2(x + 18.0, yy), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw - 18.0, 19, 3, c[2])
+			yy += _lines(f, c[1], tw - 18.0, 19) * 24.0 + 4.0
+
+
+func _lines(f: Font, text: String, width: float, size: int) -> int:
+	return clampi(ceili(f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / maxf(width, 1.0)), 1, 3)
 
 
 func _label(row: String) -> Array:
@@ -183,15 +193,15 @@ func _label(row: String) -> Array:
 const CONTROLS := [
 	["lstick", "Walk"],
 	["rstick", "Aim and shoot bolts"],
-	["faces", "Load an element into the queue"],
-	["lb", "Hold: the opposite elements"],
-	["rt", "Cast the queue as a spell: it winds up, hold to aim"],
-	["rb", "Staff swing, knocks bullets back"],
+	["faces", "Load an element"],
+	["lb", "Hold: each button's second element"],
+	["rt", "Cast ahead: winds up, hold to aim"],
+	["rb", "Sword swing, knocks bullets back"],
 	["rb_hold", "Hold and let go: burst around you"],
 	["lt", "Dodge roll"],
-	["rs", "Enchant your bolts and staff"],
-	["ls", "Plant the spell on the ground"],
-	["dpad_up", "Load your last spell again"],
+	["rs", "Enchant your bolts and sword"],
+	["ls", "Plant it at your feet"],
+	["dpad_up", "Your last spell again"],
 	["dpad_side", "Saved spells (hold to save)"],
 	["start", "This menu"],
 ]
@@ -210,9 +220,12 @@ func _draw() -> void:
 	draw_string(f, Vector2(0, top + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 32, Color(0.75, 0.68, 0.56))
 	if not title_mode and Game.I.hud:
 		draw_string(f, Vector2(0, top + 96), Game.I.hud.where + "   ·   " + Game.I.hud.grimoire_text, HORIZONTAL_ALIGNMENT_CENTER, w, 25, Color(0.9, 0.78, 0.45))
+	# Three panels: the controls on the left, the menu in the middle, the
+	# wizards and their tomes on the right (Joep).
 	var y := top + 170
-	var pw := 700.0
-	var cx := w * 0.5 - 380.0
+	var pw := 560.0
+	var cx := w * 0.5
+	var side := minf(620.0, cx - pw * 0.5 - 60.0)
 	_frame(Rect2(cx - pw * 0.5, y - 50, pw, rows.size() * 64 + 40))
 	for i in rows.size():
 		var l := _label(rows[i])
@@ -224,21 +237,23 @@ func _draw() -> void:
 		if l[1] == "":
 			draw_string(tf, Vector2(cx - pw * 0.5, yy), l[0], HORIZONTAL_ALIGNMENT_CENTER, pw, 36, col)
 		else:
-			draw_string(tf, Vector2(cx - pw * 0.5 + 36, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.42, 32, col)
+			draw_string(tf, Vector2(cx - pw * 0.5 + 30, yy), l[0], HORIZONTAL_ALIGNMENT_LEFT, pw * 0.45, 30, col)
 			var v: String = ("‹  %s  ›" % l[1]) if on else l[1]
-			draw_string(f, Vector2(cx - 50, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.55, 30, col)
-	if not title_mode:
-		_tomes(Rect2(cx - pw * 0.5, y - 50 + rows.size() * 64 + 60, pw, h - (y + rows.size() * 64 + 40)))
-	# The controls, each next to a drawing of its part of the controller.
-	var kx := w * 0.5 + 40.0
-	var kw := 680.0
+			draw_string(f, Vector2(cx - pw * 0.05, yy), v, HORIZONTAL_ALIGNMENT_CENTER, pw * 0.52, 28, col)
+	if not Game.I.wizards.is_empty():
+		_tomes(Rect2(cx + pw * 0.5 + 30.0, y - 50, side, h - y - 10.0))
+	# The controls, two columns, each next to a drawing of its part of the
+	# controller.
+	var kx := cx - pw * 0.5 - 30.0 - side
 	var ky := y - 50
-	var row_h := 46.0
-	_frame(Rect2(kx, ky, kw, CONTROLS.size() * row_h + 30))
+	var row_h := 56.0
+	var per := ceili(CONTROLS.size() / 2.0)
+	var colw := side * 0.5
+	_frame(Rect2(kx, ky, side, per * row_h + 24))
 	for i in CONTROLS.size():
-		var c := Vector2(kx + 58, ky + 38 + i * row_h)
+		var c := Vector2(kx + colw * (i / per) + 44, ky + 40 + (i % per) * row_h)
 		_glyph(CONTROLS[i][0], c)
-		draw_string(f, Vector2(kx + 116, c.y + 9), CONTROLS[i][1], HORIZONTAL_ALIGNMENT_LEFT, kw - 130, 25, Color(0.85, 0.79, 0.68))
+		draw_multiline_string(f, Vector2(c.x + 46, c.y - 4), CONTROLS[i][1], HORIZONTAL_ALIGNMENT_LEFT, colw - 100, 19, 2, Color(0.85, 0.79, 0.68))
 
 
 func _frame(r: Rect2) -> void:
