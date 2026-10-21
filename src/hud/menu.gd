@@ -153,12 +153,15 @@ func _tomes(r: Rect2) -> void:
 		cmds.append([tf, w.player_name, w.robe.lightened(0.3), 26, 34.0])
 		if w.relics.is_empty():
 			cmds.append([f, "No tomes yet", Color(0.5, 0.46, 0.4), 19, 30.0])
+		# As on the shrine: the name in the title face and gold, what it
+		# does under it in plain pale text.
 		for t in w.relics:
-			cmds.append([f, "%s: %s" % [t.get("name", ""), t.get("text", "")], Color(0.78, 0.72, 0.6), 19, 0.0])
+			cmds.append([tf, t.get("name", ""), Run.TOME_TITLE, 19, 25.0, 18.0])
+			cmds.append([f, t.get("text", ""), Run.TOME_TEXT.darkened(0.12), 17, 0.0])
 		cmds.append(null)
 	var used := 40.0
 	for c in cmds:
-		used += 14.0 if c == null else (c[4] if c[4] > 0.0 else _lines(f, c[1], tw - 18.0, 19) * 24.0 + 4.0)
+		used += 14.0 if c == null else (c[4] if c[4] > 0.0 else _lines(f, c[1], tw - 18.0, c[3]) * 22.0 + 8.0)
 	_frame(Rect2(r.position, Vector2(r.size.x, minf(r.size.y, used))))
 	for c in cmds:
 		if yy > bottom:
@@ -166,11 +169,12 @@ func _tomes(r: Rect2) -> void:
 		if c == null:
 			yy += 14.0
 		elif c[4] > 0.0:
-			draw_string(c[0], Vector2(x, yy), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw, c[3], c[2])
+			var ind: float = c[5] if c.size() > 5 else 0.0
+			draw_string(c[0], Vector2(x + ind, yy), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw - ind, c[3], c[2])
 			yy += c[4]
 		else:
-			draw_multiline_string(f, Vector2(x + 18.0, yy), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw - 18.0, 19, 3, c[2])
-			yy += _lines(f, c[1], tw - 18.0, 19) * 24.0 + 4.0
+			draw_multiline_string(f, Vector2(x + 18.0, yy - 4.0), c[1], HORIZONTAL_ALIGNMENT_LEFT, tw - 18.0, c[3], 3, c[2])
+			yy += _lines(f, c[1], tw - 18.0, c[3]) * 22.0 + 8.0
 
 
 func _lines(f: Font, text: String, width: float, size: int) -> int:

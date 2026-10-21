@@ -324,7 +324,15 @@ func drive(desired: Vector3, delta: float) -> void:
 ## Walls have gaps where they meet and a hard shove can squeeze through:
 ## in a walled level nobody ends up outside the band.
 func _keep_inside() -> void:
-	if not Game.I or not Game.I.arena or not Game.I.arena.corridor:
+	if not Game.I or not Game.I.arena:
+		return
+	# A wizard waits at a shrine's wall of mist until the tomes are taken;
+	# one already well past it (joined there) is left alone.
+	if self is Wizard and Game.I.run:
+		var wz: float = Game.I.run.ward_z
+		if global_position.z < wz + 0.5 and global_position.z > wz - 3.0:
+			global_position.z = wz + 0.5
+	if not Game.I.arena.corridor:
 		return
 	var q := Vector2(global_position.x, global_position.z)
 	var d: float = Game.I.arena.bound(q)

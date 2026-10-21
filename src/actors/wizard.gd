@@ -1427,9 +1427,10 @@ func _place_name() -> void:
 	if cam.is_position_behind(at):
 		_name_label.visible = false
 		return
-	var vp := get_viewport()
-	var k := vp.get_visible_rect().size / Vector2(vp.size)
-	var p := cam.unproject_position(at) * k
+	# Already in HUD units: unproject_position works in the visible rect,
+	# so no rescaling by window size (that pulled names towards the top
+	# left on a 4K screen).
+	var p := cam.unproject_position(at)
 	_name_label.text = player_name
 	_name_label.reset_size()
 	_name_label.position = p - Vector2(_name_label.size.x * 0.5, 0.0)

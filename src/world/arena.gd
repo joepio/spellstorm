@@ -13,28 +13,28 @@ const LEVEL_HALF := Vector2(34.0, 105.0)
 
 const BIOMES := [
 	{id = "chapel", moss = 0.6, zones = [["grave", "grave", "cross", "dead_tree", "rock", "urn", "coffin", "fence"], ["grave", "candles", "cross", "bones", "urn", "oil_jar", "statue", "mausoleum"], ["dead_tree", "dead_tree", "rock", "grave", "cross", "coffin", "oil_jar", "mausoleum"]], name = "The Forsaken Chapel", floor_a = Color(0.15, 0.16, 0.12), floor_b = Color(0.08, 0.09, 0.07), tiles = 0.0,
-		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35, mist = 0.45, mist_c = Color(0.55, 0.6, 0.65),
+		wall = Color(0.24, 0.23, 0.22), fog = Color(0.08, 0.1, 0.12), ambient = Color(0.25, 0.3, 0.4), moon = Color(0.45, 0.55, 0.75), moon_energy = 0.35, mist = 0.8, mist_c = Color(0.55, 0.6, 0.65),
 		props = ["grave", "grave", "grave", "dead_tree", "rock", "candles"], enemies = {ghoul = 3, skeleton = 3, watcher = 2, bone_archer = 2, necromancer = 1}, boss = "gravekeeper", fields = [],
 		path_style = 0, path_a = Color(0.24, 0.2, 0.14), path_b = Color(0.14, 0.11, 0.08), layout = "nave",
 		corridor = true, outside = ["dead_tree", "dead_tree", "dead_tree", "grave", "rock"], wall_style = "masonry", wall_props = ["ruin_wall"], wall_every = 18.0},
 	{id = "catacombs", moss = 0.25, zones = [["bones", "candles", "sarcophagus", "pillar", "bone_pile"], ["sarcophagus", "bones", "candles", "bone_pile", "altar"], ["sarcophagus", "sarcophagus", "bones", "pillar", "bone_pile"]], name = "The Catacombs", floor_a = Color(0.2, 0.18, 0.16), floor_b = Color(0.12, 0.11, 0.1), tiles = 1.0,
-		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12, mist = 0.15, mist_c = Color(0.45, 0.4, 0.35),
+		wall = Color(0.26, 0.22, 0.2), fog = Color(0.07, 0.05, 0.04), ambient = Color(0.3, 0.22, 0.16), moon = Color(0.6, 0.45, 0.35), moon_energy = 0.12, mist = 0.3, mist_c = Color(0.45, 0.4, 0.35),
 		props = ["pillar", "pillar", "bones", "candles", "sarcophagus"], enemies = {skeleton = 3, cultist = 2, bile = 1, watcher = 1, bone_archer = 2, necromancer = 1, shieldbearer = 2}, boss = "abbot", fields = [],
 		path_style = 2, path_a = Color(0.2, 0.035, 0.03), path_b = Color(0.12, 0.025, 0.02), layout = "nave", corridor = true, wall_style = "ossuary", wall_props = ["skull_niche", "skull_niche", "chains", "cobweb", "skull_niche", "altar"], wall_every = 6.0, outside = []},
 	{id = "isles", moss = 0.7, zones = [["reeds", "reeds", "rock", "hanging_moss_tree", "sunken_ruin"], ["reeds", "reeds", "lantern", "rock", "hanging_moss_tree"], ["hanging_moss_tree", "dead_tree", "reeds", "rock", "sunken_ruin"]], name = "The Sunken Isles", floor_a = Color(0.13, 0.16, 0.09), floor_b = Color(0.07, 0.09, 0.05), tiles = 0.0,
-		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4, mist = 0.45, mist_c = Color(0.5, 0.62, 0.66),
+		wall = Color(0.2, 0.24, 0.22), fog = Color(0.05, 0.09, 0.1), ambient = Color(0.22, 0.32, 0.36), moon = Color(0.5, 0.7, 0.8), moon_energy = 0.4, mist = 0.8, mist_c = Color(0.5, 0.62, 0.66),
 		props = ["reeds", "reeds", "reeds", "rock", "dead_tree", "lantern"], enemies = {drowned = 3, watcher = 1, bile = 1, wraith = 1, toad = 3, sprite = 3}, boss = "drowned_king", fields = [],
 		path_style = 0, path_a = Color(0.19, 0.15, 0.1), path_b = Color(0.11, 0.09, 0.06), isles = true, low_walls = true, water_props = ["piling", "piling", "lily", "lily", "boat", "sunken_ruin", "hanging_moss_tree"]},
 	{id = "caves", moss = 0.5, moss_c = Color(0.08, 0.18, 0.16), zones = [["stalagmite", "stalagmite", "rock", "mine_cart", "mine_support", "drip_pool"], ["mushroom", "mushroom", "stalagmite", "rock", "fungus_shelf", "crystal"], ["stalagmite", "rock", "crystal", "mushroom", "crystal", "drip_pool"]], name = "The Drowned Caves", floor_a = Color(0.12, 0.14, 0.15), floor_b = Color(0.06, 0.08, 0.09), tiles = 0.0, wet = 1.0,
-		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.2, 0.34, 0.38), moon = Color(0.35, 0.62, 0.66), moon_energy = 0.3, mist = 0.35, mist_c = Color(0.4, 0.55, 0.58),
+		wall = Color(0.18, 0.2, 0.21), fog = Color(0.03, 0.07, 0.08), ambient = Color(0.2, 0.34, 0.38), moon = Color(0.35, 0.62, 0.66), moon_energy = 0.3, mist = 0.65, mist_c = Color(0.4, 0.55, 0.58),
 		props = ["stalagmite", "stalagmite", "mushroom", "mushroom", "rock"], enemies = {drowned = 2, bile = 2, ghoul = 2, lurker = 3, toad = 1, sprite = 2}, boss = "drowned_king", fields = [El.WATER, El.WATER, El.WATER, El.WATER],
 		path_style = 1, path_a = Color(0.24, 0.27, 0.27), path_b = Color(0.13, 0.15, 0.16), corridor = true, wall_style = "rock", density = 1.8, wall_props = ["crystal", "fungus_shelf", "mine_support", "crystal"], wall_every = 9.0, outside = ["stalagmite", "rock", "crystal", "rock"]},
 	{id = "keep", moss = 0.7, moss_c = Color(0.85, 0.9, 0.95), zones = [["ice", "rock", "barricade", "icicle_rock", "weapon_rack"], ["ice", "barricade", "weapon_rack", "frozen_statue", "icicle_rock"], ["ice", "rock", "barricade", "icicle_rock", "frozen_statue"]], name = "The Frozen Keep", floor_a = Color(0.26, 0.29, 0.34), floor_b = Color(0.15, 0.17, 0.21), tiles = 1.0,
-		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3, mist = 0.3, mist_c = Color(0.7, 0.75, 0.85),
+		wall = Color(0.35, 0.38, 0.45), fog = Color(0.12, 0.15, 0.2), ambient = Color(0.25, 0.32, 0.42), moon = Color(0.55, 0.7, 0.95), moon_energy = 0.3, mist = 0.5, mist_c = Color(0.7, 0.75, 0.85),
 		props = ["ice", "ice", "pillar", "rock"], enemies = {wraith = 2, skeleton = 2, frost_brute = 1, ghoul = 1, shieldbearer = 2, necromancer = 1, bone_archer = 2}, boss = "warden", fields = [El.FROST, El.FROST, El.FROST],
 		path_style = 1, path_a = Color(0.28, 0.3, 0.34), path_b = Color(0.17, 0.19, 0.23), layout = "nave", corridor = true, wall_style = "castle", density = 1.15, wall_props = ["banner", "weapon_rack", "banner", "frozen_statue"], wall_every = 8.0, outside = ["icicle_rock", "rock", "rock", "ice"]},
 	{id = "pit", moss = 0.5, moss_c = Color(0.05, 0.03, 0.03), zones = [["basalt", "spikes", "skull_pile", "lava_vent"], ["brazier", "basalt", "skull_pile", "obsidian_spire", "spikes"], ["basalt", "obsidian_spire", "brazier", "skull_pile", "lava_vent"]], name = "The Infernal Pit", floor_a = Color(0.13, 0.08, 0.07), floor_b = Color(0.05, 0.03, 0.03), tiles = 0.0,
-		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2, mist = 0.2, mist_c = Color(0.3, 0.18, 0.14),
+		wall = Color(0.15, 0.1, 0.09), fog = Color(0.12, 0.03, 0.01), ambient = Color(0.4, 0.15, 0.08), moon = Color(1.0, 0.4, 0.2), moon_energy = 0.2, mist = 0.35, mist_c = Color(0.3, 0.18, 0.14),
 		props = ["basalt", "basalt", "brazier", "bones"], enemies = {imp = 3, demon = 1, cultist = 2, brute = 1, hellhound = 2, lurker = 1}, boss = "pit_lord", fields = [El.MAGMA, El.MAGMA, El.MAGMA],
 		path_style = 3, path_a = Color(0.1, 0.08, 0.08), path_b = Color(0.05, 0.04, 0.04), corridor = true, wall_style = "cliff", outside_lava = true, wall_props = ["cage", "chains_pit", "spikes"], wall_every = 10.0, outside = ["obsidian_spire", "basalt", "lava_vent"]},
 ]
@@ -1616,15 +1616,18 @@ func _mist() -> void:
 	m.albedo = biome.get("mist_c", Color(0.6, 0.6, 0.6))
 	# A faint glow of its own, so it reads even where no lamp reaches.
 	m.emission = (biome.get("mist_c", Color(0.6, 0.6, 0.6)) as Color) * 0.05
-	# Hugs the floor: thick at the ankles, gone by the knees (Joep: far too
-	# much fog, keep it low to the ground).
-	m.height_falloff = 2.5
-	m.edge_fade = 0.6
+	# Low but there: thick at the ankles, thin by the waist, clear at head
+	# height (Joep: first far too much, then far too little). The box is
+	# taller than the mist and starts under the floor, so its top and
+	# bottom never cut through the coarse fog grid as hard lines on the
+	# ground; the falloff does the thinning.
+	m.height_falloff = 1.6
+	m.edge_fade = 0.25
 	m.density_texture = _mist_tex
 	_mist_v = FogVolume.new()
 	_mist_v.shape = RenderingServer.FOG_VOLUME_SHAPE_BOX
-	_mist_v.size = Vector3(half.x * 2.0 + 30.0, 1.4, half.y * 2.0 + 30.0)
-	_mist_v.position = Vector3(0, 0.6, 0)
+	_mist_v.size = Vector3(half.x * 2.0 + 30.0, 3.4, half.y * 2.0 + 30.0)
+	_mist_v.position = Vector3(0, 0.9, 0)
 	_mist_v.material = m
 	add_child(_mist_v)
 

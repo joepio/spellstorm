@@ -50,6 +50,13 @@ var _quiet_t := 0.0
 ## The boss is down: that wins the level, whatever is still about.
 var _boss_fell := false
 var boss: Enemy
+## The way on past each clearing is shut by a wall of mist until every
+## living wizard has taken a tome from its shrine (Joep: shrines rose
+## behind wizards who had already walked on; don't let them go further
+## before choosing). {k, z, node, mat}, still shut ones only.
+var _wards: Array = []
+## Wizards may not walk further than this (z goes down along a level).
+var ward_z := -INF
 
 
 ## How deep in the run this level is (0 is the first).
@@ -117,6 +124,7 @@ func enter_level() -> void:
 	encounters.append_array(guards)
 	encounters.append({at = boss_at, kind = "boss"})
 	encounters.sort_custom(func(a, b): return a.at < b.at)
+	_build_wards()
 	# Where you are (biome, level) is in the pause menu, not on screen.
 	level_started.emit(arena.biome, depth())
 
@@ -128,6 +136,9 @@ func skip_to(run: float) -> void:
 	if run < 0.0:
 		run = Game.I.arena.clearing_at[2] - Game.I.arena.clearings[2].z - 3.0
 	encounters = encounters.filter(func(e): return e.at >= run)
+	for wd in _wards.duplicate():
+		if Game.I.arena.clearing_at[wd.k] < run:
+			_open_ward(wd, true)
 	var arena: Arena = Game.I.arena
 	var c := arena.point_at(run)
 	var i := 0
@@ -157,6 +168,8 @@ func _clear_level() -> void:
 	encounters.clear()
 	_pending.clear()
 	_guard_quiet.clear()
+	_wards.clear()
+	ward_z = -INF
 	_wave_at = -1.0
 	# How far the front wizard got belongs to the level just left: kept, it
 	# set off every pack of the new level up to there at once, far ahead.
@@ -214,6 +227,7 @@ func _physics_process(dt: float) -> void:
 		"fight":
 			_fight(dt)
 			_shrines(dt)
+			_ward_step()
 		"cleared":
 			_shrines(dt)
 			_portal_step(dt)
@@ -230,6 +244,73 @@ func _physics_process(dt: float) -> void:
 		_end_t = 4.2
 		Game.I.hud.you_died()
 		Game.I.run_over(false)
+
+
+## A wall of mist just past each shrine's clearing, across all the ground
+## you can walk there. The path only ever heads on towards -z, so a line
+## of constant z shuts the way whatever the level looks like.
+func _build_wards() -> void:
+	var arena: Arena = Game.I.arena
+	for k in 2:
+		var c: Vector3 = arena.clearings[k]
+		var z := c.y - c.z - 1.5
+		var mid := arena.point_at(arena.progress_of(Vector2(c.x, z))).x
+		var lo := mid
+		var hi := mid
+		while lo > -arena.half.x + 0.5 and arena.bound(Vector2(lo - 0.5, z)) < 0.0:
+			lo -= 0.5
+		while hi < arena.half.x - 0.5 and arena.bound(Vector2(hi + 0.5, z)) < 0.0:
+			hi += 0.5
+		var size := Vector2(hi - lo + 2.0, 3.2)
+		var mi := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = size
+		mi.mesh = q
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mat := ShaderMaterial.new()
+		mat.shader = preload("res://src/fx/ward.gdshader")
+		mat.set_shader_parameter("size", size)
+		mi.material_override = mat
+		mi.position = Vector3((lo + hi) * 0.5, size.y * 0.5, z)
+		arena.add_child(mi)
+		_wards.append({k = k, z = z, node = mi, mat = mat})
+	_ward_step()
+
+
+## Opens every wall whose shrine has risen and given each living wizard a
+## tome (or has none left they may take), and sets where the rest hold.
+func _ward_step() -> void:
+	ward_z = -INF
+	for wd in _wards.duplicate():
+		var key := "%d_%d" % [biome_index, wd.k]
+		var risen := false
+		var left := false
+		for a in altars:
+			if a.shrine == key:
+				risen = true
+				left = left or not a.taken
+		var done := risen
+		if risen and left:
+			for w in Game.I.wizards:
+				if w.alive and not w.get_meta("took_" + key, false):
+					done = false
+		if done:
+			_open_ward(wd)
+		else:
+			ward_z = maxf(ward_z, wd.z)
+
+
+func _open_ward(wd: Dictionary, now := false) -> void:
+	_wards.erase(wd)
+	if not is_instance_valid(wd.node):
+		return
+	if now:
+		wd.node.queue_free()
+		return
+	var tw: Tween = wd.node.create_tween()
+	tw.tween_method(func(v: float): wd.mat.set_shader_parameter("open", v), 1.0, 0.0, 1.6)
+	tw.tween_callback(wd.node.queue_free)
+	Fx.burst(wd.node.global_position, Color(0.9, 0.85, 0.7), 24, 3.0)
 
 
 ## How far along the level's path the front living wizard is.
@@ -548,28 +629,44 @@ func _altar(relic: Dictionary) -> Node3D:
 	sparks.position.y = 1.3
 	n.add_child(sparks)
 	sparks.emitting = true
-	var lbl := Label3D.new()
-	lbl.text = relic.name + "\n" + relic.text
-	lbl.font = Art.body_font()
-	lbl.font_size = 72
-	lbl.outline_size = 18
-	lbl.outline_modulate = Color(0, 0, 0, 0.9)
-	lbl.modulate = Color(1.0, 0.85, 0.55)
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	# Readable from the camera, not a billboard (Joep: 0.006 was far too big).
-	lbl.pixel_size = 0.0035
-	lbl.width = 720
-	# Grows up from just over the book, however many lines it takes.
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.position.y = 1.9
-	n.add_child(lbl)
+	# The name above in the title face and gold, what it does below in
+	# plain pale text (Joep: the title should look different from the
+	# description; the pause menu lists tomes the same way).
+	var title := _altar_label(relic.name, Art.title_font(), 80, TOME_TITLE)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	title.position.y = 2.68
+	n.add_child(title)
+	var text := _altar_label(relic.text, Art.body_font(), 60, TOME_TEXT)
+	text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	text.position.y = 2.58
+	n.add_child(text)
 	return n
 
 
 ## The ring to stand in, on [param n]'s floor: a faint guide, and a fill that
 ## sweeps round it while you stand there (meta "fill", see _cleared).
+## How a tome's name and its text look, on a shrine and in the pause menu.
+const TOME_TITLE := Color(1.0, 0.8, 0.42)
+const TOME_TEXT := Color(0.86, 0.84, 0.8)
+
+
+static func _altar_label(t: String, f: Font, size: int, c: Color) -> Label3D:
+	var lbl := Label3D.new()
+	lbl.text = t
+	lbl.font = f
+	lbl.font_size = size
+	lbl.outline_size = 18
+	lbl.outline_modulate = Color(0, 0, 0, 0.9)
+	lbl.modulate = c
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	# Readable from the camera, not a billboard (Joep: 0.006 was far too big).
+	lbl.pixel_size = 0.0035
+	lbl.width = 720
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return lbl
+
+
 static func _fill_ring(n: Node3D, r: float, c: Color) -> void:
 	var slash := preload("res://src/fx/slash.gdshader")
 	for k in 2:
