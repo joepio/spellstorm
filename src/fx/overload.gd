@@ -22,6 +22,7 @@ const REACH := {El.FIRE: 5.0, El.FROST: 5.5, El.LIGHTNING: 5.5, El.EARTH: 8.5,
 
 var target := Vector3.ZERO
 var _thing: Node3D
+var _hole: ShaderMaterial
 ## Where the meteor starts its fall, above and behind the target.
 const METEOR_FROM := Vector3(4, 22, -4)
 var _strikes := 0
@@ -160,12 +161,23 @@ func _ready() -> void:
 			Fx.ring(target, c, 5.0, 0.6)
 		El.VOID:
 			_thing = Node3D.new()
-			Art.part(_thing, Art.sphere(0.9, 14), Fx.solid(Color(0, 0, 0), 1.0))
+			# A disc that warps the scene behind it (black_hole.gdshader).
+			var quad := QuadMesh.new()
+			quad.size = Vector2(7.5, 7.5)
+			_hole = Fx.shader("black_hole", {color = c, open = 0.0})
+			var disc := MeshInstance3D.new()
+			disc.mesh = quad
+			disc.material_override = _hole
+			disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_thing.add_child(disc)
+			# Motes swirling round and in.
 			var halo := Fx.particles(c, 100, 0.8, 0.5)
 			halo.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			halo.emission_sphere_radius = 3.0
 			halo.radial_accel_min = -12.0
 			halo.radial_accel_max = -8.0
+			halo.tangential_accel_min = 10.0
+			halo.tangential_accel_max = 14.0
 			halo.local_coords = true
 			_thing.add_child(halo)
 			halo.emitting = true
@@ -266,7 +278,10 @@ func _physics_process(dt: float) -> void:
 				d.y = 0
 				if d.length() < 9.0 and d.length() > 0.5:
 					a.push = a.push.lerp(d.normalized() * 7.0, 4.0 * dt)
-			_thing.scale = Vector3.ONE * (1.0 + 0.1 * sin(t * 20.0))
+			# Opens smoothly, holds, then falls in on itself before the blast.
+			var open := smoothstep(0.0, 0.6, t) * (1.0 - smoothstep(2.6, 3.0, t) * 0.9)
+			_hole.set_shader_parameter("open", open)
+			_thing.rotation.y = t * 1.5
 			if t > 3.0:
 				var nova := NovaFx.new().setup(caster, spell) as NovaFx
 				nova.n = {radius = 4.5, rate = 1.4}
