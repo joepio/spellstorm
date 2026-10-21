@@ -54,7 +54,8 @@ func _ready() -> void:
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		mi.material_override = m
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Shadows on: the shadow pass has its own pipelines to build.
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		mi.position = Vector3((i % 6 - 2.5) * 0.004, (i / 6) * 0.004, 0)
 		add_child(mi)
 		i += 1
@@ -73,11 +74,21 @@ func _ready() -> void:
 		m.position = Vector3((at % 8 - 3.5) * 0.004, -0.02 - (at / 8) * 0.004, 0)
 		add_child(m)
 		at += 1
-	# Particles draw through a MultiMesh, which is its own variant.
+	# Particles draw through a MultiMesh, which is its own variant; and
+	# every element sheds its own (Parts), each with its own material.
 	var sparks := Fx.particles(Color.WHITE, 4, 0.5, 0.01)
 	sparks.local_coords = true
 	add_child(sparks)
 	sparks.emitting = true
+	for e in El.ALL:
+		for smoke in [true, false]:
+			var p := Fx.particles(El.COLOR[e], 4, 0.5, 0.01)
+			p.local_coords = true
+			Parts.style(p, e, smoke)
+			p.scale_amount_min = 0.01
+			p.scale_amount_max = 0.01
+			add_child(p)
+			p.emitting = true
 
 
 static func _shaders() -> Array[Shader]:

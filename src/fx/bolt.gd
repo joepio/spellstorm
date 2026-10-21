@@ -366,7 +366,14 @@ func _charm_end(at: Vector3) -> void:
 	var ground := Vector3(at.x, 0, at.z)
 	if El.FIRE in charmed:
 		# Each fireball bursts: a small blast that burns whoever stands by.
-		BlastFx.boom(ground, 0.5, false)
+		# Steam only carries fire in it (and fans out three bolts at a
+		# time): a hiss of scalding vapour, not a blast each (Joep: far too
+		# big for so small a spell). It burns the same.
+		var fire: bool = spell.counts.has(El.FIRE) or spell.counts.has(El.MAGMA)
+		if fire:
+			BlastFx.boom(ground, 0.5, false)
+		else:
+			Fx.burst(ground + Vector3.UP * 0.4, El.COLOR[El.STEAM], 6, 1.6, 0.18, El.STEAM)
 		for a in Game.I.enemies:
 			if not is_instance_valid(a) or not a.alive:
 				continue
@@ -374,7 +381,8 @@ func _charm_end(at: Vector3) -> void:
 			d.y = 0.0
 			if d.length() < 1.8 + a.radius:
 				a.hit_spell({counts = {El.FIRE: 1}, payload = [], primary = El.FIRE, n = {}}, _burst_fire(), caster, d.normalized())
-		Game.I.shake(0.06)
+		if fire:
+			Game.I.shake(0.06)
 	if El.VOID in charmed:
 		for a in Game.I.enemies:
 			if is_instance_valid(a) and a.alive:

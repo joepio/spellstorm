@@ -2064,6 +2064,44 @@ func _blow_up(el: int, fuse: float, r: float, dmg: float, field: float) -> void:
 	_gone(fuse + 4.0)
 
 
+var _best_d := INF
+var _stuck_t := 0.0
+var _detour_t := 0.0
+
+
+## Monsters walk straight at their prey, which leaves one stuck in a corner
+## behind a wall now and then (Joep: a skeleton 100 m back kept the level
+## from ending). One that has not got any closer for a while, or that is
+## far off, follows the level's path towards its prey instead.
+func _unstick(want: Vector3, d: float, reach: float, dt: float) -> Vector3:
+	if want.length() < 0.1 or d <= reach * 1.5 or not Game.I or not Game.I.arena:
+		_best_d = INF
+		_stuck_t = 0.0
+		return want
+	if d < _best_d - 0.3:
+		_best_d = d
+		_stuck_t = 0.0
+	else:
+		_stuck_t += dt
+	if _stuck_t > 1.5:
+		_detour_t = 3.0
+		_stuck_t = 0.0
+	_detour_t = maxf(0.0, _detour_t - dt)
+	if _detour_t <= 0.0 and d < 25.0:
+		return want
+	if _detour_t <= 0.0:
+		_best_d = INF
+	var arena: Arena = Game.I.arena
+	var mine := arena.progress_of(Vector2(global_position.x, global_position.z))
+	var theirs := arena.progress_of(Vector2(target.global_position.x, target.global_position.z))
+	if absf(theirs - mine) < 3.0:
+		return want
+	var p := arena.point_at(mine + signf(theirs - mine) * 4.0)
+	var to := Vector3(p.x, 0.0, p.y) - global_position
+	to.y = 0.0
+	return to.normalized() * want.length() if to.length() > 0.2 else want
+
+
 ## Free the dead monster after [param t] seconds, once its death has played.
 func _gone(t: float) -> void:
 	var tw := create_tween()
@@ -2131,6 +2169,7 @@ func _physics_process(dt: float) -> void:
 				want = dir
 			if d <= reach and _cool <= 0.0:
 				_begin()
+		want = _unstick(want, d, reach, dt)
 		want += _separation() * 0.8
 		if want.length() > 1.0:
 			want = want.normalized()

@@ -104,7 +104,7 @@ var _walk := 0.0
 
 var model: Dictionary
 var _orbs: Array[MeshInstance3D] = []
-var _name_label: Label3D
+var _name_label: Label
 var _light: OmniLight3D
 var _tomb: Node3D
 var _remains: Remains
@@ -176,18 +176,18 @@ func _ready() -> void:
 		o.visible = false
 		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_orbs.append(o)
-	_name_label = Label3D.new()
-	_name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_name_label.no_depth_test = true
-	_name_label.font = Art.body_font()
-	_name_label.font_size = 34
-	_name_label.outline_size = 10
-	_name_label.outline_modulate = Color(0, 0, 0, 0.9)
-	_name_label.modulate = robe.lightened(0.4)
-	_name_label.pixel_size = 0.006
-	_name_label.position = Vector3(0, -0.35, 0.6)
+	# The name is drawn on the screen, not in the world, so no mist, fog
+	# or spell ever covers it (Joep: must always be readable).
+	_name_label = Label.new()
+	_name_label.add_theme_font_override("font", Art.body_font())
+	_name_label.add_theme_font_size_override("font_size", 26)
+	_name_label.add_theme_constant_override("outline_size", 9)
+	_name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_name_label.add_theme_color_override("font_color", robe.lightened(0.4))
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_name_label.text = player_name
-	add_child(_name_label)
+	_name_label.visible = false
 	_zone = MeshInstance3D.new()
 	_zone.mesh = _arc_mesh(0.55, SWING_REACH + 0.3, SWING_ARC)
 	_zone_mat = ShaderMaterial.new()
@@ -1408,6 +1408,37 @@ func _staff_light(dt: float, nova_k: float) -> void:
 	hm.set_shader_parameter("color", _light.light_color)
 	hm.set_shader_parameter("strength", 0.55 * shine)
 	_gem_halo.scale = Vector3.ONE * (0.45 + 0.25 * shine)
+
+
+func _process(_dt: float) -> void:
+	_place_name()
+
+
+## Under the wizard's feet on screen, as the 3D label sat before.
+func _place_name() -> void:
+	if not Game.I or not Game.I.hud or not Game.I.camera or not is_instance_valid(_name_label):
+		return
+	if _name_label.get_parent() == null:
+		# Under the rest of the HUD and any menu.
+		Game.I.hud.add_child(_name_label)
+		Game.I.hud.move_child(_name_label, 0)
+	var cam: Camera3D = Game.I.camera
+	var at := global_position + Vector3(0, 0, 0.6)
+	if cam.is_position_behind(at):
+		_name_label.visible = false
+		return
+	var vp := get_viewport()
+	var k := vp.get_visible_rect().size / Vector2(vp.size)
+	var p := cam.unproject_position(at) * k
+	_name_label.text = player_name
+	_name_label.reset_size()
+	_name_label.position = p - Vector2(_name_label.size.x * 0.5, 0.0)
+	_name_label.visible = is_visible_in_tree()
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(_name_label):
+		_name_label.queue_free()
 
 
 func _visuals(dt: float) -> void:

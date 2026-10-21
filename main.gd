@@ -453,15 +453,23 @@ func _hitch_watch() -> void:
 	child_entered_tree.connect(note)
 
 
+## Pipelines compiled while drawing stall the frame (the ones compiled when
+## a mesh or material first appears go to worker threads); count them too.
+var _hitch_draws := 0.0
+
+
 func _hitch_check() -> void:
 	var now := Time.get_ticks_usec()
 	var ms := (now - _hitch_last) / 1000.0
 	_hitch_last = now
-	if ms > 120.0 and _frame > 30:
+	var draws := Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_DRAW)
+	var stalls := int(draws - _hitch_draws)
+	_hitch_draws = draws
+	if (ms > 120.0 or stalls > 0) and _frame > 30:
 		var seen := {}
 		for k in _hitch_new:
 			seen[k] = int(seen.get(k, 0)) + 1
-		print("hitch frame %d: %.0f ms after %s" % [_frame, ms, seen])
+		print("hitch frame %d: %.0f ms, %d pipelines compiled at draw, after %s" % [_frame, ms, stalls, seen])
 	_hitch_new.clear()
 
 
@@ -498,8 +506,18 @@ func _update_camera(dt: float) -> void:
 		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
 	if not pts.is_empty():
 		center /= pts.size()
+	# In a boss fight the boss stays in the picture too (Joep), the camera
+	# rising as far as it takes.
+	var top := 30.0
+	var b: Enemy = run.boss if run else null
+	if not pts.is_empty() and is_instance_valid(b) and b.alive and center.distance_to(b.global_position) < 32.0:
+		var bp := b.get_global_transform_interpolated().origin
+		lo = Vector2(minf(lo.x, bp.x - 2.0), minf(lo.y, bp.z - 2.0))
+		hi = Vector2(maxf(hi.x, bp.x + 2.0), maxf(hi.y, bp.z + 2.0))
+		center = Vector3((lo.x + hi.x) * 0.5, center.y, (lo.y + hi.y) * 0.5)
+		top = 42.0
 	var spread := maxf((hi.x - lo.x) * 0.56, hi.y - lo.y) if not pts.is_empty() else 0.0
-	var want_h := clampf(13.5 + spread * 0.85, 16.5, 30.0) * cam_zoom
+	var want_h := clampf(13.5 + spread * 0.85, 16.5, top) * cam_zoom
 	var k := 1.0 - exp(-3.0 * dt)
 	_cam_center = _cam_center.lerp(center, k)
 	_cam_height = lerpf(_cam_height, want_h, k)
