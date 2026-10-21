@@ -12,6 +12,14 @@ uniform vec3 moss : source_color = vec3(0.12, 0.16, 0.08);
 uniform float moss_amount = 0.0;
 uniform float rough = 0.9;
 
+// A broken piece carries the place it was cut from (Art.pin_stone), so its
+// grain moves with it as it falls instead of sliding through it.
+instance uniform float pinned = 0.0;
+instance uniform vec3 pin_x = vec3(1.0, 0.0, 0.0);
+instance uniform vec3 pin_y = vec3(0.0, 1.0, 0.0);
+instance uniform vec3 pin_z = vec3(0.0, 0.0, 1.0);
+instance uniform vec3 pin_o = vec3(0.0);
+
 varying vec3 wpos;
 varying vec3 wnrm;
 
@@ -41,8 +49,12 @@ float fbm3(vec3 p) {
 }
 
 void vertex() {
-	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	mat4 at = MODEL_MATRIX;
+	if (pinned > 0.5) {
+		at = mat4(vec4(pin_x, 0.0), vec4(pin_y, 0.0), vec4(pin_z, 0.0), vec4(pin_o, 1.0));
+	}
+	wpos = (at * vec4(VERTEX, 1.0)).xyz;
+	wnrm = normalize((at * vec4(NORMAL, 0.0)).xyz);
 }
 
 void fragment() {

@@ -35,6 +35,7 @@ static func scatter(model: Node3D, from: Vector3, power: float, up: float, life 
 		mi.material_overlay = null
 		if mat:
 			mi.material_override = mat
+		Art.pin_stone(mi, at)
 		d.add(mi, from, power, up)
 	return d
 

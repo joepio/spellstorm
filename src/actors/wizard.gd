@@ -620,19 +620,17 @@ func roll() -> void:
 	Game.I.count("rolls")
 
 
-## Load one element for mana. Cancelling with an opposite is free.
+## Load one element for mana.
 func conjure(e: int) -> void:
 	var trial := SpellQueue.new()
 	trial.size = queue.size
 	trial.set_slots(queue.copy())
-	var would := trial.add(e)
-	if would == "full":
+	if trial.add(e) == "full":
 		return
-	if would != "cancel":
-		if mana < MANA_PER_LOAD - 0.01:
-			_no_mana()
-			return
-		mana -= MANA_PER_LOAD
+	if mana < MANA_PER_LOAD - 0.01:
+		_no_mana()
+		return
+	mana -= MANA_PER_LOAD
 	var front := queue.slots[0] if not queue.is_empty() else -1
 	var what := queue.add(e)
 	# A new or changed front element starts with a full charge.
@@ -641,11 +639,8 @@ func conjure(e: int) -> void:
 	elif queue.slots[0] != front:
 		ammo = full_ammo()
 	var c: Color = El.COLOR[e]
-	match what:
-		"cancel":
-			Fx.burst(global_position + Vector3.UP * 1.9, c, 8, 2.0, 0.2)
-		"fuse":
-			Fx.burst(global_position + Vector3.UP * 1.9, c, 12, 2.5, 0.25)
+	if what == "fuse":
+		Fx.burst(global_position + Vector3.UP * 1.9, c, 12, 2.5, 0.25)
 	_conjure_fx()
 
 

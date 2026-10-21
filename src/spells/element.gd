@@ -30,20 +30,12 @@ const COLOR := [
 ]
 
 ## The controller: each face button holds a pair of opposites. Tap for the
-## first, hold LB and tap for the second. Opposites cancel in the queue, so the
-## same button with LB is also the undo for it.
+## first, hold LB and tap for the second. They no longer cancel in the queue.
 const PAIRS := {
 	"A": [POISON, VOID],
 	"B": [FIRE, FROST],
 	"X": [WATER, AIR],
 	"Y": [LIGHTNING, EARTH],
-}
-
-const OPPOSITE := {
-	POISON: VOID, VOID: POISON,
-	FIRE: FROST, FROST: FIRE,
-	WATER: AIR, AIR: WATER,
-	LIGHTNING: EARTH, EARTH: LIGHTNING,
 }
 
 ## Two base elements that melt together into one slot.

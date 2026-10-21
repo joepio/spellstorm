@@ -120,6 +120,20 @@ static func box(x: float, y: float, z: float) -> BoxMesh:
 static var _stones := {}
 
 
+## Keep the stone grain of [param mi] where it is now, [param xf] being
+## its global transform before it breaks loose: from then on the pattern
+## rides along with the piece. Anything not stone is left alone.
+static func pin_stone(mi: MeshInstance3D, xf: Transform3D) -> void:
+	var mat := mi.material_override if mi.material_override else mi.get_active_material(0)
+	if not (mat is ShaderMaterial and (mat as ShaderMaterial).shader and (mat as ShaderMaterial).shader.resource_path.ends_with("stone.gdshader")):
+		return
+	mi.set_instance_shader_parameter("pinned", 1.0)
+	mi.set_instance_shader_parameter("pin_x", xf.basis.x)
+	mi.set_instance_shader_parameter("pin_y", xf.basis.y)
+	mi.set_instance_shader_parameter("pin_z", xf.basis.z)
+	mi.set_instance_shader_parameter("pin_o", xf.origin)
+
+
 ## Rough stone (stone.gdshader) in [param c], with [param moss] settling on
 ## top; one material per colour, shared.
 static func stone(c: Color, moss := 0.0, moss_c := Color(0.12, 0.16, 0.08)) -> ShaderMaterial:

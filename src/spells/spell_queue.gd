@@ -1,12 +1,12 @@
 class_name SpellQueue
 extends RefCounted
-## The elements a wizard has conjured but not yet cast. Three rules, applied
+## The elements a wizard has conjured but not yet cast. Two rules, applied
 ## in this order every time an element is added:
-##   1. Opposites cancel: the new element removes its opposite (from a fused
-##      slot it removes just that part: Steam + Frost leaves Water).
-##   2. Fusion: it melts with the first base element it fuses with
+##   1. Fusion: it melts with the first base element it fuses with
 ##      (Water + Fire = Steam) and takes that slot.
-##   3. Otherwise it takes a new slot, if there is room.
+##   2. Otherwise it takes a new slot, if there is room.
+## Opposites no longer cancel each other (Joep: that mechanism may go), so
+## Fire and Frost simply sit side by side.
 
 const SIZE := 3
 
@@ -14,19 +14,8 @@ var slots: Array[int] = []
 var size := SIZE
 
 
-## Returns what happened: "cancel", "fuse", "add" or "full".
+## Returns what happened: "fuse", "add" or "full".
 func add(e: int) -> String:
-	var opp: int = El.OPPOSITE.get(e, -1)
-	for i in slots.size():
-		var s := slots[i]
-		if s == opp:
-			slots.remove_at(i)
-			return "cancel"
-		if El.is_fused(s) and El.contains(s, opp):
-			var rest: Array = El.parts(s).duplicate()
-			rest.erase(opp)
-			slots[i] = rest[0]
-			return "cancel"
 	for i in slots.size():
 		var s := slots[i]
 		if not El.is_fused(s):

@@ -93,7 +93,7 @@ const CAST_SHAPE := {El.Kind.SOLID: "projectile", El.Kind.ENERGY: "strike", El.K
 const FORMS := ["cast", "nova", "plant", "enchant"]
 ## How many distinct spells these rules make; tests/spell_test.gd counts them
 ## by trying every sequence of button presses and fails if this drifts.
-const TOTAL := 1606
+const TOTAL := 2410
 
 
 ## [param slots] in queue order, [param form] one of FORMS. [param mods] are

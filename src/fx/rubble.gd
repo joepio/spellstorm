@@ -45,6 +45,7 @@ static func throw(mesh: Mesh, mat: Material, xf: Transform3D, v: Vector3) -> voi
 	# The mesh keeps its scale; the body carries the rotation only.
 	mi.scale = s
 	mi.position = -box.get_center() * s
+	Art.pin_stone(mi, xf)
 	r.add_child(mi)
 	Fx.root.add_child(r)
 	r.global_transform = Transform3D(xf.basis.orthonormalized(), xf * box.get_center())

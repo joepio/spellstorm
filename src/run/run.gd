@@ -478,7 +478,8 @@ func _altar(relic: Dictionary) -> Node3D:
 	lbl.modulate = Color(1.0, 0.85, 0.55)
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
-	lbl.pixel_size = 0.006
+	# Readable from the camera, not a billboard (Joep: 0.006 was far too big).
+	lbl.pixel_size = 0.0035
 	lbl.width = 720
 	# Grows up from just over the book, however many lines it takes.
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
