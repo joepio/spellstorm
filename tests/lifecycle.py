@@ -143,9 +143,13 @@ async def run(godot: str, pack: str = "") -> None:
 
             await send({"type": "pause", "session": "s1"})
             await saw("paused")
+            # A profile picked up in the lobby renames the wizard in place.
+            await send({"type": "players_updated", "session": "s1", "players": [{"id": "joep", "name": "Ada", "color": "#3d8fe0"}]})
+            await saw("renamed Ada")
             await send({"type": "resume", "session": "s1"})
             await saw("running")
-            print("ok: pause and resume")
+            assert not any("seated Ada" in l for l in lines), "a rename must not reseat"
+            print("ok: pause, rename in place and resume")
             await send({"type": "dispose", "session": "s1"})
             await saw("disposed")
             print("ok: disposed")

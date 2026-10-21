@@ -113,6 +113,7 @@ func _ready() -> void:
 		GameNight.resumed.connect(func(_s): _set_paused(false))
 		GameNight.paused.connect(func(_s): _set_paused(true))
 		GameNight.disposed.connect(_on_disposed)
+		GameNight.players_updated.connect(_on_players_updated)
 		GameNight.setting_changed.connect(_on_setting)
 	else:
 		_standalone()
@@ -146,7 +147,7 @@ func _on_prepared(session_id: String, seats: Array, players_list: Array) -> void
 		var kind := str(o.get("kind", "empty"))
 		if kind == "empty" or kind == "remote":
 			continue
-		var entry := {seat = int(seat.get("index", 0)), bot = kind == "ai", name = NAMES[roster.size() % NAMES.size()]}
+		var entry := {seat = int(seat.get("index", 0)), bot = kind == "ai", name = NAMES[roster.size() % NAMES.size()], id = str(o.get("player_id", ""))}
 		for p in players_list:
 			if str(p.get("id", "")) == str(o.get("player_id", "")) and str(o.get("player_id", "")) != "":
 				entry.name = str(p.get("name", entry.name))
@@ -160,6 +161,18 @@ func _on_prepared(session_id: String, seats: Array, players_list: Array) -> void
 	_set_paused(true)
 	_trace("seated " + ", ".join(roster.map(func(r): return "bot" if r.bot else "%s (seat %d)" % [r.name, r.seat])))
 	GameNight.notify_ready(session_id)
+
+
+## A profile picked up in the lobby: the same wizard, a new name. The run and
+## the robes stay as they are.
+func _on_players_updated(players: Array) -> void:
+	for p in players:
+		var id := str(p.get("id", ""))
+		for w in wizards:
+			if id != "" and w.get_meta("player_id", "") == id and p.has("name"):
+				w.player_name = str(p.name)
+				_trace("renamed %s" % w.player_name)
+	hud.bind(wizards)
 
 
 func _on_disposed(_s: String) -> void:
@@ -245,6 +258,7 @@ func _seat(roster: Array) -> void:
 		var r: Dictionary = roster[i]
 		var w := Wizard.new()
 		w.player_name = r.name
+		w.set_meta("player_id", r.get("id", ""))
 		var c: Color = r.get("color", COLORS[i % COLORS.size()])
 		if used.has(c.to_html()):
 			c = COLORS[i % COLORS.size()]
