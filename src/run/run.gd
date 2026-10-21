@@ -22,6 +22,12 @@ const FIRST_CALM := 22.0
 var biome_index := 0
 var state := "fight"   # fight, cleared, travel, dead, won
 var spawn_queue: Array = []
+## Which shrine's guard each queued monster belongs to (-1: none).
+var _queue_tag: Array[int] = []
+## Guards of shrine k still on their way in (summoned, not yet standing).
+var _incoming := {}
+## Set while queueing a shrine's guard wave.
+var _tag := -1
 var spawn_t := 0.0
 ## What is still to come, nearest first: {at = metres along the path the
 ## front wizard must reach, kind = "wave", "guard" (a clearing, with the
@@ -146,8 +152,11 @@ func _clear_level() -> void:
 		portal.queue_free()
 		portal = null
 	spawn_queue.clear()
+	_queue_tag.clear()
+	_incoming.clear()
 	encounters.clear()
 	_pending.clear()
+	_guard_quiet.clear()
 	_wave_at = -1.0
 	# How far the front wizard got belongs to the level just left: kept, it
 	# set off every pack of the new level up to there at once, far ahead.
@@ -174,20 +183,24 @@ func _queue_wave(players: int, scale: float) -> void:
 			continue
 		for _j in int(Enemy.KINDS[k].get("pack", 1)):
 			spawn_queue.append(k)
+			_queue_tag.append(_tag)
 			count -= 1
 
 
-func spawn_enemy(k: String, at: Vector3, telegraph := true) -> void:
+func spawn_enemy(k: String, at: Vector3, telegraph := true, tag := -1) -> void:
 	var players := maxi(1, Game.I.wizards.size())
 	var hp_scale := (1.0 + 0.35 * (players - 1)) * (1.0 + 0.33 * depth()) * Game.I.monster_hp
 	var champ := rng.randf() < 0.06 + 0.03 * depth()
 	if telegraph:
 		Game.I.summon_circle(at)
+		_incoming[tag] = int(_incoming.get(tag, 0)) + 1
 		await get_tree().create_timer(0.8).timeout
+		_incoming[tag] = int(_incoming.get(tag, 1)) - 1
 		if state != "fight" and not Enemy.KINDS[k].get("boss", false):
 			return
 	var e := Enemy.new().setup(k, hp_scale, champ)
 	e.position = Game.I.arena.clamp_inside(at)
+	e.set_meta("guard", tag)
 	Game.I.add_enemy(e)
 	if Enemy.KINDS[k].get("boss", false):
 		boss = e
@@ -240,6 +253,8 @@ func _fight(dt: float) -> void:
 		_boss_fell = false
 		encounters.clear()
 		spawn_queue.clear()
+		_queue_tag.clear()
+		_incoming.clear()
 		for e in Game.I.enemies.duplicate():
 			if is_instance_valid(e) and e.alive:
 				e.take(e.hp + 1.0)
@@ -258,8 +273,11 @@ func _fight(dt: float) -> void:
 			"wave":
 				_queue_wave(players, 1.0)
 			"guard":
+				_tag = enc.shrine
 				_queue_wave(players, 1.5)
+				_tag = -1
 				_pending.append(enc.shrine)
+				_guard_quiet[enc.shrine] = 0.0
 			"boss":
 				var arena: Arena = Game.I.arena
 				var c: Vector3 = arena.clearings[2]
@@ -271,7 +289,15 @@ func _fight(dt: float) -> void:
 	if not spawn_queue.is_empty() and spawn_t <= 0.0:
 		spawn_t = 0.35
 		var k: String = spawn_queue.pop_front()
-		spawn_enemy(k, _spawn_spot(k), Enemy.KINDS[k].get("spawn", "") != "under")
+		var tag: int = _queue_tag.pop_front() if not _queue_tag.is_empty() else -1
+		spawn_enemy(k, _spawn_spot(k), Enemy.KINDS[k].get("spawn", "") != "under", tag)
+	# A shrine rises as soon as its own guards are beaten, whatever packs
+	# came after them (Joep: twice no tomes where there should have been).
+	for k in _pending.duplicate():
+		_guard_quiet[k] = float(_guard_quiet.get(k, 0.0)) + dt if _guards_left(k) == 0 else 0.0
+		if _guard_quiet[k] >= 1.5:
+			_raise_shrine(k)
+			_pending.erase(k)
 	alive_count = _near_count()
 	_quiet_t = _quiet_t + dt if spawn_queue.is_empty() and alive_count == 0 else 0.0
 	if _quiet_t < 1.5:
@@ -289,6 +315,26 @@ func _fight(dt: float) -> void:
 ## pack, a shrine or the portal. It only stops counting once no wizard is
 ## within STRAY_DIST, so it changes nothing in an actual fight.
 const STRAY_DIST := 45.0
+
+
+var _guard_quiet := {}
+
+
+## Shrine [param k]'s guards still to beat: queued, being summoned, or
+## standing within STRAY_DIST of a wizard.
+func _guards_left(k: int) -> int:
+	var n := int(_incoming.get(k, 0)) + _queue_tag.count(k)
+	for e in Game.I.enemies:
+		if is_instance_valid(e) and e.alive and int(e.get_meta("guard", -1)) == k and _near(e):
+			n += 1
+	return n
+
+
+func _near(e: Node3D) -> bool:
+	for w in Game.I.wizards:
+		if w.alive and w.global_position.distance_to(e.global_position) < STRAY_DIST:
+			return true
+	return false
 
 
 func _near_count() -> int:
