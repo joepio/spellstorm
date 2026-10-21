@@ -44,6 +44,33 @@ func _ready() -> void:
 	_build()
 
 
+var _zap: MeshInstance3D
+var _zap_im: ImmediateMesh
+
+
+func _sparks() -> void:
+	if electrified <= 0.0:
+		if _zap:
+			_zap_im.clear_surfaces()
+		return
+	if _zap == null:
+		_zap_im = ImmediateMesh.new()
+		_zap = MeshInstance3D.new()
+		_zap.mesh = _zap_im
+		_zap.material_override = Fx.shader("zap", {core = Color(0.95, 0.95, 1.0), edge = El.COLOR[El.LIGHTNING]})
+		_zap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_zap)
+	_zap_im.clear_surfaces()
+	_zap_im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for _i in randi_range(2, 3 + int(radius)):
+		var a := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).limit_length(1.0) * radius * 0.85
+		a.y = randf_range(0.06, 0.2)
+		var b := a + Vector3(randf() - 0.5, randf_range(-0.05, 0.1), randf() - 0.5).normalized() * randf_range(0.25, 0.6)
+		b.y = maxf(b.y, 0.04)
+		ArcFx.ribbon(_zap_im, a, b, 0.14, randf_range(0.025, 0.045), randf_range(0.6, 1.0))
+	_zap_im.surface_end()
+
+
 static var _edge_tex: Texture2D
 
 
@@ -98,7 +125,6 @@ func _build() -> void:
 	_mat.set_shader_parameter("kind", kind)
 	_mat.set_shader_parameter("base", c)
 	_mat.set_shader_parameter("radius", radius)
-	_mat.set_shader_parameter("shock", 0.0)
 	match kind:
 		El.FIRE, El.MAGMA:
 			_disc.visible = false
@@ -257,15 +283,12 @@ func _physics_process(dt: float) -> void:
 			fade()
 			return
 	electrified = maxf(0.0, electrified - dt)
-	if electrified > 0.0:
-		_spark_t -= dt
-		if _spark_t <= 0.0:
-			_spark_t = 0.15
-			var p := global_position + Vector3(randf_range(-1, 1), 0.1, randf_range(-1, 1)) * radius * 0.8
-			Fx.burst(p, El.COLOR[El.LIGHTNING], 5, 3.0, 0.2)
-		_mat.set_shader_parameter("shock", 0.6 + randf() * 0.4)
-	elif kind == El.WATER:
-		_mat.set_shader_parameter("shock", 0.0)
+	# Charged water stays plain water with little sparks crackling over it,
+	# drawn like the lightning bolts (Joep: not a pattern in the water).
+	_spark_t -= dt
+	if _spark_t <= 0.0:
+		_spark_t = randf_range(0.05, 0.11)
+		_sparks()
 	if not Game.I:
 		return
 	var ff: float = Game.I.ff

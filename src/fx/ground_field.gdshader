@@ -3,7 +3,6 @@ shader_type spatial;
 // frost slick, ice, mud, a steam patch, and any other element's patch.
 // Every one has a ragged edge that slowly breathes, and its own life:
 // rings rippling over water, rime and cracks on frost, bubbling mud.
-// `shock` is the water electrified, white-violet veins crawling over it.
 render_mode cull_disabled, depth_draw_never, shadows_disabled;
 
 #include "res://src/fx/element.gdshaderinc"
@@ -13,7 +12,6 @@ uniform int kind = 4;
 uniform vec4 base : source_color = vec4(0.2, 0.4, 0.9, 1.0);
 uniform float radius = 2.0;
 uniform float seed = 0.0;
-uniform float shock = 0.0;
 uniform float fade = 1.0;
 
 void fragment() {
@@ -88,12 +86,6 @@ void fragment() {
 		c = look.rgb * 0.6;
 		glow = look.rgb * 0.25;
 		a *= 0.7;
-	}
-	if (shock > 0.0) {
-		// Lightning running through the water: crawling bright veins.
-		vec2 v = el_cells(vec3(w * 1.3, TIME * 3.0)).xy;
-		float vein = 1.0 - smoothstep(0.0, 0.06, v.x);
-		glow += vec3(0.75, 0.7, 1.0) * vein * shock * 1.6;
 	}
 	ALBEDO = c;
 	ROUGHNESS = rough;

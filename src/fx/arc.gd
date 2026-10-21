@@ -132,33 +132,39 @@ func _draw(pts: Array) -> void:
 
 ## One jagged ribbon from [param a] to [param b].
 func _bolt(a: Vector3, b: Vector3, jag: float, w: float, alpha: float) -> void:
+	ribbon(_im, a, b, jag, w, alpha)
+
+
+## A jagged ribbon into [param im] (between surface_begin and _end), for
+## anything that crackles like lightning (Field's sparks on charged water).
+static func ribbon(im: ImmediateMesh, a: Vector3, b: Vector3, jag: float, w: float, alpha: float) -> void:
 	var steps := maxi(3, int(a.distance_to(b) / 0.5))
 	var prev := a
 	for s in range(1, steps + 1):
 		var p := a.lerp(b, float(s) / steps)
 		if s < steps:
 			p += Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * jag
-		_quad(prev, p, w, alpha)
+		_quad(im, prev, p, w, alpha)
 		prev = p
 
 
 ## A ribbon piece, flat and upright so it shows from any side. UV.x runs
 ## across it for the core falloff in src/fx/zap.gdshader.
-func _quad(a: Vector3, b: Vector3, w: float, alpha := 1.0) -> void:
+static func _quad(im: ImmediateMesh, a: Vector3, b: Vector3, w: float, alpha := 1.0) -> void:
 	var side := (b - a).cross(Vector3.UP).normalized() * w
 	if side.length() < 0.001:
 		side = Vector3.RIGHT * w
 	var up := Vector3.UP * w
-	_im.surface_set_color(Color(1, 1, 1, alpha))
+	im.surface_set_color(Color(1, 1, 1, alpha))
 	for off in [side, up]:
-		_v(a - off, 0.0)
-		_v(b - off, 0.0)
-		_v(b + off, 1.0)
-		_v(a - off, 0.0)
-		_v(b + off, 1.0)
-		_v(a + off, 1.0)
+		_v(im, a - off, 0.0)
+		_v(im, b - off, 0.0)
+		_v(im, b + off, 1.0)
+		_v(im, a - off, 0.0)
+		_v(im, b + off, 1.0)
+		_v(im, a + off, 1.0)
 
 
-func _v(p: Vector3, u: float) -> void:
-	_im.surface_set_uv(Vector2(u, 0.0))
-	_im.surface_add_vertex(p)
+static func _v(im: ImmediateMesh, p: Vector3, u: float) -> void:
+	im.surface_set_uv(Vector2(u, 0.0))
+	im.surface_add_vertex(p)
