@@ -1121,6 +1121,11 @@ func _floor() -> void:
 			pm.size = Vector2(chunk, chunk)
 			m.mesh = pm
 			m.material_override = mat
+			# Nothing lies under the floor to shade. Cast, the floor shaded
+			# itself (shadow acne): straight-edged patches turned to the
+			# moon's angle, faint ticks all over (Joep: odd rectangles on
+			# the ground).
+			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			m.position = Vector3(x + chunk * 0.5, 0, z + chunk * 0.5)
 			add_child(m)
 			z += chunk
