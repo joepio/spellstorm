@@ -63,7 +63,10 @@ void fragment() {
 	float grain = fbm3(p * 3.0);
 	// Cracks: thin lines where a stretched noise crosses its middle.
 	float c = fbm3(p * vec3(0.9, 1.8, 0.9) + 4.0);
-	float crack = 1.0 - smoothstep(0.0, 0.025, abs(c - 0.5));
+	// Widened by how fast the noise changes across a pixel, so a crack
+	// never thins to a jagged, stair-stepped line on a far or slanted face.
+	float cw = 0.025 + fwidth(c) * 1.5;
+	float crack = (1.0 - smoothstep(0.0, cw, abs(c - 0.5))) * (0.025 / cw);
 	float h = big * 0.6 + grain * 0.4 - crack * 0.3;
 	vec3 col = color * (0.65 + 0.6 * big) * (0.85 + 0.3 * grain);
 	col *= 1.0 - crack * 0.25;
@@ -74,10 +77,12 @@ void fragment() {
 	ALBEDO = col;
 	ROUGHNESS = rough - grain * 0.15;
 	SPECULAR = 0.25;
-	vec3 dpdx = dFdx(VERTEX);
-	vec3 dpdy = dFdy(VERTEX);
-	float dhx = dFdx(h) * bump;
-	float dhy = dFdy(h) * bump;
+	// Fine derivatives: per pixel, not per 2x2 block, or the bump turns
+	// every crack edge into stairs.
+	vec3 dpdx = dFdxFine(VERTEX);
+	vec3 dpdy = dFdyFine(VERTEX);
+	float dhx = dFdxFine(h) * bump;
+	float dhy = dFdyFine(h) * bump;
 	vec3 r1 = cross(dpdy, NORMAL);
 	vec3 r2 = cross(NORMAL, dpdx);
 	float det = dot(dpdx, r1);

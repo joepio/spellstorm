@@ -594,6 +594,11 @@ func _world() -> void:
 	moon.directional_shadow_max_distance = 60.0
 	# Seen from above, two cascades cover the view as well as four.
 	moon.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	# Moonlight does not light the mist: its shadows cut through the low
+	# mist as hard straight sheets that read as stray planes on the ground
+	# (Joep: weird lines, edges). The mist glows of itself and takes the
+	# torches' and spells' light.
+	moon.light_volumetric_fog_energy = 0.0
 	add_child(moon)
 	get_window().size_changed.connect(_fit_render_scale)
 	_fit_render_scale()
