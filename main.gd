@@ -584,6 +584,14 @@ func _world() -> void:
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 0.8
 	e.adjustment_contrast = 1.08
+	# For hunting artefacts on one machine: each switches one effect off.
+	var args := OS.get_cmdline_user_args()
+	if "--no-vfog" in args:
+		e.volumetric_fog_enabled = false
+	if "--no-ssao" in args:
+		e.ssao_enabled = false
+	if "--no-glow" in args:
+		e.glow_enabled = false
 	env.environment = e
 	add_child(env)
 	moon = DirectionalLight3D.new()
@@ -618,7 +626,8 @@ func _world() -> void:
 func _fit_render_scale() -> void:
 	var h := get_window().size.y
 	var vp := get_viewport()
-	if h > 1700:
+	# --native: no upscaling, for telling upscaler artefacts apart.
+	if h > 1700 and not "--native" in OS.get_cmdline_user_args():
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 		vp.scaling_3d_scale = 1620.0 / h
 	else:
