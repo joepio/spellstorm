@@ -282,6 +282,10 @@ func _seat(roster: Array) -> void:
 
 func new_run() -> void:
 	paused_play = false
+	# For the room log players read back on their phones; the SDK skips it
+	# while the session is still preparing.
+	if session != "":
+		GameNight.add_room_log("New run")
 	run.start(seed_value if seed_value != 0 else randi() % 100000 + 1)
 	if seed_value != 0:
 		seed_value += 1
