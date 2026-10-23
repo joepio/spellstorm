@@ -45,7 +45,7 @@ uniform vec3 water_a : source_color = vec3(0.015, 0.05, 0.065);
 uniform vec3 water_b : source_color = vec3(0.04, 0.13, 0.14);
 uniform vec3 sand : source_color = vec3(0.2, 0.18, 0.13);
 // A level that follows its path: how far each point is outside the walkable
-// band, in metres (0.5 is the wall, 1/16 m per step), over bounds_rect
+// band, in metres (0 is the wall), one texel a metre, over bounds_rect
 // (origin, size). Beyond the walls the ground darkens away.
 uniform sampler2D bounds : filter_linear, repeat_disable;
 uniform vec4 bounds_rect = vec4(0.0, 0.0, 1.0, 1.0);
@@ -77,6 +77,30 @@ float fbm(vec2 p) {
 		p = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p * 2.03;
 		a *= 0.5;
 	}
+	return v;
+}
+
+// The distance field at [param p], smooth: a cubic B-spline over the 1 m
+// cells from four bilinear taps. Read plainly, each cell was its own flat
+// slope and the shading by the walls showed the floor as tilted squares
+// with seams between them (Joep).
+float bounds_at(vec2 p) {
+	vec2 sz = bounds_rect.zw;
+	vec2 c = (p - bounds_rect.xy) - 0.5;
+	vec2 i = floor(c);
+	vec2 f = c - i;
+	vec2 f2 = f * f;
+	vec2 f3 = f2 * f;
+	vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+	vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+	vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+	vec2 w3 = f3 / 6.0;
+	vec2 g0 = w0 + w1;
+	vec2 g1 = w2 + w3;
+	vec2 h0 = (i - 1.0 + w1 / g0 + 0.5) / sz;
+	vec2 h1 = (i + 1.0 + w3 / g1 + 0.5) / sz;
+	float v = g0.y * (g0.x * texture(bounds, vec2(h0.x, h0.y)).r + g1.x * texture(bounds, vec2(h1.x, h0.y)).r)
+		+ g1.y * (g0.x * texture(bounds, vec2(h0.x, h1.y)).r + g1.x * texture(bounds, vec2(h1.x, h1.y)).r);
 	return v;
 }
 
@@ -311,7 +335,7 @@ void fragment() {
 	vec2 e = abs(p) / half_size;
 	float edge_dark = smoothstep(0.75, 1.05, max(e.x, e.y));
 	if (bounded) {
-		float sd = (texture(bounds, (p - bounds_rect.xy) / bounds_rect.zw).r - 0.5) * 16.0;
+		float sd = bounds_at(p);
 		// Shadowed along the foot of the walls, dark rubble beyond them.
 		col *= 1.0 - 0.3 * smoothstep(-2.5, 0.3, sd);
 		col = mix(col, base_b * (0.75 + 0.4 * fine), smoothstep(0.0, 1.5, sd));

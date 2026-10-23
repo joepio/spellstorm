@@ -1055,11 +1055,11 @@ func _floor() -> void:
 	var reach := PATH_W + 1.0
 	var tex: ImageTexture
 	if corridor:
-		var img := Image.create(_sdf_w, _sdf_h, false, Image.FORMAT_L8)
+		# In metres, full float: 8 bits stepped the shading by the walls.
+		var img := Image.create(_sdf_w, _sdf_h, false, Image.FORMAT_RF)
 		for iz in _sdf_h:
 			for ix in _sdf_w:
-				var v := clampf(_sdf[iz * _sdf_w + ix] / 16.0 + 0.5, 0.0, 1.0)
-				img.set_pixel(ix, iz, Color(v, v, v))
+				img.set_pixel(ix, iz, Color(clampf(_sdf[iz * _sdf_w + ix], -40.0, 40.0), 0, 0))
 		tex = ImageTexture.create_from_image(img)
 	var x := -half.x - 5.0 - (24.0 if corridor else 0.0)
 	while x < half.x + 5.0 + (24.0 if corridor else 0.0):
