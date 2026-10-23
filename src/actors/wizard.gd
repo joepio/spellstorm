@@ -984,13 +984,20 @@ func _enchanted_shot(dir: Vector3) -> void:
 		for b in El.parts(e):
 			bases[b] = true
 	var dirs := [dir]
+	var share := 1.0
 	if El.WATER in bases:
 		dirs = [dir.rotated(Vector3.UP, -0.13), dir, dir.rotated(Vector3.UP, 0.13)]
+		# Flying bolts at half: about two of the three land. A lightning
+		# spark never misses, so all three land: a third each.
+		share = 1.0 / 3.0 if Balance.flight(s.primary).get("zap", false) else 0.5
 		for e in s.scales:
-			s.scales[e] *= 0.5
+			s.scales[e] *= share
 	for d: Vector3 in dirs:
 		var b := BoltFx.new().setup(self, s, d)
 		b.charmed = bases
+		# The tricks are split over the three whatever lands.
+		b.share = 1.0 / dirs.size()
+		b.lead = d == dir
 		Game.I.spawn(b, staff_tip() + d * 0.1)
 	_muzzle_flash(El.COLOR[s.primary] if s.primary >= 0 else Color.WHITE)
 	_trace_once("enchanted shot")

@@ -174,15 +174,26 @@ static func worth(s: Dictionary) -> Dictionary:
 	var burn := 0.0
 	var chill := 0.0
 	var utility := 0.0
+	var shock_dmg := 0.0
+	var soaks := false
 	for e in s.counts:
 		var c: float = s.counts[e]
 		var eff: Dictionary = El.EFFECT[e]
 		dmg += float(eff.get("dmg", 0.0)) * c
+		if eff.has("shock"):
+			shock_dmg += float(eff.get("dmg", 0.0)) * c
+		soaks = soaks or eff.has("wet")
 		poison += float(eff.get("poison", 0.0)) * c
 		burn += float(eff.get("burn", 0.0)) * c
 		chill += float(eff.get("chill", 0.0)) * c
 		for k in UTILITY:
 			utility += float(eff.get(k, 0.0)) * c * UTILITY[k]
+	# Shock hits a wet monster twice as hard (Actor.hit_spell). A spell that
+	# soaks as it shocks gets that on every hit after its first, so a
+	# lasting one nearly always (Joep: water with lightning far too strong,
+	# and this was not counted at all).
+	if soaks and shock_dmg > 0.0:
+		dmg += shock_dmg * d.time / (d.time + 0.4)
 	var per_target: float = dmg * d.scale
 	# Burn: each unit of scale lights four seconds, capped at BURN_MAX past
 	# the last hit (Actor._status), at BURN_DPS, credited as it comes.
@@ -435,6 +446,14 @@ static func enchant_shot(s: Dictionary, scales: Dictionary) -> float:
 		w += shot_worth(El.FIRE, maxf(fire, bolt_scale(El.FIRE)) * 0.5, rate) * credited(1.5)
 	if El.LIGHTNING in bases:
 		w += shot_worth(El.LIGHTNING, bolt_scale(El.LIGHTNING) * 1.2, rate) * 1.2 * CROWD
+	# Shooting steadily keeps them wet, so every shock after the first
+	# lands twice as hard: the hit and the jump (Actor.hit_spell).
+	if El.WATER in bases:
+		for e in scales:
+			if El.EFFECT[e].has("shock"):
+				w += float(El.EFFECT[e].dmg) * scales[e]
+		if El.LIGHTNING in bases:
+			w += float(El.EFFECT[El.LIGHTNING].dmg) * bolt_scale(El.LIGHTNING) * 1.2 * 1.2 * CROWD
 	for b in CHARM:
 		if b in bases:
 			w += CHARM[b]
@@ -454,4 +473,10 @@ static func enchant_swing(s: Dictionary) -> float:
 		w += over_time(BURN_DPS, minf(BURN_MAX, 4.0 * float(eff.get("burn", 0.0)) * n))
 		w += minf(POISON_CAP, POISON_DOSE * float(eff.get("poison", 0.0)) * n) * POISON_CREDIT
 		w += FREEZE_WORTH * floorf(minf(float(eff.get("chill", 0.0)) * n / 3.0, 1.0))
+	# Swing after swing keeps them wet: the shock in it hits twice as hard.
+	var soaks: bool = s.counts.keys().any(func(e): return El.EFFECT[e].has("wet"))
+	if soaks:
+		for e in s.counts:
+			if El.EFFECT[e].has("shock"):
+				w += float(El.EFFECT[e].dmg) * float(s.counts[e]) * ENCHANT_SWING
 	return w * credited(SWING_TARGETS)

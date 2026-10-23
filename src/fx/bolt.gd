@@ -24,6 +24,14 @@ var life := 0.8
 var charmed := {}
 ## Who a piercing frost shard already went through.
 var _pierced: Array = []
+## This bolt's part of an enchanted volley: water fans out three, and the
+## tricks (the jump of lightning, the burst of fire) are split over them so
+## the three together are worth one enchanted bolt (Balance.enchant_shot).
+## Joep: Venomous Soaking Thunder hit far too hard, three sparks each
+## jumping on at full strength, each leaving its own pool of poison.
+var share := 1.0
+## Only the middle bolt of a volley leaves a pool of poison.
+var lead := true
 
 
 func setup(w: Wizard, s: Dictionary, dir: Vector3) -> BoltFx:
@@ -258,7 +266,7 @@ func _charm_hit(a: Actor, at: Vector3) -> void:
 			if best == null:
 				break
 			var p := best.global_position + Vector3.UP * 0.9
-			best.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, Balance.bolt_scale(El.LIGHTNING) * 1.2, caster, (p - from).normalized())
+			best.hit_spell({counts = {El.LIGHTNING: 1}, payload = [], primary = El.LIGHTNING, n = {}}, Balance.bolt_scale(El.LIGHTNING) * 1.2 * share, caster, (p - from).normalized())
 			_zap(from, p)
 			done.append(best)
 			from = p
@@ -391,7 +399,7 @@ func _charm_end(at: Vector3) -> void:
 				if d.length() < 3.0 and d.length() > 0.3:
 					a.push += d.normalized() * 8.0 / a.mass
 		Fx.burst(at, El.COLOR[El.VOID], 14, -4.0, 0.25, El.VOID)
-	if El.POISON in charmed:
+	if El.POISON in charmed and lead:
 		var f: Field = Game.I.arena.add_field(Game.I.arena.clamp_inside(ground), El.POISON, 0.9, 2.5, caster)
 		f.friendly = true
 		f.splash()
@@ -451,7 +459,7 @@ func _spray(at: Vector3, e: int, amount: int, speed: float, spread: float, size:
 ## How hard an enchanted fire bolt's burst hits (Balance.enchant_shot).
 func _burst_fire() -> float:
 	var f: float = spell.scales.get(El.FIRE, spell.scales.get(El.MAGMA, spell.scales.get(El.STEAM, 0.0)))
-	return maxf(f, Balance.bolt_scale(El.FIRE)) * 0.5
+	return maxf(f, Balance.bolt_scale(El.FIRE) * share) * 0.5
 
 
 func _end(at: Vector3) -> void:
