@@ -115,6 +115,7 @@ func _ready() -> void:
 		GameNight.disposed.connect(_on_disposed)
 		GameNight.players_updated.connect(_on_players_updated)
 		GameNight.setting_changed.connect(_on_setting)
+		GameNight.action_triggered.connect(_on_action)
 	else:
 		_standalone()
 
@@ -124,6 +125,16 @@ func _declare() -> void:
 		{key = "friendly_fire", label = "Friendly fire", kind = "choice", default = "half", options = ["off", "half", "full"]},
 		{key = "difficulty", label = "Difficulty", kind = "choice", default = "normal", options = ["easy", "normal", "hard"]},
 	])
+	GameNight.declare_actions([
+		{key = "new_run", label = "New run", description = "Ends this run for everyone and starts a fresh one.", confirm = true},
+	])
+
+
+## A button pressed on a phone. The host already wrote who pressed it in the
+## room log.
+func _on_action(key: String, _player_id: String) -> void:
+	if key == "new_run":
+		new_run(false)
 
 
 func _on_setting(key: String, value: Variant) -> void:
@@ -280,11 +291,11 @@ func _seat(roster: Array) -> void:
 	hud.bind(wizards)
 
 
-func new_run() -> void:
+func new_run(log_it := true) -> void:
 	paused_play = false
 	# For the room log players read back on their phones; the SDK skips it
 	# while the session is still preparing.
-	if session != "":
+	if log_it and session != "":
 		GameNight.add_room_log("New run")
 	run.start(seed_value if seed_value != 0 else randi() % 100000 + 1)
 	if seed_value != 0:
