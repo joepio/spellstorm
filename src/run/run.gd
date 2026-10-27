@@ -86,6 +86,10 @@ func enter_level() -> void:
 	var arena: Arena = Game.I.arena
 	arena.build(biome_index, seed_value * 31 + depth())
 	Game.I.apply_biome(arena.biome)
+	# From the second level on LB and the enchantment are open.
+	if depth() >= 1:
+		for w in Game.I.wizards:
+			w.unlock_to(3)
 	var sz := arena.start
 	var starts := [Vector2(-1.5, -1), Vector2(1.5, -1), Vector2(-3.5, 0.5), Vector2(3.5, 0.5), Vector2(0, 1.5), Vector2(-5, 1.5)]
 	var i := 0
@@ -479,6 +483,7 @@ func _raise_shrine(k: int) -> void:
 	for w in Game.I.wizards:
 		if not w.alive:
 			w.revive(0.3)
+	_teach(k)
 	var n := Game.I.wizards.size() + 1
 	var taken: Array = []
 	for w in Game.I.wizards:
@@ -502,6 +507,19 @@ func _raise_shrine(k: int) -> void:
 		Fx.burst(node.position + Vector3.UP, Color(1.0, 0.8, 0.4), 16, 3.0)
 		altars.append({node = node, relic = picks[i], taken = false, hold = 0.0,
 			fill = node.get_meta("fill"), shrine = "%d_%d" % [biome_index, k]})
+
+
+## What a shrine teaches every wizard present: the first shrine water and
+## the nova, the first boss poison and the plant, every later boss one more
+## LB element. Earned together, it counts for everyone.
+func _teach(k: int) -> void:
+	for w in Game.I.wizards:
+		if depth() == 0 and k < 2:
+			w.unlock_to(1)
+		elif depth() == 0:
+			w.unlock_to(2)
+		elif k == 2:
+			w.unlock_to(w.unlocks + 1)
 
 
 func _level_cleared() -> void:
@@ -593,7 +611,7 @@ func _next() -> void:
 		if not w.alive:
 			w.revive(1.0)
 		w.hp = w.max_hp
-		w.mana = Wizard.MANA_MAX
+		w.mana = w.mana_max()
 	biome_index += 1
 	enter_level()
 

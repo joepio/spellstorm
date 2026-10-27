@@ -94,7 +94,7 @@ async def run(godot: str, pack: str = "") -> None:
             await send({"type": "welcome", "party": {}})
             settings = await expect("declare_settings")
             keys = {s["key"] for s in settings["settings"]}
-            assert keys == {"friendly_fire", "difficulty"}, keys
+            assert keys == {"friendly_fire", "difficulty", "unlocks"}, keys
             print("ok: settings declared")
 
             seats = [

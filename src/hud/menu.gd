@@ -9,10 +9,12 @@ const GAME_LOGO = preload("res://assets/branding/logo.png")
 ##   Level          which biome to play (Random by default); confirm to go there now
 ##   Friendly fire  off / half / full
 ##   Difficulty     easy / normal / hard
+##   Unlocks        earned (learn at shrines) / all
 ## Next to it, every control drawn as its controller part with what it does.
 
 const FF := ["off", "half", "full"]
 const DIFFICULTY := ["easy", "normal", "hard"]
+const UNLOCKS := ["earned", "all"]
 const REPEAT := 0.22
 
 var title_mode := false
@@ -36,7 +38,7 @@ func open(title: bool) -> void:
 	biome = -1 if title else Game.I.run.biome_index
 	# A new run sits right under Resume, the way every GameNight game does it.
 	rows = ["start"] if title else ["resume", "restart"]
-	rows.append_array(["level", "friendly_fire", "difficulty"])
+	rows.append_array(["level", "friendly_fire", "difficulty", "unlocks"])
 	if Game.I.session == "":
 		rows.append("quit")
 	sel = 0
@@ -122,6 +124,8 @@ func _change(row: String, dx: int) -> void:
 			Game.I.set_option("friendly_fire", FF[posmod(FF.find(Game.I.ff_name) + dx, FF.size())])
 		"difficulty":
 			Game.I.set_option("difficulty", DIFFICULTY[posmod(DIFFICULTY.find(Game.I.difficulty_name) + dx, DIFFICULTY.size())])
+		"unlocks":
+			Game.I.set_option("unlocks", "earned" if Game.I.unlock_all else "all")
 
 
 func _confirm(row: String) -> void:
@@ -134,7 +138,7 @@ func _confirm(row: String) -> void:
 		"level", "restart":
 			close()
 			Game.I.start_at(biome)
-		"friendly_fire", "difficulty":
+		"friendly_fire", "difficulty", "unlocks":
 			_change(row, 1)
 		"quit":
 			get_tree().quit()
@@ -188,6 +192,7 @@ func _label(row: String) -> Array:
 		"level": return ["Level", "Random" if biome < 0 else Arena.BIOMES[biome].name]
 		"friendly_fire": return ["Friendly fire", Game.I.ff_name.capitalize()]
 		"difficulty": return ["Difficulty", Game.I.difficulty_name.capitalize()]
+		"unlocks": return ["Unlocks", "All" if Game.I.unlock_all else "Earned"]
 		"restart": return ["Start new run", ""]
 		"quit": return ["Quit", ""]
 	return [row, ""]
@@ -251,13 +256,25 @@ func _draw() -> void:
 	var kx := cx - pw * 0.5 - 30.0 - side
 	var ky := y - 50
 	var row_h := 56.0
-	var per := ceili(CONTROLS.size() / 2.0)
+	var controls := _controls()
+	var per := ceili(controls.size() / 2.0)
 	var colw := side * 0.5
 	_frame(Rect2(kx, ky, side, per * row_h + 24))
-	for i in CONTROLS.size():
+	for i in controls.size():
 		var c := Vector2(kx + colw * (i / per) + 44, ky + 40 + (i % per) * row_h)
-		_glyph(CONTROLS[i][0], c)
-		draw_multiline_string(f, Vector2(c.x + 46, c.y - 4), CONTROLS[i][1], HORIZONTAL_ALIGNMENT_LEFT, colw - 100, 19, 2, Color(0.85, 0.79, 0.68))
+		_glyph(controls[i][0], c)
+		draw_multiline_string(f, Vector2(c.x + 46, c.y - 4), controls[i][1], HORIZONTAL_ALIGNMENT_LEFT, colw - 100, 19, 2, Color(0.85, 0.79, 0.68))
+
+
+## Only the controls someone at the couch has learned.
+func _controls() -> Array:
+	var humans := Game.I.wizards.filter(func(w): return w.bot == null)
+	if humans.is_empty():
+		return CONTROLS
+	var w: Wizard = humans[0]
+	var lb := humans.any(func(h): return h.lb_open())
+	var need := {"lb": lb, "rb_hold": w.form_open("nova"), "ls": w.form_open("plant"), "rs": w.form_open("enchant")}
+	return CONTROLS.filter(func(c): return need.get(c[0], true))
 
 
 func _frame(r: Rect2) -> void:

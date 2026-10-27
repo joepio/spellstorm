@@ -78,7 +78,7 @@ func _physics_process(dt: float) -> void:
 		var best: Wizard = null
 		var best_d := MAGNET
 		for w in Game.I.wizards:
-			if not w.alive or w.mana >= Wizard.MANA_MAX - 0.5:
+			if not w.alive or w.mana >= w.mana_max() - 0.5:
 				continue
 			var d := Vector2(w.global_position.x - pos.x, w.global_position.z - pos.z).length()
 			if d < best_d:

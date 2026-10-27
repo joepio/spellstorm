@@ -398,8 +398,10 @@ class WizardPanel:
 			draw_rect(Rect2(fx, bar.position.y, fill_w, bar.size.y), col)
 			draw_rect(Rect2(fx, bar.position.y, fill_w, 4), col.lightened(0.45))
 		# Mana: a thin bar under the queue, blue like the souls that fill it.
-		var mbar := Rect2(bx, 52, bw, 5)
-		var mk := clampf(wizard.mana / Wizard.MANA_MAX, 0.0, 1.0)
+		# The bar is as long as the mana you can hold, so it grows as you learn.
+		var mlen := bw * wizard.mana_max() / Balance.MANA_MAX
+		var mbar := Rect2(bx + (bw - mlen if mirrored else 0.0), 52, mlen, 5)
+		var mk := clampf(wizard.mana / wizard.mana_max(), 0.0, 1.0)
 		draw_rect(mbar, Color(0.5, 0.65, 1.0, 0.5) if wizard.no_mana > 0.0 else Color(0.02, 0.02, 0.08, 0.9))
 		var mw := mbar.size.x * mk
 		var mx := mbar.end.x - mw if mirrored else mbar.position.x
@@ -433,7 +435,8 @@ class WizardPanel:
 			_names.clear()
 			if not wizard.queue.slots.is_empty():
 				for fm in FORMS:
-					_names.append([fm[0], wizard.preview(fm[1]).name])
+					if wizard.form_open(fm[1]):
+						_names.append([fm[0], wizard.preview(fm[1]).name])
 		for i in _names.size():
 			var col := i % 2
 			var row := i / 2
@@ -452,7 +455,7 @@ class WizardPanel:
 	## B right, A bottom), each showing the element it conjures as an icon.
 	## Holding LB flips every button to its opposite.
 	func _buttons(c: Vector2) -> void:
-		var flip := wizard.pad != null and wizard.pad.down(Pad.LB)
+		var flip := wizard.pad != null and wizard.pad.down(Pad.LB) and wizard.lb_open()
 		var places := {"Y": Vector2(0, -15), "X": Vector2(-15, 0), "B": Vector2(15, 0), "A": Vector2(0, 15)}
 		var bits := {"A": Pad.A, "B": Pad.B, "X": Pad.X, "Y": Pad.Y}
 		while _button_balls.size() < 4:
@@ -464,8 +467,18 @@ class WizardPanel:
 			var held: bool = wizard.pad != null and wizard.pad.down(bits[key])
 			var r := 9.0 if held else 7.5
 			draw_circle(p, r + 1.5, Color(0.04, 0.03, 0.03))
+			# Not learned yet: an empty grey socket.
+			if not wizard.element_open(e):
+				_button_balls[k].visible = false
+				draw_circle(p, 6.0, Color(0.22, 0.2, 0.19))
+				k += 1
+				continue
 			_button_balls[k].show_at(e, p, r, 1.15 if held else 0.85)
 			k += 1
+			# Just learned: the button pulses in its colour for a while.
+			if e == wizard.learned and wizard.learned_t > 0.0:
+				var pulse := 0.5 + 0.5 * sin(wizard.learned_t * 7.0)
+				draw_arc(p, r + 3.5 + pulse * 2.0, 0, TAU, 24, El.COLOR[e].lightened(0.4), 1.6, true)
 			if e == wizard.bolt_el:
 				draw_arc(p, r + 2.5, 0, TAU, 24, Color(1.0, 0.85, 0.4), 1.3, true)
 

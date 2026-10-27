@@ -93,7 +93,7 @@ func think(w: Wizard, dt: float) -> void:
 			move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
 	# Low on mana: go and take the souls lying around.
 	var soul := _nearest_soul(w)
-	if soul and w.mana < Wizard.MANA_MAX * 0.75 and not downed:
+	if soul and w.mana < w.mana_max() * 0.75 and not downed:
 		var ts := soul.global_position - w.global_position
 		ts.y = 0
 		move = ts.normalized() * 1.2

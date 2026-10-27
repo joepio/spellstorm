@@ -32,6 +32,10 @@ var host_paused := false
 var menu_open := false
 var ff_name := "half"
 var difficulty_name := "normal"
+## "Unlocks: All" in the menu, and for demos, captures and the sim.
+var unlock_all := false
+## --unlocks N: every wizard, bots too, as if they had earned N unlocks.
+var forced_unlocks := -1
 
 var ff := 0.5
 var monster_hp := 1.0
@@ -82,6 +86,7 @@ func _ready() -> void:
 			"--recipe": recipe = int(nxt)
 			"--sim": sim_frames = int(nxt); demo = true
 			"--zoom": cam_zoom = float(nxt)
+			"--unlocks": forced_unlocks = int(nxt)
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_world()
 	arena = Arena.new()
@@ -124,6 +129,7 @@ func _declare() -> void:
 	GameNight.declare_settings([
 		{key = "friendly_fire", label = "Friendly fire", kind = "choice", default = "half", options = ["off", "half", "full"]},
 		{key = "difficulty", label = "Difficulty", kind = "choice", default = "normal", options = ["easy", "normal", "hard"]},
+		{key = "unlocks", label = "Unlocks", kind = "choice", default = "earned", options = ["earned", "all"]},
 	])
 	GameNight.declare_actions([
 		{key = "new_run", label = "New run", description = "Ends this run for everyone and starts a fresh one.", confirm = true},
@@ -148,6 +154,27 @@ func _on_setting(key: String, value: Variant) -> void:
 			monster_hp = {"easy": 0.7, "normal": 1.0, "hard": 1.4}.get(d, 1.0)
 			monster_damage = {"easy": 0.6, "normal": 1.0, "hard": 1.35}.get(d, 1.0)
 			monster_count = {"easy": 0.8, "normal": 1.0, "hard": 1.25}.get(d, 1.0)
+		"unlocks":
+			unlock_all = str(value) == "all"
+			unlocks_changed()
+
+
+## Mana, queue and forms for everyone: the most learned player's stage.
+func group_stage() -> int:
+	if forced_unlocks >= 0:
+		return mini(forced_unlocks, 3)
+	if unlock_all:
+		return 3
+	var s := -1
+	for w in wizards:
+		if w.bot == null:
+			s = maxi(s, mini(w.unlocks, 3))
+	return 3 if s < 0 else s
+
+
+func unlocks_changed() -> void:
+	for w in wizards:
+		w.refresh_unlocks()
 
 
 func _on_prepared(session_id: String, seats: Array, players_list: Array) -> void:
@@ -275,6 +302,8 @@ func _seat(roster: Array) -> void:
 			c = COLORS[i % COLORS.size()]
 		used[c.to_html()] = true
 		w.robe = c
+		# Each player starts with their own pair of elements.
+		w.element_order = i
 		if r.get("bot", false):
 			w.pad = Pad.new()
 			w.bot = Bot.new()
@@ -286,6 +315,7 @@ func _seat(roster: Array) -> void:
 		else:
 			w.pad = Pad.seat_pad(r.seat)
 		add_child(w)
+		w.refresh_unlocks()
 		w.died.connect(func(_a): pass)
 		wizards.append(w)
 	hud.bind(wizards)

@@ -57,7 +57,32 @@ const ROLL_IFRAMES := 0.3
 const ROLL_RECOVER := 0.15
 const ROLL_COOLDOWN := 0.95
 
+## Unlocks: a new wizard knows little and learns at shrines and bosses
+## (Joep's onboarding). Each starts with two face elements that do not mix,
+## a different pair per player, then gets the other two face elements, then
+## LB and its elements one by one, frost first. Unlocks belong to the
+## wizard; mana, queue and spell forms follow the most learned player present.
+const ELEMENT_ORDER := [
+	[El.FIRE, El.LIGHTNING, El.WATER, El.POISON],
+	[El.WATER, El.POISON, El.LIGHTNING, El.FIRE],
+	[El.LIGHTNING, El.WATER, El.FIRE, El.POISON],
+	[El.POISON, El.FIRE, El.WATER, El.LIGHTNING],
+]
+const LB_ORDER := [El.FROST, El.EARTH, El.AIR, El.VOID]
+## By stage (unlocks, at most 3): the mana you hold, the slots in the queue
+## and the spell forms. Every spell costs the same per mana at every stage.
+const STAGE_MANA := [50.0, 65.0, 80.0, 100.0]
+const STAGE_SLOTS := [1, 2, 2, 3]
+const STAGE_FORMS := [["cast"], ["cast", "nova"], ["cast", "nova", "plant"], ["cast", "nova", "plant", "enchant"]]
+const ALL_UNLOCKED := 99
+
 var player_name := "Wizard"
+## How many unlocks this wizard has earned, and which element order is theirs.
+var unlocks := 0
+var element_order := 0
+## The element just learned, for the HUD to make its button pulse.
+var learned := -1
+var learned_t := 0.0
 var robe := Color(0.6, 0.15, 0.15)
 var pad: Pad
 var queue := SpellQueue.new()
@@ -235,7 +260,78 @@ func give_relic(r: Dictionary) -> void:
 	var old := max_hp
 	max_hp = 100.0 + float(_mod("hp", 0.0))
 	hp += max_hp - old
-	queue.size = SpellQueue.SIZE
+	refresh_unlocks()
+
+
+## What this wizard has unlocked: everything for bots, tests and the menu's
+## "Unlocks: All".
+func unlock_level() -> int:
+	if Game.I == null:
+		return ALL_UNLOCKED
+	if Game.I.forced_unlocks >= 0:
+		return Game.I.forced_unlocks
+	if bot or Game.I.unlock_all:
+		return ALL_UNLOCKED
+	return unlocks
+
+
+## Mana, queue and forms: shared by the group, the most learned player's.
+func stage() -> int:
+	if Game.I == null:
+		return 3
+	if bot and Game.I.forced_unlocks < 0:
+		return 3
+	return Game.I.group_stage()
+
+
+func mana_max() -> float:
+	return STAGE_MANA[stage()]
+
+
+func form_open(form: String) -> bool:
+	return form in STAGE_FORMS[stage()]
+
+
+func lb_open() -> bool:
+	return unlock_level() >= 3
+
+
+func element_open(e: int) -> bool:
+	var u := unlock_level()
+	var i: int = ELEMENT_ORDER[element_order % ELEMENT_ORDER.size()].find(e)
+	if i >= 0:
+		return i < 2 + u
+	return LB_ORDER.find(e) < u - 2
+
+
+func open_elements() -> Array:
+	return El.BASE.filter(func(e): return element_open(e))
+
+
+## Earn unlocks up to [param n]; a newly learned element flares on the staff.
+func unlock_to(n: int) -> void:
+	if n <= unlocks:
+		return
+	var before := open_elements()
+	unlocks = n
+	if Game.I:
+		Game.I.unlocks_changed()
+	for e in open_elements():
+		if e not in before:
+			learned = e
+			learned_t = 6.0
+			if model:
+				Fx.burst(staff_tip(), El.COLOR[e], 26, 3.5, 0.2)
+				Fx.ring(global_position, El.COLOR[e], 2.2, 0.5)
+
+
+## The queue and mana follow the stage when it changes.
+func refresh_unlocks() -> void:
+	queue.size = STAGE_SLOTS[stage()]
+	if queue.slots.size() > queue.size:
+		queue.set_slots(queue.copy().slice(0, queue.size))
+		ammo = full_ammo()
+	mana = minf(mana, mana_max())
 
 
 func staff_tip() -> Vector3:
@@ -281,7 +377,8 @@ func _physics_process(dt: float) -> void:
 		drive(Vector3.ZERO, dt)
 		_visuals(dt)
 		return
-	mana = minf(MANA_MAX, mana + MANA_REGEN * dt)
+	mana = minf(mana_max(), mana + MANA_REGEN * dt)
+	learned_t = maxf(0.0, learned_t - dt)
 	if enchant_time > 0.0:
 		enchant_time -= dt
 		if enchant_time <= 0.0:
@@ -345,10 +442,13 @@ func _read_input(dt: float) -> void:
 		aim_dir = Vector3(pad.move.x, 0, pad.move.y).normalized()
 	if not can_act():
 		return
-	var flip := pad.down(Pad.LB)
+	# Locked elements, and LB before it is learned, do nothing.
+	var flip := pad.down(Pad.LB) and lb_open()
 	for b in [Pad.A, Pad.B, Pad.X, Pad.Y]:
 		if pad.pressed(b):
-			conjure(El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0])
+			var e: int = El.PAIRS[["A", "B", "X", "Y"][b]][1 if flip else 0]
+			if element_open(e):
+				conjure(e)
 	if pad.pressed(Pad.LT):
 		roll()
 	if _roll_t > 0.0:
@@ -367,12 +467,12 @@ func _read_input(dt: float) -> void:
 	elif pad.down(Pad.RB) and _rb_t >= 0.0:
 		_rb_t += dt
 	if pad.released(Pad.RB):
-		if _rb_t >= NOVA_HOLD:
+		if _rb_t >= NOVA_HOLD and form_open("nova"):
 			cast("nova", -1)
 		_rb_t = -1.0
-	if pad.pressed(Pad.LS):
+	if pad.pressed(Pad.LS) and form_open("plant"):
 		cast("plant", -1)
-	if pad.pressed(Pad.RS):
+	if pad.pressed(Pad.RS) and form_open("enchant"):
 		cast("enchant", -1)
 	_bolt_t -= dt
 	# Swinging the staff stops the bolts for a moment: your hands are busy.
@@ -402,7 +502,7 @@ func busy() -> bool:
 
 
 func add_mana(amount: float) -> void:
-	mana = minf(MANA_MAX, mana + amount)
+	mana = minf(mana_max(), mana + amount)
 
 
 ## What a spell costs: per element still in it, an overload a fixed sum.
@@ -624,7 +724,7 @@ func roll() -> void:
 		var s := _charging
 		_charging = {}
 		_charge_stop()
-		mana = minf(MANA_MAX, mana + cost(s))
+		mana = minf(mana_max(), mana + cost(s))
 		var back: Array = (s.slots as Array) + queue.copy()
 		queue.set_slots(back.slice(0, queue.size))
 		ammo = full_ammo()
@@ -658,6 +758,7 @@ func conjure(e: int) -> void:
 
 ## Load a remembered queue (D-pad recast or a saved spell), paying for each slot.
 func load_slots(slots: Array) -> void:
+	slots = slots.slice(0, queue.size)
 	var price := MANA_PER_LOAD * slots.size()
 	if mana < price - 0.01:
 		_no_mana()
