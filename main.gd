@@ -36,6 +36,8 @@ var difficulty_name := "normal"
 var unlock_all := false
 ## --unlocks N: every wizard, bots too, as if they had earned N unlocks.
 var forced_unlocks := -1
+## --practice: the practice strip even with only bots, for tests and captures.
+var force_practice := false
 
 var ff := 0.5
 var monster_hp := 1.0
@@ -87,6 +89,7 @@ func _ready() -> void:
 			"--sim": sim_frames = int(nxt); demo = true
 			"--zoom": cam_zoom = float(nxt)
 			"--unlocks": forced_unlocks = int(nxt)
+			"--practice": force_practice = true
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_world()
 	arena = Arena.new()
@@ -162,13 +165,13 @@ func _on_setting(key: String, value: Variant) -> void:
 ## Mana, queue and forms for everyone: the most learned player's stage.
 func group_stage() -> int:
 	if forced_unlocks >= 0:
-		return mini(forced_unlocks, 3)
+		return clampi(forced_unlocks, 0, 3)
 	if unlock_all:
 		return 3
 	var s := -1
 	for w in wizards:
 		if w.bot == null:
-			s = maxi(s, mini(w.unlocks, 3))
+			s = maxi(s, clampi(w.unlocks, 0, 3))
 	return 3 if s < 0 else s
 
 

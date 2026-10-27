@@ -119,6 +119,9 @@ async def run(godot: str, pack: str = "") -> None:
             await hold(frame(), 0.5)
             await saw("dodge Joep")
             print("ok: LT rolls")
+            # A new wizard has learned no elements yet; the host setting opens them all.
+            await send({"type": "setting_changed", "key": "unlocks", "value": "all"})
+            await hold(frame(), 0.1)
             await hold(frame(1 << B), 0.15)
             await hold(frame(), 0.15)
             await hold(frame(0, rt=True), 0.4)

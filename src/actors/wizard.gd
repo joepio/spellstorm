@@ -77,11 +77,12 @@ const STAGE_FORMS := [["cast"], ["cast", "nova"], ["cast", "nova", "plant"], ["c
 const ALL_UNLOCKED := 99
 
 var player_name := "Wizard"
-## How many unlocks this wizard has earned, and which element order is theirs.
-var unlocks := 0
+## How many unlocks this wizard has earned (-1: not even the practice
+## strip yet), and which element order is theirs.
+var unlocks := -1
 var element_order := 0
-## The element just learned, for the HUD to make its button pulse.
-var learned := -1
+## The elements just learned, for the HUD to make their buttons pulse.
+var learned: Array = []
 var learned_t := 0.0
 var robe := Color(0.6, 0.15, 0.15)
 var pad: Pad
@@ -298,6 +299,8 @@ func lb_open() -> bool:
 
 func element_open(e: int) -> bool:
 	var u := unlock_level()
+	if u < 0:
+		return false
 	var i: int = ELEMENT_ORDER[element_order % ELEMENT_ORDER.size()].find(e)
 	if i >= 0:
 		return i < 2 + u
@@ -316,13 +319,14 @@ func unlock_to(n: int) -> void:
 	unlocks = n
 	if Game.I:
 		Game.I.unlocks_changed()
-	for e in open_elements():
-		if e not in before:
-			learned = e
-			learned_t = 6.0
-			if model:
-				Fx.burst(staff_tip(), El.COLOR[e], 26, 3.5, 0.2)
-				Fx.ring(global_position, El.COLOR[e], 2.2, 0.5)
+	var new := open_elements().filter(func(e): return e not in before)
+	if not new.is_empty():
+		learned = new
+		learned_t = 6.0
+	if model:
+		for e in new:
+			Fx.burst(staff_tip(), El.COLOR[e], 26, 3.5, 0.2)
+			Fx.ring(global_position, El.COLOR[e], 2.2, 0.5)
 
 
 ## The queue and mana follow the stage when it changes.
@@ -639,6 +643,7 @@ func _deflect_sweep() -> void:
 		b.deflect(self, aim_dir)
 		add_mana(MANA_PER_DEFLECT)
 		Game.I.count("deflects")
+		set_meta("deflected", true)
 
 
 func _place_zone(dir: Vector3) -> void:
@@ -729,6 +734,7 @@ func roll() -> void:
 		queue.set_slots(back.slice(0, queue.size))
 		ammo = full_ammo()
 	_trace_once("dodge")
+	set_meta("rolled", true)
 	Game.I.count("rolls")
 
 

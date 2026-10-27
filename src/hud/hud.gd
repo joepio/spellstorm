@@ -476,7 +476,7 @@ class WizardPanel:
 			_button_balls[k].show_at(e, p, r, 1.15 if held else 0.85)
 			k += 1
 			# Just learned: the button pulses in its colour for a while.
-			if e == wizard.learned and wizard.learned_t > 0.0:
+			if e in wizard.learned and wizard.learned_t > 0.0:
 				var pulse := 0.5 + 0.5 * sin(wizard.learned_t * 7.0)
 				draw_arc(p, r + 3.5 + pulse * 2.0, 0, TAU, 24, El.COLOR[e].lightened(0.4), 1.6, true)
 			if e == wizard.bolt_el:

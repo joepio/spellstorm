@@ -57,6 +57,8 @@ var boss: Enemy
 var _wards: Array = []
 ## Wizards may not walk further than this (z goes down along a level).
 var ward_z := -INF
+## The practice strip on the first level, while someone still has to learn.
+var practice: Practice
 
 
 ## How deep in the run this level is (0 is the first).
@@ -112,6 +114,10 @@ func enter_level() -> void:
 		guards.append({at = arena.clearing_at[k] - arena.clearings[k].z * 0.6, kind = "guard", shrine = k})
 	var boss_at: float = arena.clearing_at[2] - arena.clearings[2].z * 0.8
 	var first := FIRST_CALM if biome_index == 0 else FIRST_WAVE
+	if biome_index == 0 and Practice.wanted():
+		practice = Practice.new(self)
+		practice.build()
+		first = maxf(first, practice.start + Practice.END)
 	var stops: Array = [first]
 	for g in guards:
 		if g.at > first + 12.0:
@@ -141,7 +147,7 @@ func skip_to(run: float) -> void:
 		run = Game.I.arena.clearing_at[2] - Game.I.arena.clearings[2].z - 3.0
 	encounters = encounters.filter(func(e): return e.at >= run)
 	for wd in _wards.duplicate():
-		if Game.I.arena.clearing_at[wd.k] < run:
+		if float(wd.get("at", Game.I.arena.clearing_at[maxi(wd.k, 0)])) < run:
 			_open_ward(wd, true)
 	var arena: Arena = Game.I.arena
 	var c := arena.point_at(run)
@@ -174,6 +180,7 @@ func _clear_level() -> void:
 	_guard_quiet.clear()
 	_wards.clear()
 	ward_z = -INF
+	practice = null
 	_wave_at = -1.0
 	# How far the front wizard got belongs to the level just left: kept, it
 	# set off every pack of the new level up to there at once, far ahead.
@@ -231,6 +238,8 @@ func _physics_process(dt: float) -> void:
 		"fight":
 			_fight(dt)
 			_shrines(dt)
+			if practice:
+				practice.step(dt)
 			_ward_step()
 		"cleared":
 			_shrines(dt)
@@ -257,28 +266,44 @@ func _build_wards() -> void:
 	var arena: Arena = Game.I.arena
 	for k in 2:
 		var c: Vector3 = arena.clearings[k]
-		var z := c.y - c.z - 1.5
-		var mid := arena.point_at(arena.progress_of(Vector2(c.x, z))).x
-		var lo := mid
-		var hi := mid
-		while lo > -arena.half.x + 0.5 and arena.bound(Vector2(lo - 0.5, z)) < 0.0:
-			lo -= 0.5
-		while hi < arena.half.x - 0.5 and arena.bound(Vector2(hi + 0.5, z)) < 0.0:
-			hi += 0.5
-		var size := Vector2(hi - lo + 2.0, 3.2)
-		var mi := MeshInstance3D.new()
-		var q := QuadMesh.new()
-		q.size = size
-		mi.mesh = q
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var mat := ShaderMaterial.new()
-		mat.shader = preload("res://src/fx/ward.gdshader")
-		mat.set_shader_parameter("size", size)
-		mi.material_override = mat
-		mi.position = Vector3((lo + hi) * 0.5, size.y * 0.5, z)
-		arena.add_child(mi)
-		_wards.append({k = k, z = z, node = mi, mat = mat})
+		var wd := _ward_wall(Vector2(c.x, c.y - c.z - 1.5))
+		wd.k = k
+		_wards.append(wd)
 	_ward_step()
+
+
+## A ward [param at] metres along the path that opens once [param check]
+## says so, then calls [param on_open] (the practice strip's stops).
+func add_ward(at: float, check: Callable, on_open: Callable) -> void:
+	var wd := _ward_wall(Game.I.arena.point_at(at))
+	wd.merge({k = -1, at = at, check = check, on_open = on_open})
+	_wards.append(wd)
+
+
+## The wall itself, across all the walkable ground at [param p]'s z.
+func _ward_wall(p: Vector2) -> Dictionary:
+	var arena: Arena = Game.I.arena
+	var z := p.y
+	var mid := arena.point_at(arena.progress_of(p)).x
+	var lo := mid
+	var hi := mid
+	while lo > -arena.half.x + 0.5 and arena.bound(Vector2(lo - 0.5, z)) < 0.0:
+		lo -= 0.5
+	while hi < arena.half.x - 0.5 and arena.bound(Vector2(hi + 0.5, z)) < 0.0:
+		hi += 0.5
+	var size := Vector2(hi - lo + 2.0, 3.2)
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = size
+	mi.mesh = q
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://src/fx/ward.gdshader")
+	mat.set_shader_parameter("size", size)
+	mi.material_override = mat
+	mi.position = Vector3((lo + hi) * 0.5, size.y * 0.5, z)
+	arena.add_child(mi)
+	return {z = z, node = mi, mat = mat}
 
 
 ## Opens every wall whose shrine has risen and given each living wizard a
@@ -286,6 +311,13 @@ func _build_wards() -> void:
 func _ward_step() -> void:
 	ward_z = -INF
 	for wd in _wards.duplicate():
+		if wd.has("check"):
+			if wd.check.call():
+				_open_ward(wd)
+				wd.on_open.call()
+			else:
+				ward_z = maxf(ward_z, wd.z)
+			continue
 		var key := "%d_%d" % [biome_index, wd.k]
 		var risen := false
 		var left := false

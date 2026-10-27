@@ -91,6 +91,13 @@ func think(w: Wizard, dt: float) -> void:
 			elif d < 4.5:
 				move = -to.normalized()
 			move += to.normalized().cross(Vector3.UP) * _strafe * 0.6
+	# The practice strip's urns: shoot them the way a player would.
+	var urn: Node3D = run.practice.next_urn(w) if run and run.practice and enemy == null and downed == null else null
+	if urn:
+		var tu := urn.global_position - w.global_position
+		tu.y = 0
+		aim = tu.normalized()
+		move = tu.normalized() * 0.8 if tu.length() > 7.0 else Vector3.ZERO
 	# Low on mana: go and take the souls lying around.
 	var soul := _nearest_soul(w)
 	if soul and w.mana < w.mana_max() * 0.75 and not downed:
@@ -106,7 +113,7 @@ func think(w: Wizard, dt: float) -> void:
 	pad.move = Vector2(move.x, move.z).limit_length(1.0)
 	pad.aim = Vector2(aim.x, aim.z)
 	var de := w.global_position.distance_to(enemy.global_position) if enemy else INF
-	pad.fire = enemy != null and de < 16.0
+	pad.fire = (enemy != null and de < 16.0) or urn != null
 	var threat := _bullet_threat(w)
 	if threat != Vector3.ZERO and randf() < 0.12:
 		pad.set_button(Pad.LT, true)

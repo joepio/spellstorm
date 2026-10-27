@@ -24,6 +24,10 @@ const KINDS := {
 	bone_archer = {name = "Bone Archer", model = "skeleton", hp = 32.0, speed = 3.2, dmg = 14.0, reach = 16.0, keep = 11.0, el = El.EARTH, size = 1.0, attack = "ranged", shots = ["snipe"], wind = 1.1, undead = true, resist = {El.FROST: 0.3, El.EARTH: -0.3, El.VOID: 0.5}, spawn = "far"},
 	# Keeps far back and raises skeletons out of the ground around it; when
 	# it dies, everything it raised falls apart. Kill it first. Its robes burn.
+	# The practice strip at the start of the first level (Run, Practice): they
+	# stand still, shoot slowly and hit softly.
+	practice_archer = {name = "Bone Archer", model = "skeleton", hp = 24.0, speed = 0.0, dmg = 5.0, reach = 18.0, keep = 11.0, el = El.EARTH, size = 1.0, attack = "ranged", shots = ["snipe"], wind = 1.5, undead = true, practice = true},
+	practice_caster = {name = "Cultist", model = "cultist", hp = 30.0, speed = 0.0, dmg = 4.0, reach = 14.0, keep = 9.0, el = El.FIRE, size = 1.0, attack = "ranged", shots = ["slow1"], practice = true},
 	necromancer = {name = "Necromancer", hp = 60.0, speed = 2.7, dmg = 9.0, reach = 12.0, keep = 10.0, el = El.VOID, size = 1.0, attack = "ranged", shots = ["fan3"], raise = "skeleton", solo = true, resist = {El.VOID: 0.8, El.FIRE: -0.3}, spawn = "far"},
 	# Tunnels under the floor where nothing hits it, a mound of earth closing
 	# in, and bursts up under you. Up, it fights for a few seconds and digs
@@ -2310,6 +2314,9 @@ func _volley(pattern: String, el: int, dmg: float) -> void:
 				_later(0.16 * i, func(): _fan(1, 0.0, 9.5, el, dmg * 0.7))
 		"wave7":
 			_fan(7, 84.0, 4.6, el, dmg * 0.7, 0.26)
+		"slow1":
+			# One big slow ball: easy to knock back with the staff.
+			_fan(1, 0.0, 4.2, el, dmg, 0.32)
 		"snipe":
 			# One fast arrow down the line it showed, locked a moment ago.
 			var dir := _aim_lock if _aim_lock != Vector3.ZERO else _aim()
