@@ -57,8 +57,14 @@ const KINDS := {
 	drowned_king = {name = "The Drowned King", model = "drowned", hp = 1400.0, speed = 2.6, dmg = 26.0, reach = 2.6, el = El.WATER, size = 2.3, attack = "slam", mass = 8.0, resist = {El.WATER: 1.0, El.FIRE: 0.5}, boss = true, ring = 16, summon = ["drowned", "drowned", "bile"], nova = El.WATER, always_wet = true},
 	warden = {name = "The Frost Warden", model = "frost_brute", hp = 1600.0, speed = 2.4, dmg = 30.0, reach = 2.8, el = El.FROST, size = 2.4, attack = "slam", mass = 9.0, resist = {El.FROST: 1.0, El.FIRE: -0.3}, boss = true, ring = 16, summon = ["wraith", "wraith", "skeleton"], nova = El.ICE},
 	pit_lord = {name = "The Pit Lord", model = "demon", hp = 2200.0, speed = 2.8, dmg = 34.0, reach = 3.0, el = El.FIRE, size = 2.6, attack = "slam", mass = 10.0, resist = {El.FIRE: 1.0, El.FROST: -0.3}, boss = true, ring = 16, summon = ["imp", "imp", "demon"], nova = El.MAGMA},
+	# The Drowned Caves' own (Warp): bats in flocks that dive through you,
+	# toadstools that die in a cloud of poison, crabs shooting crystal
+	# shards, and the crabs' mother at the end.
+	bat = {name = "Cave Bat", hp = 16.0, speed = 6.0, dmg = 6.0, reach = 5.0, keep = 3.5, el = El.AIR, size = 1.0, attack = "dash", dash = [14.0, 0.25], wind = 0.45, pack = 4, resist = {El.AIR: 0.5, El.LIGHTNING: -0.4}, spawn = "far"},
+	shambler = {name = "Spore Shambler", hp = 85.0, speed = 2.0, dmg = 11.0, reach = 1.5, el = El.POISON, size = 1.15, attack = "melee", mass = 2.0, burst = true, resist = {El.POISON: 1.0, El.FIRE: -0.5, El.WATER: 0.3}},
+	crawler = {name = "Crystal Crawler", hp = 60.0, speed = 2.6, dmg = 9.0, reach = 10.0, keep = 7.0, el = El.ICE, size = 1.0, attack = "ranged", shots = ["fan3", "burst3"], wind = 0.8, mass = 1.6, resist = {El.FROST: 1.0, El.ICE: 1.0, El.EARTH: -0.4}},
+	crystal_mother = {name = "The Crystal Mother", model = "crawler", hp = 1500.0, speed = 2.4, dmg = 26.0, reach = 2.8, el = El.ICE, size = 2.5, attack = "slam", mass = 9.0, resist = {El.FROST: 1.0, El.ICE: 1.0, El.EARTH: -0.3}, boss = true, ring = 16, summon = ["crawler", "bat", "bat"], nova = El.LIGHTNING},
 }
-
 const HP_SHADER := preload("res://src/fx/hp_bar.gdshader")
 const BOSS_PATTERNS := ["spiral", "rings", "nova", "fan9"]
 
@@ -283,6 +289,12 @@ func _build(m: String) -> void:
 			_lurker()
 		"sprite":
 			_sprite()
+		"bat":
+			_bat()
+		"shambler":
+			_shambler()
+		"crawler":
+			_crawler()
 		_:
 			_add(Art.sphere(0.4), Color.MAGENTA, Vector3(0, 0.8, 0))
 
@@ -1915,6 +1927,178 @@ func _lurker() -> void:
 
 ## Storm Sprite: a knot of living lightning, all light and no body, so it
 ## stays an effect: a white-hot core, a crackling shell, spikes and sparks.
+## Cave Bat: a leathery flier the size of a cat, all ears and wing. Spread
+## membrane wings on long finger bones, a furred body, a pug face with red
+## eyes. They hunt in flocks and dive through you.
+func _bat() -> void:
+	var fur := Shape.material(Color(0.22, 0.17, 0.15), Color(0.08, 0.06, 0.05), 6.0, 0.85, 0.7, 0.0, 211)
+	var skin := Shape.material(Color(0.36, 0.24, 0.23), Color(0.15, 0.09, 0.09), 3.0, 0.6, 0.4, 0.0, 213)
+	var horn := Shape.material(Color(0.55, 0.48, 0.42), Color(0.25, 0.2, 0.17), 6.0, 0.45, 0.5, 0.0, 215)
+	var top := 1.7
+	var c := Vector3(0, 1.25, 0)
+	_part("ba_body", fur, func() -> ArrayMesh:
+		var b := Shape.blob(Vector3(0.13, 0.17, 0.12), 0.08, 3.0, 8, 12)
+		return Shape.warp(b, func(p: Vector3) -> Vector3:
+			p.z -= 0.05 * smoothstep(0.0, -0.17, p.y)
+			return p + c), top)
+	_part("ba_head", fur, func() -> ArrayMesh:
+		var h := Shape.warp(Shape.blob(Vector3(0.1, 0.09, 0.1), 0.05, 5.0, 7, 10), func(p: Vector3) -> Vector3:
+			p.z += 0.03 * smoothstep(-0.02, -0.08, p.y)
+			return p + c + Vector3(0, 0.18, 0.06))
+		var parts := [h]
+		for s: float in [-1.0, 1.0]:
+			# Tall pointed ears, cupped forward.
+			var base := c + Vector3(s * 0.06, 0.24, 0.05)
+			parts.append(Shape.limb(Shape.curve(base, base + Vector3(s * 0.04, 0.08, 0.02), base + Vector3(s * 0.07, 0.17, -0.02), 4), PackedFloat32Array([0.04, 0.035, 0.02, 0.0]), 5, 1))
+		return Shape.merge(parts), top)
+	_part("ba_fangs", horn, func() -> ArrayMesh:
+		var m := c + Vector3(0, 0.13, 0.15)
+		return Shape.merge([_spike(m + Vector3(-0.025, 0, 0), m + Vector3(-0.022, -0.045, 0.005), 0.009), _spike(m + Vector3(0.025, 0, 0), m + Vector3(0.022, -0.045, 0.005), 0.009)]), top)
+	_sockets("ba", c.y + 0.2, c.z + 0.14, 0.045, 0.018, Color(1.0, 0.18, 0.08), 0.013)
+	_sides("ba_arm", skin, func(s: float) -> ArrayMesh:
+		# The wing's bones: the arm to the wrist, then four long fingers
+		# fanning out to the trailing edge.
+		var sh := c + Vector3(s * 0.1, 0.08, 0.0)
+		var wrist := c + Vector3(s * 0.34, 0.2, -0.02)
+		var parts := [_bone(sh, wrist, 0.022)]
+		for t in _bat_tips(c, s):
+			parts.append(_bone(wrist, t, 0.011))
+		parts.append(_claw(wrist, wrist + Vector3(0, 0.05, 0.03), wrist + Vector3(-s * 0.02, 0.07, 0.07), 0.012))
+		return Shape.merge(parts), top)
+	_sides("ba_wing", skin, func(s: float) -> ArrayMesh:
+		# The membrane stretched between the fingers, scalloped back to the
+		# body's flank.
+		var sh := c + Vector3(s * 0.1, 0.08, -0.01)
+		var wrist := c + Vector3(s * 0.34, 0.2, -0.03)
+		var tips := _bat_tips(c, s)
+		var parts := []
+		var prev: Vector3 = wrist
+		for t: Vector3 in tips:
+			var mid := prev.lerp(t, 0.5) + Vector3(0, 0.0, -0.01)
+			parts.append(Shape.sheet(PackedVector3Array([wrist, prev, mid, t])))
+			prev = t
+		parts.append(Shape.sheet(PackedVector3Array([sh, wrist, tips[-1], c + Vector3(s * 0.1, -0.14, -0.02)])))
+		return Shape.merge(parts), top)
+	_sides("ba_foot", horn, func(s: float) -> ArrayMesh:
+		var a := c + Vector3(s * 0.05, -0.15, -0.04)
+		return _claw(a, a + Vector3(0, -0.06, 0.0), a + Vector3(0, -0.08, 0.04), 0.014), top)
+
+
+static func _bat_tips(c: Vector3, s: float) -> Array:
+	return [c + Vector3(s * 0.6, 0.3, -0.05), c + Vector3(s * 0.68, 0.08, -0.06), c + Vector3(s * 0.58, -0.12, -0.06), c + Vector3(s * 0.36, -0.2, -0.05)]
+
+
+## Spore Shambler: a walking toadstool as tall as a man. A broad speckled
+## cap drooping over a fat pale stalk split into stubby legs, gills
+## underneath glowing a sickly green, two club arms of fungus, and pale
+## spore lamps scattered over it. It dies in a cloud of poison.
+func _shambler() -> void:
+	var cap := Shape.material(Color(0.45, 0.2, 0.3), Color(0.2, 0.07, 0.12), 3.0, 0.5, 0.7, 0.0, 221)
+	var stalk := Shape.material(Color(0.74, 0.7, 0.6), Color(0.46, 0.42, 0.34), 5.0, 0.75, 0.8, 0.0, 223)
+	var gill := Shape.material(Color(0.42, 0.55, 0.25), Color(0.2, 0.28, 0.1), 8.0, 0.7, 0.5, 0.0, 227)
+	var top := 1.9
+	_part("sh_stalk", stalk, func() -> ArrayMesh:
+		# A fat stalk, thickest low, a ring of torn veil round its neck.
+		var body := _tube([Vector3(0, 0.3, 0), Vector3(0, 0.7, 0.02), Vector3(0, 1.1, 0.0), Vector3(0, 1.4, -0.02)], [0.28, 0.26, 0.21, 0.17], 12)
+		var b := Shape.warp(body, func(p: Vector3) -> Vector3:
+			var n := sin(p.y * 13.0 + atan2(p.x, p.z) * 3.0) * 0.015
+			return p + Vector3(p.x, 0, p.z).normalized() * n)
+		var veil := Shape.warp(Shape.blob(Vector3(0.27, 0.05, 0.27), 0.25, 9.0, 5, 16), func(p: Vector3) -> Vector3: return p + Vector3(0, 1.22, -0.01))
+		return Shape.merge([b, veil]), top)
+	_sides("sh_leg", stalk, func(s: float) -> ArrayMesh:
+		# The stalk's foot split into two stumps.
+		return _tube([Vector3(s * 0.1, 0.36, 0), Vector3(s * 0.17, 0.18, 0.03), Vector3(s * 0.2, 0.04, 0.06)], [0.15, 0.13, 0.12], 10), top)
+	_part("sh_cap", cap, func() -> ArrayMesh:
+		var c := Shape.blob(Vector3(0.62, 0.3, 0.58), 0.05, 4.0, 12, 20)
+		var dome := Shape.warp(c, func(p: Vector3) -> Vector3:
+			# Domed on top, the rim curled down, hollow under.
+			var r := Vector2(p.x, p.z).length()
+			p.y = maxf(p.y, -0.04) - 0.16 * smoothstep(0.35, 0.6, r)
+			p.y += 0.03 * sin(atan2(p.x, p.z) * 7.0) * smoothstep(0.4, 0.6, r)
+			return p + Vector3(0, 1.48, 0.02))
+		return dome, top)
+	_part("sh_warts", stalk, func() -> ArrayMesh:
+		var parts := []
+		# Pale warts over the cap.
+		for i in 14:
+			var a := i * 2.39996
+			var r := sqrt((i + 0.5) / 14.0) * 0.48
+			var at := Vector3(cos(a) * r, 0, sin(a) * r)
+			at.y = 1.48 + 0.3 * sqrt(maxf(0.0, 1.0 - pow(r / 0.62, 2.0))) - 0.16 * smoothstep(0.35, 0.6, r) - 0.01
+			var w := 0.035 + 0.03 * absf(sin(i * 3.3))
+			parts.append(Shape.warp(Shape.blob(Vector3(w, w * 0.45, w), 0.15, i, 4, 7), func(p: Vector3) -> Vector3: return p + at))
+		return Shape.merge(parts), top)
+	_part("sh_gills", gill, func() -> ArrayMesh:
+		# Gills under the cap, fanning out from the stalk.
+		var parts := []
+		for i in 24:
+			var a := i * TAU / 24.0
+			var d := Vector3(sin(a), 0, cos(a))
+			parts.append(Shape.sheet(PackedVector3Array([d * 0.16 + Vector3(0, 1.42, 0), d * 0.55 + Vector3(0, 1.33, 0), d * 0.5 + Vector3(0, 1.4, 0)])))
+		return Shape.merge(parts), top)
+	_sides("sh_arm", stalk, func(s: float) -> ArrayMesh:
+		# Club arms: soft stems ending in a bulb of fungus.
+		var sh := Vector3(s * 0.2, 1.18, 0.02)
+		var arm := _tube([sh, Vector3(s * 0.4, 1.0, 0.12), Vector3(s * 0.44, 0.74, 0.24)], [0.08, 0.07, 0.07], 8)
+		var club := Shape.warp(Shape.blob(Vector3(0.13, 0.15, 0.13), 0.2, 6.0 + s, 6, 9), func(p: Vector3) -> Vector3: return p + Vector3(s * 0.45, 0.64, 0.27))
+		return Shape.merge([arm, club]), top)
+	_sockets("sh", 1.2, 0.17, 0.08, 0.035, Color(0.6, 1.0, 0.25), 0.02)
+	# Spore lamps: a few glowing pods on the cap's rim.
+	for i in 5:
+		var a := -1.0 + i * 0.5
+		var l := Art.part(_model, Art.sphere(0.035, 6), Fx.glow(Color(0.6, 1.0, 0.3), 3.0), Vector3(sin(a) * 0.5, 1.36, cos(a) * 0.5))
+		_eyes.append(l)
+
+
+## Crystal Crawler: a crab the size of a dog with a shell grown through with
+## blue crystal. A low wide carapace, six jointed legs, two heavy pincers
+## held up in front, and a cluster of glowing crystals on its back it
+## shoots shards from.
+func _crawler() -> void:
+	var shell := Shape.material(Color(0.24, 0.25, 0.3), Color(0.09, 0.09, 0.12), 4.0, 0.45, 0.8, 0.0, 231)
+	var leg := Shape.material(Color(0.32, 0.3, 0.34), Color(0.13, 0.12, 0.14), 6.0, 0.5, 0.6, 0.0, 233)
+	var top := 1.2
+	var body := Vector3(0, 0.5, 0)
+	_part("cr_shell", shell, func() -> ArrayMesh:
+		var b := Shape.blob(Vector3(0.5, 0.2, 0.42), 0.06, 11.0, 10, 18)
+		return Shape.warp(b, func(p: Vector3) -> Vector3:
+			# Flat under, a ridge along the middle, the front edge notched.
+			p.y = maxf(p.y, -0.08)
+			p.y += 0.05 * smoothstep(0.2, 0.0, absf(p.x))
+			p.z -= 0.06 * smoothstep(0.1, 0.0, absf(p.x)) * smoothstep(0.2, 0.42, p.z)
+			return p + body), top)
+	_sockets("cr", body.y + 0.14, body.z + 0.36, 0.09, 0.03, Color(0.5, 0.85, 1.0), 0.02)
+	_sides("cr_legs", leg, func(s: float) -> ArrayMesh:
+		var parts := []
+		for i in 3:
+			var z := 0.18 - i * 0.2
+			var hip := body + Vector3(s * 0.38, -0.02, z)
+			var knee := hip + Vector3(s * 0.28, 0.2, z * 0.3)
+			var foot := hip + Vector3(s * 0.48, -0.48, z * 0.6)
+			parts.append(_tube([hip, knee, foot], [0.05, 0.04, 0.012], 6))
+		return Shape.merge(parts), top)
+	_sides("cr_pincer", leg, func(s: float) -> ArrayMesh:
+		var sh := body + Vector3(s * 0.3, 0.02, 0.32)
+		var el := sh + Vector3(s * 0.2, 0.14, 0.18)
+		var w := el + Vector3(-s * 0.04, 0.02, 0.2)
+		var arm := _tube([sh, el, w], [0.06, 0.055, 0.06], 7)
+		var palm := Shape.warp(Shape.blob(Vector3(0.09, 0.07, 0.13), 0.05, 4.0 + s, 6, 9), func(p: Vector3) -> Vector3: return p + w + Vector3(0, 0, 0.08))
+		var claw_a := _claw(w + Vector3(0, 0.03, 0.18), w + Vector3(s * 0.02, 0.06, 0.28), w + Vector3(-s * 0.02, 0.02, 0.36), 0.04)
+		var claw_b := _claw(w + Vector3(0, -0.03, 0.17), w + Vector3(s * 0.02, -0.05, 0.26), w + Vector3(-s * 0.02, -0.01, 0.33), 0.03)
+		return Shape.merge([arm, palm, claw_a, claw_b]), top)
+	# Crystals out of the back, glowing ice blue.
+	var glass := Shape.glassy(Color(0.45, 0.8, 1.0), 1.4)
+	_part("cr_crystals", glass, func() -> ArrayMesh:
+		var parts := []
+		for i in 7:
+			var a := i * 2.39996
+			var r := 0.08 + 0.17 * sqrt((i + 0.5) / 7.0)
+			var base := body + Vector3(cos(a) * r, 0.15, sin(a) * r * 0.85 - 0.05)
+			var tip := base + Vector3(cos(a) * 0.1, 0.22 + 0.16 * absf(sin(i * 2.1)), sin(a) * 0.08)
+			parts.append(Shape.limb(PackedVector3Array([base, base.lerp(tip, 0.7), tip]), PackedFloat32Array([0.05, 0.045, 0.0]), 5, 1))
+		return Shape.merge(parts), top)
+
+
 func _sprite() -> void:
 	Art.part(_model, Art.sphere(0.16, 10), Fx.glow(Color(1.0, 0.95, 0.7), 5.0), Vector3(0, 1.2, 0))
 	var shell2 := Art.part(_model, Art.sphere(0.3, 10), Fx.element(El.LIGHTNING, 1.6), Vector3(0, 1.2, 0))
