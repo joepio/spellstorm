@@ -1,4 +1,4 @@
-# GameNight store media
+# Gamepad Party store media
 
 [preview.mp4](../assets/gamenight/preview.mp4) is the five-second gameplay clip
 for the store: 150 frames, 960x540, 30 FPS, silent H.264. Poster

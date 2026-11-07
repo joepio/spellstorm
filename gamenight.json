@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/ontola/gamenight/main/catalog/schema.json",
+  "$schema": "https://raw.githubusercontent.com/ontola/gamepad-party/main/catalog/schema.json",
   "id": "spellstorm",
   "title": "Spellstorm",
   "tagline": "Couch co-op wizards in a grim dungeon. Weave eight elements into thousands of spells, then descend together.",

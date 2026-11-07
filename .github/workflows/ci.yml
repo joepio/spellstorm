@@ -16,7 +16,7 @@ env:
   GODOT_VERSION: 4.5
 jobs:
   gamenight-sdk:
-    uses: ontola/gamenight/.github/workflows/godot-sdk-check.yml@main
+    uses: ontola/gamepad-party/.github/workflows/godot-sdk-check.yml@main
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
         if: env.GAMENIGHT_API_TOKEN != ''
         with:
-          repository: ontola/gamenight
+          repository: ontola/gamepad-party
           ref: 581dfed420c088f25781ea545d8e921e5934380e
           path: .gamenight
           sparse-checkout: scripts/gamenight-publish.py

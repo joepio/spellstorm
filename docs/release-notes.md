@@ -11,4 +11,4 @@ thousands of spells and descend through five biomes together.
 - Plant traps and sentries, enchant your staff, or knock bullets back with your staff.
 
 Windows x86-64, portable: unzip and run Spellstorm.exe. Works best with
-controllers; with GameNight, phones and seats are handled for you.
+controllers; with Gamepad Party, phones and seats are handled for you.
